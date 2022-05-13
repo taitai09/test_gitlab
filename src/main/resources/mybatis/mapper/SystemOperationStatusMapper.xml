@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.07	이원식	OPENPOP V2 최초작업	
+-->
+<mapper namespace="omc.spop.dao.SystemOperationStatusDao">	
+	<sql id="performSchedulerListRefId">
+		/* SystemOperationStatusDao.performSchedulerListRefId */
+		SELECT A.JOB_EXEC_NO, A.JOB_SCHEDULER_TYPE_CD, CD1.CD_NM AS JOB_SCHEDULER_TYPE_NM, TO_CHAR(TO_DATE(A.BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY,
+			TO_CHAR(JOB_START_DT, 'YYYY-MM-DD HH24:MI:SS') AS JOB_START_DT, TO_CHAR(JOB_END_DT,'YYYY-MM-DD HH24:MI:SS') AS JOB_END_DT, A.JOB_STATUS_CD,
+			A.DBID, B.DB_NAME, A.WRKJOB_CD, C.WRKJOB_CD_NM
+		FROM JOB_SCHEDULER_EXEC_LOG A, DATABASE B, WRKJOB_CD C, CD CD1  
+		WHERE A.JOB_SCHEDULER_TYPE_CD = CD1.CD(+)
+		AND A.DBID = B.DBID
+		AND A.WRKJOB_CD = C.WRKJOB_CD(+)
+		AND CD1.GRP_CD_ID(+) = '1020'		
+		AND A.BASE_DAY BETWEEN REPLACE(#{strStartDt},'-','') AND REPLACE(#{strEndDt},'-','')
+		<if test="job_scheduler_type_cd != null and job_scheduler_type_cd != ''">
+			AND A.JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+		</if>
+		<if test="dbid != null and dbid != ''">
+			AND A.DBID = #{dbid}
+		</if>
+		ORDER BY JOB_EXEC_NO DESC
+	</sql>
+	
+	<select id="performSchedulerList" parameterType="jobSchedulerExecLog" resultType="jobSchedulerExecLog">
+		/* SystemOperationStatusDao.performSchedulerList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="performSchedulerListRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	<select id="performSchedulerListByExcelDown" parameterType="jobSchedulerExecLog" resultType="java.util.LinkedHashMap">
+		/* SystemOperationStatusDao.performSchedulerListByExcelDown */
+				<include refid="performSchedulerListRefId"/>
+	</select>
+	
+	<select id="performSchedulerDetailList" parameterType="jobSchedulerExecDetailLog" resultType="jobSchedulerExecDetailLog">
+		SELECT A.JOB_EXEC_NO, A.JOB_SCHEDULER_TYPE_CD, A.JOB_SCHEDULER_DETAIL_TYPE_CD, B.JOB_SCHEDULER_DETAIL_TYPE_NM, 
+			TO_CHAR(A.JOB_EXEC_DT,'YYYY-MM-DD HH24:MI:SS') AS JOB_EXEC_DT, A.JOB_TARGET_CNT, A.JOB_ERR_CODE, A.JOB_ERR_SBST,
+			A.HNDOP_JOB_EXEC_YN, A.HNDOP_WORKER_ID, C.USER_NM AS HNDOP_WORKER_NM
+		FROM JOB_SCHEDULER_EXEC_DETAIL_LOG A, JOB_SCHEDULER_DETAIL_TYPE_CD B, USERS C
+		WHERE A.JOB_SCHEDULER_TYPE_CD = B.JOB_SCHEDULER_TYPE_CD
+		AND A.JOB_SCHEDULER_DETAIL_TYPE_CD = B.JOB_SCHEDULER_DETAIL_TYPE_CD
+		AND A.HNDOP_WORKER_ID = C.USER_ID(+)
+		AND A.JOB_EXEC_NO = #{job_exec_no}
+		AND A.JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+		<if test="job_err_yn != null and (job_err_yn eq 'Y'.toString())">
+			AND A.JOB_ERR_CODE IS NOT NULL
+		</if>
+		<if test="hndop_job_exec_yn != null and (hndop_job_exec_yn eq 'Y'.toString())">
+			AND A.HNDOP_JOB_EXEC_YN = 'Y'
+		</if>
+		ORDER BY JOB_EXEC_NO DESC
+	</select>	
+</mapper> 

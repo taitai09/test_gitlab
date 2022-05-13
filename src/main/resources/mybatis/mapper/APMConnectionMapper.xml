@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.09.05	임호경	최초작성
+-->
+<mapper namespace="omc.spop.dao.APMConnectionDao">	
+	
+	<select id="getApmList_old" resultType="apmConnection" parameterType="apmConnection">
+		 SELECT A.WRKJOB_CD, B.WRKJOB_CD_NM, A.APM_OPERATE_TYPE_CD, A.APM_OPERATE_TYPE_CD_NM, A.DB_CONNECT_IP, A.DB_CONNECT_PORT,
+		 A.DB_USER_ID FROM WRKJOB_CD B 
+		 INNER JOIN 
+		 (SELECT APM_OPERATE_TYPE_CD AS APM_OPERATE_TYPE_CD, WRKJOB_CD, CASE WHEN APM_OPERATE_TYPE_CD = '1' THEN '운영' 
+		     WHEN APM_OPERATE_TYPE_CD = '2' THEN '스테이징'
+		     WHEN APM_OPERATE_TYPE_CD = '3' THEN '개발' END AS APM_OPERATE_TYPE_CD_NM,
+		     DB_CONNECT_IP, DB_CONNECT_PORT, DB_USER_ID
+		FROM APM_CONNECTION) A
+		ON A.WRKJOB_CD = B.WRKJOB_CD
+	
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND B.WRKJOB_CD_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND A.DB_USER_ID LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>	
+		ORDER BY WRKJOB_CD DESC, DB_CONNECT_IP DESC
+		
+	</select>
+
+	<select id="getApmList" resultType="apmConnection" parameterType="apmConnection">
+        SELECT A.WRKJOB_CD, B.WRKJOB_CD_NM, A.APM_OPERATE_TYPE_CD, CD1.CD_NM AS APM_OPERATE_TYPE_CD_NM, A.DB_CONNECT_IP, A.DB_CONNECT_PORT, A.DB_USER_ID 
+          FROM APM_CONNECTION A, WRKJOB_CD B, CD CD1
+         WHERE A.WRKJOB_CD = B.WRKJOB_CD 
+           AND A.APM_OPERATE_TYPE_CD  = CD1.CD
+           AND CD1.GRP_CD_ID = '1027'
+	
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND B.WRKJOB_CD_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND A.DB_USER_ID LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>	
+		ORDER BY WRKJOB_CD ASC, APM_OPERATE_TYPE_CD ASC
+		
+	</select>
+		
+	<select id="getOnlyWrkJobCd" resultType="apmConnection" parameterType="apmConnection">
+<!-- 		SELECT A.WRKJOB_CD, A.WRKJOB_CD_NM,  -->
+<!-- 		B.APM_OPERATE_TYPE_CD, B.DB_CONNECT_IP, B.DB_CONNECT_PORT, B.DB_USER_ID, B.DB_USER_PASSWORD -->
+<!-- 		FROM WRKJOB_CD A LEFT OUTER JOIN APM_CONNECTION B ON A.WRKJOB_CD = B.WRKJOB_CD  -->
+<!-- 		WHERE UPPER_WRKJOB_CD IS NULL -->
+		SELECT DISTINCT(A.WRKJOB_CD), A.WRKJOB_CD_NM 
+		FROM WRKJOB_CD A LEFT OUTER JOIN APM_CONNECTION B ON A.WRKJOB_CD = B.WRKJOB_CD 
+		WHERE UPPER_WRKJOB_CD IS NULL ORDER BY WRKJOB_CD ASC
+	</select>
+	
+	
+		<select id="checkApmCd" resultType="int" parameterType="apmConnection">
+			SELECT NVL(MAX(APM_OPERATE_TYPE_CD),0) FROM APM_CONNECTION WHERE WRKJOB_CD = #{wrkjob_cd} 
+			AND APM_OPERATE_TYPE_CD = #{apm_operate_type_cd}
+			
+		</select>
+	
+		<update id="updateApm" parameterType="apmConnection">
+			UPDATE APM_CONNECTION 
+			
+			<trim prefix="SET" suffixOverrides=",">
+<!-- 				<if test="wrkjob_cd != null and wrkjob_cd != ''"> -->
+<!-- 					WRKJOB_CD = #{wrkjob_cd}, -->
+<!-- 				</if> -->
+				<if test="apm_operate_type_cd != null and apm_operate_type_cd != ''">
+					APM_OPERATE_TYPE_CD = #{apm_operate_type_cd},
+				</if>
+				<if test="db_connect_ip != null and db_connect_ip != ''">
+					DB_CONNECT_IP = #{db_connect_ip},
+				</if>
+				<if test="db_connect_port != null and db_connect_port != ''">
+					DB_CONNECT_PORT = #{db_connect_port},
+				</if>
+				<if test="db_user_id != null and db_user_id != ''">
+					DB_USER_ID = #{db_user_id}
+				</if>
+			</trim>
+			WHERE 
+			WRKJOB_CD = #{wrkjob_cd} AND 
+			APM_OPERATE_TYPE_CD = #{old_apm_operate_type_cd} 
+		</update>
+		
+		<update id="updateApmOthers" parameterType="apmConnection">
+			UPDATE APM_CONNECTION 
+			
+			<trim prefix="SET" suffixOverrides=",">
+				<if test="db_connect_ip != null and db_connect_ip != ''">
+					DB_CONNECT_IP = #{db_connect_ip},
+				</if>
+				<if test="db_connect_port != null and db_connect_port != ''">
+					DB_CONNECT_PORT = #{db_connect_port},
+				</if>
+				<if test="db_user_id != null and db_user_id != ''">
+					DB_USER_ID = #{db_user_id}
+				</if>
+			</trim>
+			WHERE 
+			WRKJOB_CD = #{old_wrkjob_cd} AND 
+			APM_OPERATE_TYPE_CD = #{old_apm_operate_type_cd} 
+		</update>
+		
+		
+	
+		<insert id="insertApm" parameterType="apmConnection">
+			INSERT INTO APM_CONNECTION (WRKJOB_CD, APM_OPERATE_TYPE_CD, 
+			DB_CONNECT_IP, DB_CONNECT_PORT, DB_USER_ID )
+			VALUES (#{wrkjob_cd}, #{apm_operate_type_cd}, #{db_connect_ip},
+			#{db_connect_port}, #{db_user_id})
+		</insert>
+		
+		<delete id="deleteApm" parameterType="apmConnection">
+			DELETE APM_CONNECTION 
+			WHERE 
+			WRKJOB_CD = #{wrkjob_cd} AND 
+			APM_OPERATE_TYPE_CD = #{apm_operate_type_cd}
+		</delete>
+	
+		<select id="checkApmOthers"	parameterType="apmConnection" resultType="int">
+			SELECT NVL(COUNT(DISTINCT(WRKJOB_CD)),0) FROM APM_CONNECTION
+			WHERE
+			DB_CONNECT_IP = 
+				(SELECT DB_CONNECT_IP FROM APM_CONNECTION WHERE WRKJOB_CD = #{old_wrkjob_cd} AND APM_OPERATE_TYPE_CD = #{old_apm_operate_type_cd} AND DB_CONNECT_IP = #{db_connect_ip} ) AND
+			DB_CONNECT_PORT =
+				(SELECT DB_CONNECT_PORT FROM APM_CONNECTION WHERE WRKJOB_CD = #{old_wrkjob_cd} AND APM_OPERATE_TYPE_CD = #{old_apm_operate_type_cd} AND DB_CONNECT_PORT = #{db_connect_port})AND
+			DB_USER_ID = 
+				(SELECT DB_USER_ID FROM APM_CONNECTION WHERE WRKJOB_CD = #{old_wrkjob_cd} AND APM_OPERATE_TYPE_CD = #{old_apm_operate_type_cd} AND DB_USER_ID = #{db_user_id})
+		</select>
+
+</mapper> 

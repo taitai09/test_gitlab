@@ -1,0 +1,2497 @@
+package omc.spop.service.impl;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.openpop.xml.parser.Parser;
+
+import omc.spop.dao.ProjectSqlQtyChkRuleMngDao;
+import omc.spop.dao.SQLDiagnosisReportDao;
+import omc.spop.dao.SqlStandardOperationPlugInDao;
+import omc.spop.model.Database;
+import omc.spop.model.ProjectSqlQtyChkRule;
+import omc.spop.model.Result;
+import omc.spop.model.SqlStandardOperationPlugIn;
+import omc.spop.model.SqlStandardOperationPlugInResponse;
+import omc.spop.model.WrkJobCd;
+import omc.spop.server.tune.CxClient;
+import omc.spop.server.tune.InspectSqlCodeTask;
+import omc.spop.server.tune.SelfSQLStdQtyExplainPlan;
+import omc.spop.service.SqlStandardOperationPlugInService;
+import omc.spop.utils.CryptoUtil;
+import omc.spop.utils.DateUtil;
+import omc.spop.utils.StringUtil;
+import omc.spop.utils.SystemUtil;
+
+/***********************************************************
+ * 2019.06.11	명성태		OPENPOP V2 최초작업
+ **********************************************************/
+
+@Service("SqlStandardOperationPlugInService")
+public class SqlStandardOperationPlugInServiceImpl2 implements SqlStandardOperationPlugInService {
+	private static final Logger logger = LoggerFactory.getLogger(SqlStandardOperationPlugInServiceImpl2.class);
+	private String key = "openmade";
+	
+	@Autowired
+	private SqlStandardOperationPlugInDao sqlStandardOperationPlugInDao;
+	
+	@Autowired
+	private ProjectSqlQtyChkRuleMngDao projectSqlQtyChkRuleMngDao;
+	
+	@Value("#{defaultConfig['ci_agent_ip']}")
+	private String ciAgentIp;
+	
+	@Value("#{defaultConfig['ci_agent_port']}")
+	private String ciAgentPort;
+	
+	@Value("#{defaultConfig['send_msg_sleep_time']}")
+	private String sendMsgSleepTime;
+	
+	@Value("#{defaultConfig['send_msg_sql_cnt']}")
+	private String sendMsgSqlCnt;
+	
+	@Value("#{defaultConfig['wait_for_ci_agent_complete_flag']}")
+	private String wait_for_ci_agent_complete_flag;
+	
+	@Value("#{defaultConfig['wait_for_ci_agent_complete_time']}")
+	private String wait_for_ci_agent_complete_time;
+	
+	@Value("#{defaultConfig['waiting_time']}")
+	private String waiting_time;
+	
+	@Value("#{defaultConfig['num_ci_same_before']}")
+	private String num_ci_same_before;
+	
+	@Autowired
+	private SQLDiagnosisReportDao sqlDiagnosisReportDao;
+	
+	private HashMap<String, HashMap<String, Object>> forceCompletionMap = new HashMap<String, HashMap<String, Object>>();
+	
+	private final int KEY_SQL_STD_QTY_DIV_CD_BATCH_EXEC	= 4;	/* 실행 기반 SQL 일괄 */
+	
+	private String baseDay = "";
+	
+	private final String ERROR_TRACE = "Error Trace :";
+	
+	@Override
+	public List<SqlStandardOperationPlugIn> getMaxSqlStdQtyChktId() throws Exception {
+		return sqlStandardOperationPlugInDao.getMaxSqlStdQtyChktId();
+	}
+	
+	@Override
+	public List<ProjectSqlQtyChkRule> getCountCreatePlan(ProjectSqlQtyChkRule projectSqlQtyChkRule) throws Exception {
+		return projectSqlQtyChkRuleMngDao.getCountCreatePlan(projectSqlQtyChkRule);
+	}
+	
+	@Override
+	public Result receiveBoxBatch(SqlStandardOperationPlugIn boxModel) throws SQLSyntaxErrorException, Exception {
+		long beforeTime = System.currentTimeMillis();
+		logger.trace("***** Start receiveBoxBatch[" + DateUtil.getNowFulltime() + "]");
+		Result result = new Result();
+		long afterTime = 0L;
+		
+		JSONObject obj = null;
+		JSONObject lastObj = null;
+		String sql_std_qty_scheduler_no = "";
+		String sql_std_qty_chkt_id = "";
+		String project_id = "";
+		String program_nm = "";
+		String sql_std_qty_div_cd = "";
+		int forceCompletionIdx = -1;
+		boolean force_completion = false;
+		String is_last = "";
+		int lastResult = -1;
+		long dbid = 0L;
+		
+		try {
+			startCxClient();
+			
+			obj = getLast(boxModel);
+			
+			project_id = obj.get("project_id") + "";
+			program_nm = obj.get("program_nm") + "";
+			sql_std_qty_div_cd = obj.get("sql_std_qty_div_cd") + "";
+			sql_std_qty_scheduler_no = obj.get("sql_std_qty_scheduler_no") + "";
+			sql_std_qty_chkt_id = obj.get("sql_std_qty_chkt_id") + "";
+			force_completion = obj.containsKey("force_completion");
+			is_last = obj.get("is_last") + "";
+			logger.debug("receiveBoxBatch >> receiveData >>> sql_std_qty_chkt_id[" + sql_std_qty_chkt_id + 
+					"] project_id[" + project_id + "] sql_std_qty_div_cd[" + sql_std_qty_div_cd +
+					"] force_completion[" + force_completion + "]");
+			
+			if(obj.containsKey("err_msg") == true && (obj.get("err_msg") + "").startsWith("F101") == true &&
+					program_nm.length() == 0 && "false".equals(is_last)) {
+				// 점검 대상이 없는 경우 
+				// result 작성 후 return;
+				logger.warn("NOT_INSPECTION_TARGET");
+				if(checkFirstTime(boxModel) == false) {
+					logger.error("receiveBoxBatch >> checkFirstTime is false");
+					result.setResult(false);
+					return result;
+				}
+				
+				result.setResult(true);
+				result.setStatus("NOT_INSPECTION_TARGET");
+			} else if(obj.containsKey("err_msg") == true && (obj.get("err_msg") + "").startsWith("F101") == true &&
+					program_nm.length() == 0 && "true".equals(is_last)) {
+				// 점검 대상이 없는 경우
+				// result 테이블을 완료 여부 판단 후  result 작성 후 return;
+				logger.debug("receiveBoxBatch >> wait_for_ci_agent_complete_flag[" + wait_for_ci_agent_complete_flag + "]");
+				if("Y".equalsIgnoreCase(wait_for_ci_agent_complete_flag) &&
+						waitForCiAgentComplete(boxModel.getJson_list()) == true) {
+					logger.info("receiveBoxBatch >> waitForCiAgentComplete status is False. Force Out");
+				}
+				
+				logger.debug("receiveBoxBatch >> Make to last msg");
+				lastObj = makeObj(obj, "last");
+				
+				if(lastObj != null) {
+					logger.debug("receiveBoxBatch >> This is last msg");
+//					lastResult = lastPlan(obj);
+					lastResult = lastPlan(lastObj);
+					result.setResult(true);
+					result.setMessage("last");				/* use to function Check SQL */
+//					result.setResultCount(lastResult);
+					result.setStatus("NOT_INSPECTION_TARGET");
+					result.setResultCount(lastResult);
+				}
+			} else {
+				if(checkFirstTime(boxModel) == false) {
+					logger.debug("receiveBoxBatch >> checkFirstTime is false");
+					result.setResult(false);
+					return result;
+				}
+				
+				forceCompletionIdx = isAlreadyRegisteredForceComplete(project_id, 
+						Integer.parseInt(sql_std_qty_div_cd), 
+						sql_std_qty_scheduler_no, sql_std_qty_chkt_id, force_completion);
+				
+				if(forceCompletionIdx == 2) {
+					result = processForceCompletion(sql_std_qty_chkt_id);
+					
+					if(result.getResult() == true) {
+						result.setMessage("force completion successful");
+					}
+					
+					return result;
+				} else if(forceCompletionIdx == 1) {
+					result.setResult(false);
+					result.setMessage("force completion data");
+					return result;
+				}
+				
+				result = taskPlan(boxModel);
+			}
+		} catch(NullPointerException e) {
+			logger.error("receiveBoxBatch >> NullPointerException >>> ", e);
+			result.setResult(false);
+			
+			throw new Exception(e);
+		} catch(SQLSyntaxErrorException e) {
+			logger.error("receiveBoxBatch >> SQLSyntaxErrorException >>> ", e);
+			result.setResult(false);
+			
+			throw new SQLSyntaxErrorException(e);
+		} catch(Exception e) {
+			logger.error("receiveBoxBatch >> Exception >>> ", e);
+			throw new Exception(e);
+		} finally {
+		}
+		afterTime = System.currentTimeMillis();
+		logger.trace("end of receiveBoxBatch ServiceImpl end [" + (afterTime - beforeTime) / 1000.0 + "]");
+		return result;
+	}
+	
+	@Override
+	public HashMap<String, String> getWrkJobCdList() {
+		HashMap<String, String> wrkJobCdMap = new HashMap<String, String>();
+		List<WrkJobCd> wrkJobCdList = null;
+		WrkJobCd wrkJobCd = null;
+		
+		try {
+			wrkJobCdList = sqlStandardOperationPlugInDao.getWrkJobCdList();
+			
+			if(wrkJobCdList == null || wrkJobCdList.size() == 0) {
+				logger.warn("getWrkJobCdList > Wrong");
+				return wrkJobCdMap;
+			}
+			
+			for(int listIdx = 0; listIdx < wrkJobCdList.size(); listIdx++) {
+				wrkJobCd = wrkJobCdList.get(listIdx);
+				
+				wrkJobCdMap.put(wrkJobCd.getWrkjob_div_cd(), wrkJobCd.getWrkjob_cd());
+			}
+		} catch(Exception e) {
+			logger.error("getWrkJobCdList >> Exception >>> ", e);
+		}
+		
+		return wrkJobCdMap;
+	}
+	
+	private JSONObject getLast(SqlStandardOperationPlugIn boxModel) {
+		logger.debug("Start getLast");
+		LinkedList<JSONObject> jsonList = null;
+		JSONObject obj = null;
+		
+		try {
+			jsonList = boxModel.getJson_list();
+			obj = jsonList.getLast();
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+		}
+		
+		return obj;
+	}
+	
+	private JSONObject getFirst(SqlStandardOperationPlugIn boxModel) {
+		logger.trace("Start getFirst");
+		LinkedList<JSONObject> jsonList = null;
+		JSONObject obj = null;
+		
+		try {
+			jsonList = boxModel.getJson_list();
+			obj = jsonList.getFirst();
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+		}
+		
+		logger.trace("end of getFirst");
+		return obj;
+	}
+	
+	private boolean checkFirstTime(SqlStandardOperationPlugIn boxModel) throws Exception {
+		logger.trace("Start checkFirstTime");
+		SqlStandardOperationPlugIn model = null;
+		boolean flag = false;
+		JSONObject obj = null;
+		long dbid = 0L;
+		
+		obj = getFirst(boxModel);
+		
+		if(obj.containsKey("first_time") == false || Integer.parseInt(obj.get("first_time") + "") > 0) {
+			logger.debug("checkFirstTime >> This model is not first_time");
+			return true;
+		}
+		logger.debug("checkFirstTime >> This model is first_time");
+		
+		model = makeModelfromJSONObject(obj);
+		
+		firstTimeModule(model);
+		
+		flag = checkAgentStatus(obj);
+		logger.trace("end of checkFirstTime");
+		return flag;
+	}
+	
+	private boolean checkFirstTimeExecuteSql(SqlStandardOperationPlugIn model) throws Exception {
+		logger.debug("Start checkFirstTimeExecuteSql");
+		boolean flag = false;
+		JSONObject obj = null;
+		
+		firstTimeModule(model);
+		
+		flag = checkAgentStatusExecuteSql(model);
+		logger.debug("end of checkFirstTimeExecuteSql");
+		return flag;
+	}
+	
+	private boolean checkAgentStatus(JSONObject obj) throws Exception {
+		logger.trace("Start checkAgentStatus");
+		SqlStandardOperationPlugIn sqlStandardOperationPlugIn = new SqlStandardOperationPlugIn();
+		final String CI_AGENT_STR = "//CI Agent 연결 오류입니다. Open-POP 시스템 담당자에게 문의 바랍니다.";
+		boolean flag = false;
+		String project_id = "";
+		String sql_std_qty_chkt_id = "";
+		String sql_std_qty_scheduler_no = "";
+		String exceptionMsg = "";
+		
+		project_id = obj.get("project_id") + "";
+		sql_std_qty_chkt_id = obj.get("sql_std_qty_chkt_id") + "";
+		sql_std_qty_scheduler_no = obj.get("sql_std_qty_scheduler_no") + "";
+		
+		try {
+			if(checkCiAgent(project_id, sql_std_qty_chkt_id, sql_std_qty_scheduler_no) == true) {
+				flag = true;
+			} else {
+				exceptionMsg = CI_AGENT_STR;
+			}
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			exceptionMsg = e.getMessage();
+		}
+		
+		logger.debug("checkAgentStatus >> CiAgent status >>> " + flag);
+		
+		if(Integer.parseInt(obj.get("count_create_plan") + "") == 0) {
+			logger.debug("/**************************************************");
+			logger.debug("checkAgentStatus >> Not Check Master Agent");
+			logger.debug(" **************************************************/");
+			
+			if(flag == false) {
+				sqlStandardOperationPlugIn.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+				sqlStandardOperationPlugIn.setStd_qty_agent_status_cd("01");
+				
+				updateAgentStatus(sqlStandardOperationPlugIn);
+				
+				throw new Exception(exceptionMsg);
+			}
+			
+			return flag;
+		}
+		
+		try {
+			if(checkMasterAgent(project_id, sql_std_qty_chkt_id, sql_std_qty_scheduler_no) == true) {
+				logger.debug("checkAgentStatus >> Equipment OK.");
+				flag = true;
+			} else {
+				flag = false;
+			}
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			sqlStandardOperationPlugIn.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+			
+			if(exceptionMsg.length() > 0) {
+				exceptionMsg = "//CI Agent와 MASTER Agent 연결 오류입니다. Open-POP 시스템 담당자에게 문의 바랍니다.";
+				sqlStandardOperationPlugIn.setStd_qty_agent_status_cd("03");
+			} else {
+				sqlStandardOperationPlugIn.setStd_qty_agent_status_cd("02");
+			}
+			
+			updateAgentStatus(sqlStandardOperationPlugIn);
+			
+			if(exceptionMsg.length() > 0) {
+				throw new Exception(exceptionMsg);
+			} else {
+				throw new Exception(e.getMessage());
+			}
+		}
+		
+		if(exceptionMsg.length() > 0) {
+			sqlStandardOperationPlugIn.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+			sqlStandardOperationPlugIn.setStd_qty_agent_status_cd("01");
+			
+			updateAgentStatus(sqlStandardOperationPlugIn);
+			
+			throw new Exception(exceptionMsg);
+		}
+		logger.trace("end of checkAgentStatus");
+		return flag;
+	}
+	
+	private boolean checkAgentStatusExecuteSql(SqlStandardOperationPlugIn model) throws Exception {
+		logger.trace("Start checkAgentStatusExecuteSql");
+		final String CI_AGENT_STR = "//CI Agent 연결 오류입니다. Open-POP 시스템 담당자에게 문의 바랍니다.";
+		boolean flag = false;
+		String project_id = "";
+		String sql_std_qty_chkt_id = "";
+		String sql_std_qty_scheduler_no = "";
+		String exceptionMsg = "";
+		
+		project_id = model.getProject_id();
+		sql_std_qty_chkt_id = model.getSql_std_qty_chkt_id();
+		sql_std_qty_scheduler_no = model.getSql_std_qty_scheduler_no();
+		
+		try {
+			if(checkCiAgent(project_id, sql_std_qty_chkt_id, sql_std_qty_scheduler_no) == true) {
+				flag = true;
+			} else {
+				exceptionMsg = CI_AGENT_STR;
+			}
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			exceptionMsg = e.getMessage();
+		}
+		
+		logger.debug("checkAgentStatusExecuteSql >> CiAgent status >>> " + flag);
+		
+		if(Integer.parseInt(model.getCount_create_plan()) == 0) {
+			logger.debug("/**************************************************");
+			logger.debug("checkAgentStatusExecuteSql >> Not Check Master Agent");
+			logger.debug(" **************************************************/");
+			
+			if(flag == false) {
+				model.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+				model.setStd_qty_agent_status_cd("01");
+				
+				updateAgentStatus(model);
+				
+				throw new Exception(exceptionMsg);
+			}
+			
+			return flag;
+		}
+		
+		try {
+			if(checkMasterAgent(project_id, sql_std_qty_chkt_id, sql_std_qty_scheduler_no) == true) {
+				logger.debug("checkAgentStatusExecuteSql >> Equipment OK.");
+				flag = true;
+			} else {
+				flag = false;
+			}
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			model.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+			
+			if(exceptionMsg.length() > 0) {
+				exceptionMsg = "//CI Agent와 MASTER Agent 연결 오류입니다. Open-POP 시스템 담당자에게 문의 바랍니다.";
+				model.setStd_qty_agent_status_cd("03");
+			} else {
+				model.setStd_qty_agent_status_cd("02");
+			}
+			
+			updateAgentStatus(model);
+			
+			if(exceptionMsg.length() > 0) {
+				throw new Exception(exceptionMsg);
+			} else {
+				throw new Exception(e.getMessage());
+			}
+		}
+		
+		if(exceptionMsg.length() > 0) {
+			model.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+			model.setStd_qty_agent_status_cd("01");
+			
+			updateAgentStatus(model);
+			
+			throw new Exception(exceptionMsg);
+		}
+		logger.trace("end of checkAgentStatusExecuteSql");
+		return flag;
+	}
+	
+	private void updateAgentStatus(SqlStandardOperationPlugIn sqlStandardOperationPlugIn) {
+		sqlStandardOperationPlugInDao.updateAgentStatus(sqlStandardOperationPlugIn);
+	}
+	
+	private boolean checkCiAgent(String project_id, String sql_std_qty_chkt_id,
+			String sql_std_qty_scheduler_no) throws Exception {
+		logger.trace("Start checkCiAgent");
+		boolean flag = true;
+		final String CI_AGENT_STR = "//CI Agent 연결 오류입니다. Open-POP 시스템 담당자에게 문의 바랍니다.";
+		long aliveSleepTime = 30L;
+		long threadSleepTime = 1000L;
+		int delayCnt = 0;
+		
+		try {
+			putMsg("alive");
+			Thread.sleep(aliveSleepTime);
+			putMsg("alive");
+			Thread.sleep(aliveSleepTime);
+			
+			while(delayCnt++ < 3) {
+				Thread.sleep(threadSleepTime);
+				
+				if(CxClient.get().isConnected() == false) {
+					flag = false;
+					break;
+				}
+			}
+		} catch(Exception e) {
+			flag = false;
+			logger.error(CI_AGENT_STR + "\nproject_id[" + project_id + 
+					"] sql_std_qty_chkt_id[" + sql_std_qty_chkt_id +
+					"] sql_std_qty_scheduler_no[" + sql_std_qty_scheduler_no + "]");
+			logger.error(ERROR_TRACE, e);
+			
+			throw new Exception(CI_AGENT_STR);
+		}
+		logger.trace("end of checkCiAgent");
+		return flag;
+	}
+	
+	private boolean checkMasterAgent(String project_id, String sql_std_qty_chkt_id,
+			String sql_std_qty_scheduler_no) throws Exception {
+		logger.trace("Start checkMasterAgent");
+		boolean flag = false;
+		final String CI_AGENT_STR = "//MASTER Agent 연결 오류입니다. Open-POP 시스템 담당자에게 문의 바랍니다.";
+		JSONObject jsonMaster = new JSONObject();
+		HashMap resultMap = null;
+		
+		try {
+			jsonMaster.put("telegram_code", "PING");
+			
+			resultMap = createPlan(jsonMaster);
+			if("false".equals(resultMap.get("is_error")) &&
+					"Complete".equals(resultMap.get("err_msg"))) {
+				flag = true;
+			}
+		} catch(Exception e) {
+			logger.error(CI_AGENT_STR + "\nproject_id[" + project_id + 
+					"] sql_std_qty_chkt_id[" + sql_std_qty_chkt_id +
+					"] sql_std_qty_scheduler_no[" + sql_std_qty_scheduler_no + "]");
+			logger.error(ERROR_TRACE, e);
+			
+			throw new Exception(CI_AGENT_STR);
+		}
+		logger.trace("end of checkMasterAgent");
+		return flag;
+	}
+	
+	private void startCxClient() throws Exception {
+		int port = 0;
+		
+		try {
+			if(ciAgentPort != null && ciAgentPort != "") {
+				port = Integer.parseInt(ciAgentPort);
+			}
+			
+			CxClient.get().thrdStart(ciAgentIp, port);
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			
+			throw new Exception(e);
+		}
+	}
+	
+	private Result taskPlan(SqlStandardOperationPlugIn boxModel) throws NullPointerException, Exception {
+		logger.trace("Start taskPlan");
+		Long beforeTime = System.currentTimeMillis();
+		LinkedList<JSONObject> jsonList = null;
+		HashMap resultMap = null;
+		Result result = new Result();
+		int count_create_plan = -1;
+		String err_msg = "";
+		int flag_create_plan = 0;
+		JSONObject objLast = null;
+		String sql_std_qty_scheduler_no = "";
+		String sql_std_qty_div_cd = "";
+		StringBuffer sqlStdQtyProgramSeqSb = null;
+		long dbid = 0L;
+		String schema = "";
+		String sql_std_qty_chkt_id = "";
+		int lastResult = -1;
+		
+		try {
+			jsonList = boxModel.getJson_list();
+			objLast = jsonList.getLast();
+			count_create_plan = Integer.parseInt(objLast.get("count_create_plan") + "");
+			
+			try {
+				sqlStdQtyProgramSeqSb = loopJSONList(jsonList, objLast.get("sql_std_qty_chkt_id") + "");
+			} finally {
+				logger.debug("taskPlan End of executeBatch");
+			}
+			
+			err_msg = objLast.get("err_msg") + "";
+			flag_create_plan = err_msg.indexOf("F100");
+			
+			if(count_create_plan > 0 && flag_create_plan == -1) {
+				Long beforeCreatePlanTime = System.currentTimeMillis();
+				
+				if(sqlStdQtyProgramSeqSb.length() == 0) {
+					logger.error("taskPlan >> sqlStdQtyProgramSeqSb is size zero");
+					result.setResult(false);
+					return result;
+				}
+				
+				JSONObject jsonMaster = new JSONObject();
+				
+				objLast = jsonList.getLast();
+				sql_std_qty_chkt_id = objLast.get("sql_std_qty_chkt_id") + "";
+				schema = objLast.get("db_user") + "";
+				sql_std_qty_scheduler_no = objLast.get("sql_std_qty_scheduler_no") + "";
+				sql_std_qty_div_cd = objLast.get("sql_std_qty_div_cd") + "";
+				dbid = Long.parseLong(objLast.get("dbid") + "");
+				
+				jsonMaster.put("telegram_code", "INSPECT_SQL_CODE_TASK");
+				jsonMaster.put("dbid", dbid);
+				jsonMaster.put("sql_std_qty_chkt_id", sql_std_qty_chkt_id);
+				jsonMaster.put("sql_std_qty_program_seq", sqlStdQtyProgramSeqSb.toString());
+				jsonMaster.put("schema", schema);
+				jsonMaster.put("sql_std_qty_scheduler_no", sql_std_qty_scheduler_no);
+				jsonMaster.put("sql_std_qty_div_cd", sql_std_qty_div_cd);
+				
+				resultMap = createPlan(jsonMaster);
+				
+				// expect delete
+				String KILL_INSPECT = "KILL_INSPECT";
+				
+				if(resultMap.containsKey("is_error") == true && "false".equals(resultMap.get("is_error")) &&
+						resultMap.containsKey("err_msg") == true && KILL_INSPECT.equals(resultMap.get("err_msg")) == true) {
+					logger.trace(SystemUtil.getClassName() + "taskPlan >> is_error[" + resultMap.get("is_error") + 
+							"] err_msg[" +  resultMap.get("err_msg") + "]");
+					result.setResult(false);
+					result.setMessage("is_error[" + resultMap.get("is_error") + 
+							"] err_msg[" +  resultMap.get("err_msg") + "]");
+					return result;
+				}
+				
+				if(resultMap.containsKey("is_error") == true && (Boolean) "true".equals(resultMap.get("is_error"))) {
+					logger.debug("/****************************************");
+					logger.debug("Master Agent Eorror");
+					logger.debug(" ****************************************/");
+				}
+				
+				logger.debug("used create plan time[" + (System.currentTimeMillis() - beforeCreatePlanTime) / 1000.0 + "]");
+			}
+			
+			objLast = sendMsg(jsonList, jsonList.size(), resultMap);
+			result.setResult(true);
+			
+			logger.debug("taskPlan >> wait_for_ci_agent_complete_flag[" + wait_for_ci_agent_complete_flag + "]");
+			if("Y".equalsIgnoreCase(wait_for_ci_agent_complete_flag) &&
+					waitForCiAgentComplete(jsonList) == true) {
+				logger.debug("taskPlan >> waitForCiAgentComplete status is False. Force Out");
+			}
+			
+			if(objLast != null) {
+				logger.debug("taskPlan >> This is last msg");
+				lastResult = lastPlan(objLast);
+				result.setMessage("last");				/* use to function Check SQL */
+				result.setResultCount(lastResult);
+			}
+		} catch(NullPointerException e) {
+			logger.error("taskPlan >> NullPointerException >>> ", e);
+			result.setResult(false);
+			
+			throw new NullPointerException(e.getMessage());
+		} catch(SQLSyntaxErrorException e) {
+			logger.error("taskPlan >> SQLSyntaxErrorException >>> ", e);
+			result.setResult(false);
+			
+			throw new SQLSyntaxErrorException(e);
+		} catch(Exception e) {
+			logger.error("taskPlan >> Exception >>> ", e);
+			result.setResult(false);
+			
+			throw new Exception(e);
+		} finally {
+		}
+		
+		if(resultMap != null) {
+			logger.trace("taskPlan >> resultMap [ " + resultMap.toString() + " ]");
+		}
+		logger.trace("end of taskPlan[" + (System.currentTimeMillis() - beforeTime) / 1000.0 + "]");
+		return result;
+	}
+	
+	private boolean waitForCiAgentComplete(LinkedList<JSONObject> jsonList) throws Exception {
+ 		logger.trace("Start waitForCiAgentComplete. wait_for_ci_agent_complete_time[" + wait_for_ci_agent_complete_time + "]");
+		long beforeTime = System.currentTimeMillis();
+		JSONObject objLast = null;
+		String sql_std_qty_chkt_id = "";
+		String sql_std_qty_div_cd = "";
+		StringBuffer waitData = null;
+		SqlStandardOperationPlugIn model = new SqlStandardOperationPlugIn();
+		SqlStandardOperationPlugIn resultModel = new SqlStandardOperationPlugIn();
+		boolean loopSqlCntListUnitsCompletedFlag = true;
+		long wait = Long.parseLong(wait_for_ci_agent_complete_time);
+		int waitNum = 1;
+		int sql_cnt = 0;
+		int in_progress_sql_cnt= 0;			// 지금까지 ciAgent가 처리한 건수    : SELECT in_progress_sql_cnt
+		
+		try {
+			objLast = jsonList.getLast();
+			sql_cnt = objLast.get("sql_cnt") == null ? Integer.parseInt(objLast.get("sql_std_qty_program_seq") + "") :
+				Integer.parseInt(objLast.get("sql_cnt") + "");
+			
+			model = makeModelfromJSONObject(objLast);
+			sql_std_qty_chkt_id = model.getSql_std_qty_chkt_id();
+			sql_std_qty_div_cd = model.getSql_std_qty_div_cd();
+			waitData = new StringBuffer();
+			waitData = waitData.append("sql_std_qty_chkt_id[").append(sql_std_qty_chkt_id);
+			waitData = waitData.append("] sql_std_qty_div_cd[").append(sql_std_qty_div_cd);
+			waitData = waitData.append("] sql_cnt[").append(sql_cnt).append("]");
+			
+			while(loopSqlCntListUnitsCompletedFlag) {
+				resultModel = sqlStandardOperationPlugInDao.selectProcessedTime(model);
+				
+				if(resultModel == null) {
+					logger.debug("waitForCiAgentComplete >> Not Inspection Target. sql_std_qty_chkt_id[" + sql_std_qty_chkt_id + 
+							"] sql_std_qty_div_cd[" + sql_std_qty_div_cd + "]");
+					loopSqlCntListUnitsCompletedFlag = false;
+					break;
+				}
+				
+				in_progress_sql_cnt = resultModel.getIn_progress_sql_cnt();
+				logger.trace("waitForCiAgentComplete >> select in_progress_sql_cnt[" + in_progress_sql_cnt +
+						"] >>> waitData " + waitData.toString());
+				
+				if(in_progress_sql_cnt == sql_cnt) {
+					loopSqlCntListUnitsCompletedFlag = false;
+				}
+				
+				if(waitNum++ <= 3) {
+					wait = wait * 2;
+					logger.debug("waitForCiAgentComplete >> sleep[" + wait +"]");
+					Thread.sleep(wait);
+				} else {
+					break;
+				}
+			}
+			
+			if(loopSqlCntListUnitsCompletedFlag == true) {
+				logger.debug("waitForCiAgentComplete >> force out");
+			} else {
+				logger.debug("waitForCiAgentComplete >> Success");
+			}
+		} catch(NullPointerException e) {
+			logger.error("waitForCiAgentComplete >> NullPointerException >>> ", e);
+			
+			throw new NullPointerException(e.getMessage());
+		} catch(Exception e) {
+			logger.error("waitForCiAgentComplete >> Exception >>> ", e);
+			
+			throw new Exception(e);
+		}
+		logger.trace("waitForCiAgentComplete end [" + (System.currentTimeMillis() - beforeTime) / 1000.0 + "]");
+		return loopSqlCntListUnitsCompletedFlag;
+	}
+	
+	private int lastPlan(JSONObject objLast) throws Exception {
+		logger.trace("Start lastPlan");
+		String sql_std_qty_chkt_id = objLast.get("sql_std_qty_chkt_id") + "";
+		String sql_std_qty_div_cd = objLast.get("sql_std_qty_div_cd") + "";
+		String project_id = objLast.get("project_id") + "";
+		String sql_std_qty_scheduler_no = objLast.get("sql_std_qty_scheduler_no") + "";
+		int lastResult = -1;
+		
+		try {
+			lastResult = checkPlanCompleted(objLast);
+			
+			if("2".equals(sql_std_qty_div_cd) == true ||
+					"4".equals(sql_std_qty_div_cd) == true) {
+				// SQL표준품질점검오류내역 Insert - RULE 003
+				insertSqlStdQtyChkErr(sql_std_qty_chkt_id);
+				
+				// SQL표준품질점검오류집계 Insert - RULE 004
+				insertSqlStdQtyChkErrSum(project_id, sql_std_qty_div_cd, sql_std_qty_chkt_id, sql_std_qty_scheduler_no);
+			}
+		} catch(Exception e) {
+			logger.error("lastPlan >> Exception >>> ", e);
+			lastResult = -1;
+		}
+		logger.trace("end of lastPlan");
+		return lastResult;
+	}
+	
+	/**
+	 * SQL표준품질점검오류내역 Insert
+	 * @param project_id
+	 */
+	private void insertSqlStdQtyChkErr(String sql_std_qty_chkt_id) {
+		logger.trace("Start insertSqlStdQtyChkErr");
+		SqlStandardOperationPlugIn model	= new SqlStandardOperationPlugIn();
+		String qty_chk_idt_cd_err								= "003";
+		String qty_chk_sql										= "";
+		int update												= -1;
+		
+		try {
+			model.setQty_chk_idt_cd(qty_chk_idt_cd_err);
+			
+			model = sqlStandardOperationPlugInDao.selectInsertSQL(model);
+			qty_chk_sql = model.getQty_chk_sql();
+			qty_chk_sql = CryptoUtil.decryptAES128(qty_chk_sql, key);
+			logger.trace("** insertSqlStdQtyChkErr *************\n");
+			logger.trace(qty_chk_sql);
+			logger.trace("***************\n");
+			model.setQty_chk_sql(qty_chk_sql);
+			model.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+			
+			update = sqlStandardOperationPlugInDao.insertSqlStdQtyChkErr(model);
+			logger.trace("insertSqlStdQtyChkErr update[" + update + "]");
+		} catch(Exception e) {
+			logger.error("insertSqlStdQtyChkErr finally Exception :", e);
+			model.setQty_chk_sql("insertSqlStdQtyChkErr > 복호화하는 과정에서 에러가 발생하였습니다. 해당 RULE을 수정해 주세요.");
+			e.printStackTrace();
+		}
+		logger.trace("end of insertSqlStdQtyChkErr");
+	}
+	
+	/**
+	 * SQL표준품질점검오류집계 Insert - RULE 004
+	 * @param project_id
+	 */
+	private void insertSqlStdQtyChkErrSum(String project_id, String sql_std_qty_div_cd,
+			String sql_std_qty_chkt_id, String sql_std_qty_scheduler_no) {
+		logger.trace("Start insertSqlStdQtyChkErrSum");
+		SqlStandardOperationPlugIn model	= new SqlStandardOperationPlugIn();
+		String qty_chk_idt_cd_err_sum							= "004";
+		String qty_chk_sql										= "";
+		int update												= -1;
+		
+		try {
+			model.setQty_chk_idt_cd(qty_chk_idt_cd_err_sum);
+			
+			model = sqlStandardOperationPlugInDao.selectInsertSQL(model);
+			qty_chk_sql = model.getQty_chk_sql();
+			qty_chk_sql = CryptoUtil.decryptAES128(qty_chk_sql, key);
+			logger.trace("** insertSqlStdQtyChkErrSum *************\n");
+			logger.trace(qty_chk_sql);
+			logger.trace("***************\n");
+			
+			model.setQty_chk_sql(qty_chk_sql);
+			model.setProject_id(project_id);
+			model.setSql_std_qty_scheduler_no(sql_std_qty_scheduler_no);
+			model.setSql_std_qty_div_cd(sql_std_qty_div_cd);
+			model.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+			
+			update = sqlStandardOperationPlugInDao.insertSqlStdQtyChkErrSum(model);
+			logger.trace("insertSqlStdQtyChkErrSum update[" + update + "]");
+		} catch(Exception e) {
+			logger.error("insertSqlStdQtyChkErrSum finally Exception :", e);
+			model.setQty_chk_sql("insertSqlStdQtyChkErrSum > 복호화하는 과정에서 에러가 발생하였습니다. 해당 RULE을 수정해 주세요.");
+			e.printStackTrace();
+		}
+		logger.trace("end of insertSqlStdQtyChkErrSum");
+	}
+	
+	/**
+	 * 
+	 * @param lastObj
+	 * @return 0 : 정상 종료
+	           <br/>
+	           1 : 데이터가 아예 없는 경우
+	           <br/>
+	           2 : UI 강제 종료
+	           <br/>
+	           3 : 타임아웃
+	 * @throws Exception
+	 */
+	private int checkPlanCompleted(JSONObject lastObj) throws Exception {
+		logger.trace("Start checkPlanCompleted. waiting_time[" + waiting_time + "] num_ci_same_before[" + num_ci_same_before + "]");
+		int result = -1;		/* 0 : 정상 종료 */
+								/* 1 : 데이터가 아예 없는 경우 */
+								/* 2 : UI 강제 종료 */
+								/* 3 : 타임아웃 */
+								
+		boolean waitFlag = true;
+		SqlStandardOperationPlugIn resultModel = null;
+		SqlStandardOperationPlugIn model = new SqlStandardOperationPlugIn();
+		long beginCheckPlanCompleted = System.currentTimeMillis();
+		int before_in_progress_sql_cnt = -1;
+		int update = -1;
+		long waitingTime = Long.parseLong(waiting_time);
+		long numCiSameBefore = Long.parseLong(num_ci_same_before);		/* 완료 개수가 맞지 않고, 앞서 조회한 ci 결과값이랑 동일할 때 대기시간 */
+		int waitNum = 1;
+		int waitNullNum = 1;
+		int sql_cnt = Integer.parseInt(lastObj.get("sql_cnt") + "");
+		int in_progress_sql_cnt= 0;			// 지금까지 ciAgent가 처리한 건수    : SELECT in_progress_sql_cnt
+		String sql_std_qty_div_cd = lastObj.get("sql_std_qty_div_cd") + "";
+		String loggerMsg = "sql_std_qty_div_cd[" + sql_std_qty_div_cd + "]" +
+				"] sql_std_qty_chkt_id[" + lastObj.get("sql_std_qty_chkt_id") +
+				"] sql_std_qty_scheduler_no[" + lastObj.get("sql_std_qty_scheduler_no") + "]";
+		
+		try {
+			model.setSql_std_qty_chkt_id(lastObj.get("sql_std_qty_chkt_id") + "");
+			model.setSql_cnt(sql_cnt);
+			
+			while(waitFlag) {
+				resultModel = sqlStandardOperationPlugInDao.checkPlanGenerationCompleted(model);
+				
+				if(resultModel == null) {
+					if(waitNullNum++ > 10) {
+						model.setStd_qty_agent_status_cd("99");
+						update = sqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecForceComplete(model);
+						result = 1;
+						waitFlag = false;
+						break;
+					}
+					logger.debug("checkPlanCompleted >> resultModel is null. waiting[" + waitingTime + "]");
+					Thread.sleep(waitingTime);
+					
+					continue;
+				}
+				
+				in_progress_sql_cnt = resultModel.getIn_progress_sql_cnt();
+				
+				logger.debug("checkPlanCompleted >> in_progress_sql_cnt[" + in_progress_sql_cnt + "] sql_cnt[" + sql_cnt + "]");
+				if(in_progress_sql_cnt == sql_cnt) {
+					if("2".equals(sql_std_qty_div_cd) == true ||
+							"4".equals(sql_std_qty_div_cd) == true) {
+						update = sqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecCompleteExecBase(model);
+					} else {
+						update = sqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecComplete(model);
+					}
+					logger.debug("checkPlanCompleted >> Normal Case Result update[" + update + "] " + loggerMsg);
+					logger.debug("checkPlanCompleted >> end of business hours[" + 
+							(System.currentTimeMillis() - beginCheckPlanCompleted) / 1000.0 + "]"); 
+					result = 0;
+					waitFlag = false;
+					break;
+				} else {
+					logger.debug("checkPlanCompleted >> case not match in_progress_sql_cnt[" + in_progress_sql_cnt +
+							"] sql_cnt[" + sql_cnt + "] " + loggerMsg);
+					if(waitNum <= 10) {
+						if(isForceCompletion(lastObj.get("project_id") + "", lastObj.get("sql_std_qty_chkt_id") + "", model) == true) {
+							result = 2;
+							waitFlag = false;
+							break;
+						}
+						
+						if( checkTimeoutStatus(before_in_progress_sql_cnt, in_progress_sql_cnt) == 0 ) {
+							waitNum = 1;
+						} else {
+							waitNum++;
+						}
+					} else {
+						logger.debug("checkPlanCompleted >> timeout occurred. timeout waitNum[" + waitNum + "]");
+						model.setStd_qty_agent_status_cd("04");
+						
+						if(in_progress_sql_cnt < sql_cnt) {
+							logger.debug("checkPlanCompleted >> Time out reason >>> count does not match. in_progress_sql_cnt[" +
+									in_progress_sql_cnt + "] sql_cnt[" + sql_cnt + "]");
+							model.setStd_qty_agent_status_cd("05");
+						}
+						
+						update = sqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecForceComplete(model);
+						logger.debug("checkPlanCompleted >> Wait Timeout Case Result update[" + update + "]");
+						
+						result = 3;
+						waitFlag = false;
+						break;
+					}
+					
+					logger.debug("checkPlanCompleted >> Stand by in the same way. sleep time[" + numCiSameBefore + "] waitNum[" + waitNum + "]");
+					Thread.sleep(numCiSameBefore);
+				}
+				
+				before_in_progress_sql_cnt = in_progress_sql_cnt;
+			}
+		} catch(Exception e) {
+			logger.error("checkPlanCompleted >> Exception >>> ", e);
+			result = -1;
+		}
+		logger.trace("end of checkPlanCompleted. result[" + result + "]");
+		return result;
+	}
+	
+	/**
+	 * 
+	 * @param before_in_progress_sql_cnt
+	 * @param in_progress_sql_cnt
+	 * @return 0 : 이전에 조회한 처리중SQL수보다 증가된 값 : 정상적인 케이스
+	 * <br/>
+	 *         1 : 이전에 조회한 처리중SQL수와 동일할 경우 : 작업미완료 케이스
+	 */
+	private int checkTimeoutStatus(int before_in_progress_sql_cnt, int in_progress_sql_cnt) {
+		int result = -1;		/* 0 : 이전에 조회한 처리중SQL수보다 증가된 값 : 정상적인 케이스 */
+								/* 1 : 이전에 조회한 처리중SQL수와 동일할 경우 : 작업미완료 케이스 */
+		
+		if(before_in_progress_sql_cnt == in_progress_sql_cnt) {
+			logger.debug("checkPlanCompleted >> The value of before_in_progress_sql_cnt previously inquired is the same.");
+			result = 1;
+		} else {
+			logger.debug("checkPlanCompleted >> case couning in_progress_sql_cnt. wait variable is initialized");
+			result = 0;
+		}
+		
+		return result;
+	}
+	
+	/* MyBatis batchForeach */
+	private StringBuffer loopJSONList(LinkedList<JSONObject> jsonList, String sql_std_qty_chkt_id) throws Exception {
+		logger.trace("Start loopJSONList sql_std_qty_chkt_id[ " + sql_std_qty_chkt_id + "]");
+		int jsonListSize = 0;
+		JSONObject jsonObj = null;
+		long beforeLoopTime = 0L;
+		StringBuffer sqlStdQtyProgramSeqSb = new StringBuffer();
+		SqlStandardOperationPlugIn model = null;
+		ArrayList<SqlStandardOperationPlugIn> batchList = new ArrayList<SqlStandardOperationPlugIn>();
+		
+		try {
+			beforeLoopTime = System.currentTimeMillis();
+			jsonListSize = jsonList.size();
+			
+			for(int jsonIdx = 0; jsonIdx < jsonListSize; jsonIdx++) {
+				jsonObj = jsonList.get(jsonIdx);
+//				logger.debug("loopJSONList >> jsonListSize[" + jsonListSize + 
+//						"] jsonIdx[" + jsonIdx + "] first_time[" + jsonObj.get("first_time") + 
+//						"] sql_std_qty_div_cd[" + jsonObj.get("sql_std_qty_div_cd") + 
+//						"] count_create_plan[" + jsonObj.get("count_create_plan") + "]");
+				model = makeModelfromJSONObject(jsonObj);
+				
+				batchList.add(model);
+				
+				sqlStdQtyProgramSeqSb.append(model.getSql_std_qty_program_seq());
+				
+				if(jsonIdx < (jsonListSize -1 )) {
+					sqlStdQtyProgramSeqSb.append(",");
+				}
+				
+				if( (model.getFirst_time() % 1000) == 0 && Integer.parseInt(model.getSql_std_qty_div_cd()) == 2 ) {
+					logger.trace("loopJSONList >> Start Check Agent Status - From Scheduler first_time[" + model.getFirst_time() + 
+							"] sql_std_qty_chkt_id[" + model.getSql_std_qty_chkt_id() + 
+							"] sql_std_qty_program_seq[" + model.getSql_std_qty_program_seq() + "]");
+					// 장비 체크
+					if(checkAgentStatus(jsonObj) == false) {
+						logger.debug("loopJSONList >> checkAgentStatus is false");
+						
+						throw new Exception("checkAgentStatus is false");
+					}
+				}
+			}
+			
+			batchInsertForeach(batchList);
+			logger.debug("loopJSONList [" + (System.currentTimeMillis() - beforeLoopTime) / 1000.0 + "]");
+		} catch(SQLException e) {
+			logger.error("loopJSONList >> SQLException occured >>>", e);
+			sqlStdQtyProgramSeqSb = new StringBuffer();
+		} catch(Exception e) {
+			logger.error("loopJSONList >> Exception occured >>>", e);
+			sqlStdQtyProgramSeqSb = new StringBuffer();
+		} finally {
+			
+		}
+		logger.trace("end of loopJSONList sql_std_qty_chkt_id[ " + sql_std_qty_chkt_id + "]");
+		return sqlStdQtyProgramSeqSb;
+	}
+	
+	private void batchInsertForeach(List<SqlStandardOperationPlugIn> modelList) throws Exception {
+		logger.trace("Start batchInsertForeach");
+		long startTime = System.currentTimeMillis();
+		
+		try {
+			int count = sqlStandardOperationPlugInDao.insertSelfsqlStdQtyChkPgmForeach(modelList);
+			logger.trace("batchInsertForeach >> count[" + count + "]");
+		} catch(Exception e) {
+			logger.error("batchInsertForeach >> Exception occured :", e);
+			
+			throw new Exception(e);
+		}
+		logger.trace("end of batchInsertForeach >> used time [" + (System.currentTimeMillis() - startTime) / 1000 + "](ms)");
+	}
+	
+	private void updatePlan100Foreach(List<SqlStandardOperationPlugIn> modelList) throws Exception {
+		logger.trace("Start updatePlan100Foreach");
+		long startTime = System.currentTimeMillis();
+		
+		try {
+			int count = sqlStandardOperationPlugInDao.updateSelfsqlStdQtyChkPgmErrMsgForeach(modelList);
+			logger.trace("updatePlan100Foreach >> count[" + count + "]");
+		} catch(Exception e) {
+			logger.error("updatePlan100Foreach >> Exception occured :", e);
+			
+			throw new Exception(e);
+		}
+		logger.trace("end of updatePlan100Foreach >> used time [" + (System.currentTimeMillis() - startTime) / 1000 + "](ms)");
+	}
+	
+	private SqlStandardOperationPlugIn setGatherTermDay(SqlStandardOperationPlugIn model) {
+		String yesterday = "";
+		
+		try {
+			if("3".equals(model.getSql_std_qty_div_cd()) ||
+					"4".equals(model.getSql_std_qty_div_cd())) {
+				if("1".equals(model.getGather_term_type_cd())) {
+					yesterday = sqlStandardOperationPlugInDao.selectYesterday(model);
+					
+					if("1".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(yesterday);
+					} else if("2".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(sqlStandardOperationPlugInDao.selectWeekAgo(model));
+					} else if("3".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(sqlStandardOperationPlugInDao.selectMonthAgo(model));
+					} else if("4".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(sqlStandardOperationPlugInDao.selectQuarterAgo(model));
+					} else if("5".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(sqlStandardOperationPlugInDao.selectOneYearAgo(model));
+					}
+					
+					model.setGather_term_end_day(yesterday);
+				}
+			}
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+		}
+		
+		return model;
+	}
+	
+/*
+	=================================================================================
+	[2021.06.09 김원재.] 1. private -> public으로 변경. (재사용 위함 인터페이스에 추가)
+					   2. getSql_std_qty_div_cd == 3 일경우 insertSelfsqlStdQtyChkPgm  추가
+	=================================================================================
+**/
+	@Override
+	public Result firstTimeModule(SqlStandardOperationPlugIn model) {
+		logger.trace("Start firstTimeModule");
+		Result result = new Result();
+		String yesterday = "";
+		int pgmNum = 0;
+		int updateNum = 0;
+		
+		try {
+			baseDay = sqlStandardOperationPlugInDao.getBaseDay(model);
+			this.baseDay = baseDay;
+			
+			deleteTableList(model);
+			
+			if("3".equals(model.getSql_std_qty_div_cd()) ||
+					"4".equals(model.getSql_std_qty_div_cd())) {
+				if("1".equals(model.getGather_term_type_cd())) {
+					yesterday = sqlStandardOperationPlugInDao.selectYesterday(model);
+					
+					if("1".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(yesterday);
+					} else if("2".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(sqlStandardOperationPlugInDao.selectWeekAgo(model));
+					} else if("3".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(sqlStandardOperationPlugInDao.selectMonthAgo(model));
+					} else if("4".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(sqlStandardOperationPlugInDao.selectQuarterAgo(model));
+					} else if("5".equals(model.getGather_range_div_cd())) {
+						model.setGather_term_start_day(sqlStandardOperationPlugInDao.selectOneYearAgo(model));
+					}
+					
+					model.setGather_term_end_day(yesterday);
+				}
+			}
+			
+			// Insert to Table SELFSQL_STD_QTY_PLAN_EXEC
+			long beforePlanExecTime = System.currentTimeMillis();
+			insertSelfsqlStdQtyPlanExec(model);
+			long afterPlanExecTime = System.currentTimeMillis();
+			logger.debug("firstTimeModule insertSelfsqlStdQtyPlanExec [" + (afterPlanExecTime - beforePlanExecTime) / 1000.0 + "]");
+			
+			if("3".equals(model.getSql_std_qty_div_cd()) ||
+					"4".equals(model.getSql_std_qty_div_cd())) {
+				long beforeInsertSelectPlanExecTime = System.currentTimeMillis();
+				List<String> ownerStrList = new ArrayList<String>();
+				List<String> moduleStrList = new ArrayList<String>();
+				int updateCnt = -1;
+				
+				if(model.getOwner_list().indexOf(',') != -1 ) {
+					String[] strOwnerArr = model.getOwner_list().split(",");
+					
+					for ( String ownerStr : strOwnerArr ) {
+						if ( ownerStr.trim().equals("") ) {
+							result.setMessage("OWNER 값을 확인 후 다시 성능비교 를 실행해 주세요.");
+							result.setResult(false);
+							return result;
+						} else {
+							ownerStrList.add( ownerStr.trim() );
+						}
+					}
+				}
+				
+				model.setStrOwnerList(ownerStrList);
+				
+				if (model.getModule_list().indexOf(',') != -1 ) {
+					String[] strModuleArr = model.getModule_list().split(",");
+					
+					for ( String moduleStr : strModuleArr ) {
+						if ( moduleStr.trim().equals("") ) {
+							result.setMessage("MODULE 값을 확인 후 다시 성능비교 를 실행해 주세요.");
+							result.setResult(false);
+							return result;
+						} else {
+							moduleStrList.add( moduleStr.trim() );
+						}
+					}
+				}
+				
+				model.setStrModuleList( moduleStrList );
+				
+				if("1".equals(model.getSql_source_type_cd()) == true) {
+					/* AWR(TOP) */
+					updateCnt = sqlStandardOperationPlugInDao.insertSelectSelfsqlStdQtyChkPgmForAWR(model);
+				} else if("2".equals(model.getSql_source_type_cd()) == true) {
+					/* 전체SQL(Cursor Cache) */
+					updateCnt = sqlStandardOperationPlugInDao.insertSelectSelfsqlStdQtyChkPgmForVSQL(model);
+				}
+				logger.debug("firstTimeModule >> updateCnt[" + updateCnt + "]");
+				
+				pgmNum = sqlStandardOperationPlugInDao.selectCountSelfSqlStdQtyChkPgm(model);
+				
+				model.setSql_cnt(pgmNum);
+				updateNum = sqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecSqlCnt(model);
+				logger.debug("updateSelfsqlStdQtyPlanExecSqlCnt pgmNum [{}] updateNum [{}]", pgmNum, updateNum);
+				logger.debug("end of sqlDiagnosisReportInsertSelfSqlStdQtyChkPgm [" + (beforeInsertSelectPlanExecTime - System.currentTimeMillis()) / 1000.0 + "]");
+			}
+		} catch(Exception e) {
+			logger.error(">>> firstTimeModule Exception occured :", e);
+			result.setMessage(e.getMessage());
+			result.setResult(false);
+		}
+		logger.trace("end of firstTimeModule");
+		return result;
+	}
+	
+	@Override
+	public boolean deleteTableList(SqlStandardOperationPlugIn model) throws SQLSyntaxErrorException, Exception {
+		logger.info("Start deleteTableList");
+		boolean result = false;
+		int resultExec = -1;
+		int resultFileError = -1;
+		int resultResult = -1;
+		int resultPgm = -1;
+		int resultErr = -1;
+		int resultErrSum = -1;
+		String dev_id = "";
+		
+		try {
+			if("2".equals(model.getSql_std_qty_div_cd()) == true ||
+					"4".equals(model.getSql_std_qty_div_cd()) == true) {
+				resultErr = sqlStandardOperationPlugInDao.deleteSelfsqlStdQtyChkErr(model);
+				resultErrSum = sqlStandardOperationPlugInDao.deleteSelfsqlStdQtyChkErrSum(model);
+				
+				/* sql_std_qty_div_cd 값이 형상기반("2")이거나 실행기반("4")일 때에는 하드코드로 정의한 dev_id "OPENPOP"으로 정의한다. */
+				dev_id = model.getDeveloper_id();
+				model.setDeveloper_id("OPENPOP");
+			}
+			
+			resultResult = sqlStandardOperationPlugInDao.deleteSelfsqlStdQtyChkResult(model);
+			resultPgm = sqlStandardOperationPlugInDao.deleteSelfsqlStdQtyChkPgm(model);
+			
+			if("1".equals(model.getSql_std_qty_div_cd()) == true || "2".equals(model.getSql_std_qty_div_cd()) == true) {
+				resultFileError = sqlStandardOperationPlugInDao.deleteSelfsqlStdQtyFileError(model);
+			}
+			
+			resultExec = sqlStandardOperationPlugInDao.deleteSelfsqlStdPlanExec(model);
+			
+			logger.trace("delete resultErr[" + resultErr + "] resultErrSum[" + resultErrSum +
+					"] resultResult[" + resultResult + "] resultPgm[" + resultPgm + 
+					"] resultFileError[" + resultFileError + "] resultExec[" + resultExec + "]");
+			result = true;
+		} catch(Exception e) {
+			logger.error("deleteTableList >> Exception occured :", e);
+		}
+		logger.info("end of deleteTableList");
+		return result;
+	}
+	
+	@Override
+	public boolean insertSelfsqlStdQtyPlanExec(SqlStandardOperationPlugIn model) throws SQLSyntaxErrorException, Exception {
+		logger.info("Start insertSelfsqlStdQtyPlanExec");
+		boolean flag = false;
+		int result = 0;
+		
+		try {
+			/* 이 테이블의 dev_id가 아닌 일반적으로 알고 있는 dev_id가 아닌 하드코드로 정의한 dev_id "OPENPOP"으로 정의한다. */
+			if("2".equals(model.getSql_std_qty_div_cd()) == true ||
+					"4".equals(model.getSql_std_qty_div_cd()) == true) {
+				model.setDeveloper_id("OPENPOP");
+			}
+			
+			model = setGatherTermDay(model);
+			
+			result = sqlStandardOperationPlugInDao.insertSelfsqlStdQtyPlanExec(model);
+			flag = true;
+		} catch(Exception e) {
+			logger.error(">>> insertSelfsqlStdQtyPlanExec Exception occured :", e);
+		}
+		logger.info("end of insertSelfsqlStdQtyPlanExec");
+		return flag;
+	}
+	
+	private SqlStandardOperationPlugIn makeModelfromJSONObject(JSONObject jsonObj) throws Exception {
+		logger.trace("Start makeModelfromJSONObject");
+		SqlStandardOperationPlugIn model = new SqlStandardOperationPlugIn();
+		
+		try {
+			model.setSql_std_qty_chkt_id		(jsonObj.get("sql_std_qty_chkt_id")			== null ? "" : jsonObj.get("sql_std_qty_chkt_id") + "");
+			model.setSql_std_qty_program_seq	(jsonObj.get("sql_std_qty_program_seq")		== null ? "" : jsonObj.get("sql_std_qty_program_seq") + "");
+			model.setProject_id					(jsonObj.get("project_id")					== null ? "" : jsonObj.get("project_id") + "");
+			model.setWrkjob_cd					(jsonObj.get("wrkjob_cd")					== null ? "" : jsonObj.get("wrkjob_cd") + "");
+			model.setProgram_div_cd				(jsonObj.get("program_div_cd")				== null ? "" : jsonObj.get("program_div_cd") + "");
+			model.setProgram_nm					(jsonObj.get("program_nm")					== null ? "" : jsonObj.get("program_nm") + "");
+			model.setProgram_desc				(jsonObj.get("program_desc")				== null ? "" : jsonObj.get("program_desc") + "");
+			model.setDbio						(jsonObj.get("dbio")						== null ? "" : jsonObj.get("dbio") + "");
+			model.setSql_hash					(jsonObj.get("sql_hash")					== null ? "" : jsonObj.get("sql_hash") + "");
+			model.setSql_length					(jsonObj.get("sql_length")					== null ? "" : jsonObj.get("sql_length") + "");
+			model.setProgram_source_desc		(jsonObj.get("program_source_desc")			== null ? "" : jsonObj.get("program_source_desc") + "");
+			model.setDir_nm						(jsonObj.get("dir_nm")						== null ? "" : jsonObj.get("dir_nm") + "");
+			model.setFile_nm					(jsonObj.get("file_nm")						== null ? "" : jsonObj.get("file_nm") + "");
+			model.setProgram_type_cd			(jsonObj.get("program_type_cd")				== null ? "" : jsonObj.get("program_type_cd") + "");
+			model.setSql_command_type_cd		(jsonObj.get("sql_command_type_cd")			== null ? "" : jsonObj.get("sql_command_type_cd") + "");
+			model.setDynamic_sql_yn				(jsonObj.get("dynamic_sql_yn")				== null ? "" : jsonObj.get("dynamic_sql_yn") + "");
+			model.setDb_user					(jsonObj.get("db_user")						== null ? "" : jsonObj.get("db_user") + "");
+			model.setDb_name					(jsonObj.get("db_name")						== null ? "" : jsonObj.get("db_name") + "");
+			model.setFirst_time					(jsonObj.get("first_time")					== null ? -1 : Integer.parseInt(jsonObj.get("first_time") + ""));
+			model.setDeveloper_id				(jsonObj.get("developer_id")				== null ? "" : jsonObj.get("developer_id") + "");
+			model.setDeveloper_nm				(jsonObj.get("developer_nm")				== null ? "" : jsonObj.get("developer_nm") + "");
+			model.setAbs_dir_nm					(jsonObj.get("abs_dir_nm")					== null ? "" : jsonObj.get("abs_dir_nm") + "");
+			model.setCount_create_plan			(jsonObj.get("count_create_plan")			== null ? "" : jsonObj.get("count_create_plan") + "");
+			model.setDbid						(jsonObj.get("dbid")						== null ? "" : jsonObj.get("dbid") + "");
+			model.setParser_code				(jsonObj.get("parser_code")					== null ? "" : jsonObj.get("parser_code") + "");
+			model.setSql_std_qty_div_cd			(jsonObj.get("sql_std_qty_div_cd")			== null ? "" : jsonObj.get("sql_std_qty_div_cd") + "");
+			model.setSql_std_qty_scheduler_no	(jsonObj.get("sql_std_qty_scheduler_no")	== null ? "" : jsonObj.get("sql_std_qty_scheduler_no") + "");
+			model.setFile_cnt					(jsonObj.get("file_cnt")					== null ? "" : jsonObj.get("file_cnt") + "");
+			
+			model.setSql_source_type_cd			(jsonObj.get("sql_source_type_cd")			== null ? "" : jsonObj.get("sql_source_type_cd") + "");
+			model.setGather_term_type_cd		(jsonObj.get("gather_term_type_cd")			== null ? "" : jsonObj.get("gather_term_type_cd") + "");
+			model.setGather_range_div_cd		(jsonObj.get("gather_range_div_cd")			== null ? "" : jsonObj.get("gather_range_div_cd") + "");
+			model.setGather_term_start_day		(jsonObj.get("gather_term_start_day")		== null ? "" : jsonObj.get("gather_term_start_day") + "");
+			model.setGather_term_end_day		(jsonObj.get("gather_term_end_day")			== null ? "" : jsonObj.get("gather_term_end_day") + "");
+			model.setOwner_list					(jsonObj.get("owner_list")					== null ? "" : jsonObj.get("owner_list") + "");
+			model.setModule_list				(jsonObj.get("module_list")					== null ? "" : jsonObj.get("module_list") + "");
+			model.setExtra_filter_predication	(jsonObj.get("extra_filter_predication")	== null ? "" : jsonObj.get("extra_filter_predication") + "");
+			model.setStd_qty_target_dbid		(jsonObj.get("std_qty_target_dbid")			== null ? "" : jsonObj.get("std_qty_target_dbid") + "");
+			
+			if(jsonObj.get("sql_cnt") != null) {
+				model.setSql_cnt(Integer.parseInt(jsonObj.get("sql_cnt") + ""));
+			}
+		} catch(NumberFormatException e) {
+			logger.error(">>> makeModelfromJSONObject Exception occured :", e);
+			
+			throw new NumberFormatException(e.getMessage());
+		}
+		
+		logger.trace("model:\n" + model);
+		logger.trace("end of makeModelfromJSONObject");
+		return model;
+	}
+	private Result processForceCompletion(String sql_std_qty_chkt_id) {
+		logger.trace("Start processForceCompleteMode");
+		SqlStandardOperationPlugIn sqlStandardOperationPlugIn = new SqlStandardOperationPlugIn();
+		Result result = new Result();
+		
+		try {
+			sqlStandardOperationPlugIn.setSql_std_qty_chkt_id(sql_std_qty_chkt_id);
+			
+			/* SQL-4: 강제완료처리 */
+			sqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecForceComplete(sqlStandardOperationPlugIn);
+			
+			result.setResult(true);
+		} catch(NullPointerException e) {
+			logger.error("processForceCompletion >> NullPointerException : ", e);
+			result.setResult(false);
+			result.setMessage(e.getMessage());
+		} catch(Exception e) {
+			logger.error(".processForceCompletion >> Exception : ", e);
+			result.setResult(false);
+			result.setMessage(e.getMessage());
+		}
+		logger.trace("end of processForceCompleteMode");
+		return result;
+	}
+	
+	private JSONObject sendMsg(LinkedList jsonList, int jsonListSize, HashMap resultMap) {
+		logger.trace("Start sendMsg");
+		long startTime = System.currentTimeMillis();
+		JSONObject jsonObj = null;
+		String sqlStdQtyProgramSeq = "";
+		String dbid = "";
+		boolean isLast = false;
+		boolean force_completion = false;
+		JSONObject lastObj = null;
+		String sql_std_qty_div_cd = "";
+		long sendMsgSleepTimeL = 0L;
+		int sendMsgSqlCntI = 0;
+		
+		if(sendMsgSleepTime == null) {
+			sendMsgSleepTimeL = 50L;
+		} else {
+			sendMsgSleepTimeL = Long.parseLong(sendMsgSleepTime);
+		}
+		
+		if(sendMsgSqlCnt == null) {
+			logger.debug("sendMsg >> sendMsgSqlCnt is null. set sendMsgSqlCntI default value [10]");
+			sendMsgSqlCntI = 10;
+		} else {
+			sendMsgSqlCntI = Integer.parseInt(sendMsgSqlCnt);
+		}
+		logger.debug("sendMsg >> sendMsgSleepTimeL[" + sendMsgSleepTimeL + "] sendMsgSqlCntI[" + sendMsgSqlCntI + 
+				"]jsonListSize[" + jsonListSize + "]");
+		for(int listIdx = 0; listIdx < jsonListSize; listIdx++) {
+			jsonObj = (JSONObject) jsonList.get(listIdx);
+			
+			sqlStdQtyProgramSeq = jsonObj.get("sql_std_qty_program_seq") + "";
+			dbid = jsonObj.get("dbid") + "";
+			isLast = Boolean.parseBoolean(jsonObj.get("is_last") + "");
+			sql_std_qty_div_cd = jsonObj.get("sql_std_qty_div_cd") + "";
+			
+			if(jsonObj.containsKey("force_completion") == true) {
+				force_completion = Boolean.parseBoolean(jsonObj.get("force_completion") + "");
+			}
+			
+			jsonObj.put("dbid", Long.parseLong(dbid));
+			jsonObj.put("base_day", this.baseDay);
+			
+			if(resultMap != null && resultMap.get("err_cnt") != null && Integer.parseInt(resultMap.get("err_cnt") + "") > 0 && 
+					resultMap.containsKey(sqlStdQtyProgramSeq) == true) {
+				logger.debug("sendMsg >> write err_msg");
+				jsonObj.put("err_msg", resultMap.get(sqlStdQtyProgramSeq));
+			}
+			
+			try {
+				logger.debug("sendMsg >> putMsg >>> sql_std_qty_chkt_id[" + jsonObj.get("sql_std_qty_chkt_id") +
+						"] sql_std_qty_div_cd[" + sql_std_qty_div_cd + "] sqlStdQtyProgramSeq[" + sqlStdQtyProgramSeq + 
+						"] isLast[" + isLast + "]");
+				putMsg(sql_std_qty_div_cd, jsonObj.toString());
+				
+				if(listIdx > 0 && (listIdx % sendMsgSqlCntI) == 0) {
+					logger.debug("sendMsg >> Thread.sleep[" + sendMsgSleepTimeL + "] listIdx[" + listIdx + 
+							"] sendMsgSqlCntI[" + sendMsgSqlCntI + "]");
+					Thread.sleep(sendMsgSleepTimeL);
+				}
+				
+				if(force_completion == true) {
+					logger.debug("sendMsg >> Make to Force Completion msg");
+					lastObj = makeObj(jsonObj, "force_completion");
+//					putMsg(lastObj.toString());
+				} else if(isLast == true) {
+					logger.debug("sendMsg >> Make to last msg");
+					lastObj = makeObj(jsonObj, "last");
+				}
+			} catch (Exception e) {
+				logger.error("sendMsg Exception :", e);
+			}
+		}
+		logger.trace("End of sendMsg >> used time [" + (System.currentTimeMillis() - startTime) / 1000 + "](ms)");
+		return lastObj;
+	}
+	
+	public void putMsg(String type) throws Exception {
+		CxClient.get().putMsg(type);
+	}
+	
+	public void putMsg(String type, String msg) throws Exception {
+		CxClient.get().putMsg(type, msg);
+	}
+	
+	private JSONObject makeObj(JSONObject jsonObj, String key) {
+		JSONObject lastObj = new JSONObject();
+		
+		lastObj.put(key, fill('.', 1));
+		lastObj.put("sql_std_qty_scheduler_no", jsonObj.get("sql_std_qty_scheduler_no"));
+		lastObj.put("sql_std_qty_chkt_id", jsonObj.get("sql_std_qty_chkt_id"));
+		lastObj.put("sql_cnt", Long.valueOf(jsonObj.get("sql_std_qty_program_seq") + ""));
+		lastObj.put("sql_std_qty_div_cd", jsonObj.get("sql_std_qty_div_cd") + "");
+		lastObj.put("project_id", jsonObj.get("project_id") + "");
+		lastObj.put("parser_code", jsonObj.get("parser_code"));
+		lastObj.put("is_last", jsonObj.get("is_last"));
+		lastObj.put("std_qty_target_dbid", jsonObj.get("dbid"));
+		
+		if(jsonObj.get("force_completion") != null) {
+			lastObj.put("force_completion", jsonObj.get("force_completion") + "");
+		}
+		
+		return lastObj;
+	}
+	
+	private String fill(char c, int len) {
+		char[] chars = new char[len];
+		Arrays.fill(chars, c);
+		
+		return new String(chars);
+	}
+	
+	private HashMap createPlan(JSONObject jsonMaster) throws NullPointerException, Exception {
+		logger.trace("Start createPlan");
+		HashMap resultMap = new HashMap();
+		PreparedStatement pstmt = null;
+		long beforeTime = System.currentTimeMillis();
+		JSONArray jsonArrayRes = null;
+		JSONObject jsonObjRes = null;
+		JSONArray jsonArrayErr = null;
+		HashMap errMap = null;
+		Iterator keyIter = null;
+		int errCnt = 0;
+		
+		try {
+			/* Call Rule 100 */
+			long beforeCreatePlanTime = System.currentTimeMillis();
+			jsonArrayRes = InspectSqlCodeTask.createPlan(jsonMaster);
+			logger.trace("createPlan >> use time [" + (System.currentTimeMillis() - beforeCreatePlanTime) / 1000.0 + "]");
+			logger.trace("createPlan >> jsonArrayRes >> \n" + jsonArrayRes.toJSONString());
+			
+			if(( jsonMaster.get("sql_std_qty_div_cd") != null && "2".equals(jsonMaster.get("sql_std_qty_div_cd"))) && 
+					jsonMaster.get("force_completion") != null && "true".equals(jsonMaster.get("force_completion"))) {
+				/* check batch And force completion */
+				jsonObjRes = (JSONObject) jsonArrayRes.get(0);
+				resultMap.put("is_error", jsonObjRes.get("is_error"));
+				resultMap.put("err_msg", jsonObjRes.get("err_msg"));
+			} else {
+				jsonObjRes = (JSONObject) jsonArrayRes.get(0);
+				String KILL_INSPECT = "KILL_INSPECT";
+				
+				if(jsonObjRes.containsKey("is_error") == true && "false".equals(jsonObjRes.get("is_error")) &&
+						jsonObjRes.containsKey("err_msg") == true && KILL_INSPECT.equals(jsonObjRes.get("err_msg")) == true) {
+					resultMap.put("is_error", jsonObjRes.get("is_error"));
+					resultMap.put("err_msg", jsonObjRes.get("err_msg"));
+				} else if(jsonObjRes.containsKey("is_error") == true && "false".equals(jsonObjRes.get("is_error")) &&
+						jsonObjRes.containsKey("err_msg") == true && "Complete".equals(jsonObjRes.get("err_msg"))) {
+					/* Master Alive(PING 요청) */
+					resultMap.put("is_error", jsonObjRes.get("is_error"));
+					resultMap.put("err_msg", jsonObjRes.get("err_msg"));
+				} else {
+					errCnt = Integer.parseInt(jsonObjRes.get("err_cnt") + "");
+					resultMap.put("err_cnt", errCnt);
+					logger.debug("createPlan >> errCnt["+ errCnt + "]");
+					
+					if(errCnt > 0) {
+						resultMap = updatePlan100((JSONArray) jsonArrayRes.get(1));
+					}
+				}
+			}
+		} catch(SQLSyntaxErrorException e) {
+			logger.error("createPlan >> SQLSyntaxErrorException >>> ", e);
+			throw new Exception(e);
+		} catch(SQLException e) {
+			logger.error("createPlan >> SQLException >>> ", e);
+			throw new Exception(e);
+		} catch(NullPointerException e) {
+			logger.error("createPlan >> NullPointerException >>> ", e);
+			throw new Exception(e);
+		} catch(Exception e) {
+			logger.error("createPlan >> Exception >>> ", e);
+			throw new Exception(e);
+		}
+		logger.trace("createPlan >> resultMap [ " + resultMap.toString() + " ]");
+		logger.trace("end of createPlan [" + (System.currentTimeMillis() - beforeTime) / 1000.0 + "]");
+		return resultMap;
+	}
+	
+	private HashMap updatePlan100(JSONArray jsonArrayErr) throws SQLException {
+		logger.trace("Start updatePlan100");
+		long startTime = System.currentTimeMillis();
+		HashMap resultMap = new HashMap();
+		SqlStandardOperationPlugIn updateModel = new SqlStandardOperationPlugIn();
+		ArrayList<SqlStandardOperationPlugIn> batchList = new ArrayList<SqlStandardOperationPlugIn>();
+		HashMap errMap = null;
+		Iterator keyIter = null;
+		
+		try {
+			errMap = (HashMap) jsonArrayErr.get(0);
+			keyIter = errMap.keySet().iterator();
+			
+			while(keyIter.hasNext()) {
+				updateModel = new SqlStandardOperationPlugIn();
+				
+				String key = keyIter.next() + "";		/* sqlStdQtyChktId_sqlStdQtyProgramSeq */
+				String value = errMap.get(key) + "";	/* err_msg > ORAERR_xxx */
+				String[] splitArr = key.split("_");		/* index 0 > sql_std_qty_chkt_id     *
+														 * index 1 > sql_std_qty_program_seq */
+				updateModel.setErr_msg(value);
+				updateModel.setSql_std_qty_chkt_id(splitArr[0]);
+				updateModel.setSql_std_qty_program_seq(splitArr[1]);
+				
+				batchList.add(updateModel);
+				resultMap.put(splitArr[1], value);
+			}
+			
+			updatePlan100Foreach(batchList);
+		} catch(SQLSyntaxErrorException e) {
+			logger.error("updatePlan100 >> SQLSyntaxErrorException :", e);
+			resultMap.put("is_error", "true");
+			resultMap.put("err_msg", e.getMessage());
+		} catch(SQLException e) {
+			logger.error("updatePlan100 >> SQLException :", e);
+			resultMap.put("is_error", "true");
+			resultMap.put("err_msg", e.getMessage());
+		} catch(NullPointerException e) {
+			logger.error("updatePlan100 >> NullPointerException :", e);
+			resultMap.put("is_error", "true");
+			resultMap.put("err_msg", e.getMessage());
+		} catch(Exception e) {
+			logger.error("updatePlan100 >> Exception :", e);
+			resultMap.put("is_error", "true");
+			resultMap.put("err_msg", e.getMessage());
+		} finally {
+		}
+		logger.trace("updatePlan100 >> resultMap [ " + resultMap.toString() + " ]");
+		logger.trace("end of updatePlan100 UsedTime[" + (System.currentTimeMillis() - startTime) / 1000.0 + "]s");
+		return resultMap;
+	}
+	
+	/**
+	 * 
+	 * @param boxModel
+	 * @return  0 : This message is not force  completion.<br>
+	 *			1 : Force completion of this message is already registered.<br>
+	 *			2 : Force completion of this message is newly registered.<br>
+	 */
+	private int isAlreadyRegisteredForceComplete(String project_id, int sql_std_qty_div_cd, 
+			String sql_std_qty_scheduler_no, String sql_std_qty_chkt_id, boolean force_completion) 
+					throws NullPointerException, Exception {
+		logger.trace("Start isAlreadyRegisteredForceComplete");
+		HashMap<String, Object> inMap = null;
+		String regist_sql_std_qty_chkt_id = "";
+		int resultIdx = 0;			/* 0 : This message is not force  completion.                  */
+									/* 1 : Force completion of this message is already registered. */
+									/* 2 : Force completion of this message is newly registered.   */
+		
+		try {
+			if(sql_std_qty_div_cd != 2 && sql_std_qty_div_cd != 4) {
+				return resultIdx;
+			}
+			
+			logger.trace("isAlreadyRegisteredForceComplete >> project_id[" + 
+					project_id + "] sql_std_qty_div_cd[" + sql_std_qty_div_cd + 
+					"] sql_std_qty_scheduler_no[" + sql_std_qty_scheduler_no + 
+					"] sql_std_qty_chkt_id[" + sql_std_qty_chkt_id + 
+					"] force_completion[" + force_completion + "]");
+			if(force_completion == true) {
+				if(this.forceCompletionMap.containsKey(project_id) == true) {
+					inMap = this.forceCompletionMap.get(project_id);
+					
+					regist_sql_std_qty_chkt_id = inMap.get("sql_std_qty_chkt_id") + "";
+					
+					if(sql_std_qty_chkt_id.equals(regist_sql_std_qty_chkt_id) == true) {
+						resultIdx = 1;
+					} else {
+						inMap.put("sql_std_qty_chkt_id", sql_std_qty_chkt_id);
+						inMap.put("sql_std_qty_scheduler_no", sql_std_qty_scheduler_no);
+						inMap.put("sql_std_qty_div_cd", sql_std_qty_div_cd);
+						
+						this.forceCompletionMap.put(project_id, inMap);
+						
+						resultIdx = 2;
+					}
+				} else {
+					inMap = new HashMap<String, Object>();
+					
+					inMap.put("sql_std_qty_chkt_id", sql_std_qty_chkt_id);
+					inMap.put("sql_std_qty_scheduler_no", sql_std_qty_scheduler_no);
+					inMap.put("sql_std_qty_div_cd", sql_std_qty_div_cd);
+					
+					this.forceCompletionMap.put(project_id, inMap);
+					
+					resultIdx = 2;
+				}
+			} else {
+				if(this.forceCompletionMap.containsKey(project_id) == true) {
+					inMap = this.forceCompletionMap.get(project_id);
+					
+					regist_sql_std_qty_chkt_id = inMap.get("sql_std_qty_chkt_id") + "";
+					
+					if(sql_std_qty_chkt_id.equals(regist_sql_std_qty_chkt_id) == true) {
+						resultIdx = 1;
+					} else {
+						this.forceCompletionMap.remove(project_id);
+						
+						resultIdx = 0;
+					}
+				}
+			}
+		} catch(NullPointerException e) {
+			resultIdx = -1;
+			logger.error("isAlreadyRegisteredForceComplete >> NullPointerException :", e);
+			throw new Exception(e);
+		} catch(Exception e) {
+			resultIdx = -1;
+			logger.error("isAlreadyRegisteredForceComplete >> Exception :", e);
+			throw new Exception(e);
+		}
+		
+		logger.trace("end of isAlreadyRegisteredForceComplete >> resultIdx [" + resultIdx + "]");
+		return resultIdx;
+	}
+	
+	@Override
+	public String createPlan(SqlStandardOperationPlugIn sqlStandardOperationPlugIn) throws Exception {
+		String status = "true";
+		int result = -1;
+		String dbId = "";
+		String sql_std_qty_chkt_id = "";
+		
+		try {
+			dbId = getDbid(sqlStandardOperationPlugIn);
+			sql_std_qty_chkt_id = sqlStandardOperationPlugIn.getSql_std_qty_chkt_id();
+			
+			result = SelfSQLStdQtyExplainPlan.createPlan(Long.parseLong(dbId), sql_std_qty_chkt_id, sqlStandardOperationPlugIn.getDb_user());
+			
+			logger.debug("createPlan result[" + result + "]");
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			status = "false";
+		}
+		
+		return status;
+	}
+	
+	@Override
+	public int checkPlanGenerationCompleted(SqlStandardOperationPlugIn sqlStandardOperationPlugIn) throws Exception {
+		logger.trace("Start checkPlanCompleted");
+		int result = -1;
+		boolean flag = true;
+		LinkedList<JSONObject> jsonList = null;
+		JSONObject lastObj = null;
+		SqlStandardOperationPlugIn resultModel = null;
+		int sqlCnt = 0;
+		long firstSleepTime = 50L;
+		long selectSleepTime = 500L;
+		long commitSleepTime = 3000L;
+		long forceSleepTime = (sqlCnt * firstSleepTime);
+		long waitingTime = 0L;
+		long waitingTotalTime = 0L;
+		SqlStandardOperationPlugIn model = new SqlStandardOperationPlugIn();
+		long beginCheckPlanCompleted = System.currentTimeMillis();
+		int retryCount = 1;
+		
+		try {
+			jsonList = sqlStandardOperationPlugIn.getJson_list();
+			lastObj = jsonList.getLast();
+			sqlCnt = Integer.parseInt(lastObj.get("sql_cnt") + "");
+			logger.debug("checkPlanCompleted >> forceSleepTime[" + forceSleepTime + 
+					"] To TimeSeconds[" + DateUtil.convertMillisecondsToTimeSeconds(forceSleepTime) + "] sqlCnt[" + sqlCnt + "]");
+			model.setSql_std_qty_chkt_id(lastObj.get("sql_std_qty_chkt_id") + "");
+			
+			Thread.sleep(forceSleepTime);
+			
+			while(flag) {
+				resultModel = sqlStandardOperationPlugInDao.checkPlanGenerationCompleted(model);
+				
+				waitingTime += selectSleepTime;
+				logger.debug("checkPlanCompleted >> selectSleepTime [" + waitingTime + "] To TimeSeconds[" + DateUtil.convertMillisecondsToTimeSeconds(waitingTime) + "]");
+				Thread.sleep(selectSleepTime);
+				
+				result = resultModel.getCheck_Plan_generation_count();
+				
+				logger.debug("checkPlanCompleted >> check_Plan_generation_count [" + result + "]");
+				
+				if(result > 0) {
+					logger.debug("checkPlanCompleted >> end of Waiting Time [" + 
+							(System.currentTimeMillis() - beginCheckPlanCompleted) / 1000.0 + "] forceSleepTime[" + forceSleepTime + "]");
+					flag = false;
+				} else {
+					if(waitingTime >= forceSleepTime) {
+						if(retryCount <= 3) {
+							logger.debug("checkPlanCompleted >> will try total 3 time. [" + 
+									retryCount++ + "] time is over.");
+							waitingTotalTime += waitingTime;
+							waitingTime = 0L;
+							continue;
+						} else {
+							logger.debug("end of Force Out >> Time[" + 
+									(System.currentTimeMillis() - beginCheckPlanCompleted) / 1000.0 + 
+									"] waitingTotalTime[" + waitingTotalTime + 
+									"] To TimeSeconds[" + DateUtil.convertMillisecondsToTimeSeconds(waitingTotalTime) + 
+									"] forceSleepTime [" + forceSleepTime + 
+									"] To TimeSeconds[" + DateUtil.convertMillisecondsToTimeSeconds(forceSleepTime) + "]");
+							break;
+						}
+					}
+					
+					logger.trace("putMsg lastObj[" + lastObj.toString() + "]");
+//					putMsg(lastObj.toString());
+					
+					waitingTime += commitSleepTime;
+					logger.trace("commitSleepTime [" + commitSleepTime + 
+							"] to TimeSeconds[" + DateUtil.convertMillisecondsToTimeSeconds(commitSleepTime) + "]");
+					Thread.sleep(commitSleepTime);
+				}
+			}
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			result = -1;
+		}
+		logger.trace("end of checkPlanCompleted");
+		return result;
+	}
+	
+	private String getDbid(SqlStandardOperationPlugIn sqlStandardOperationPlugIn) throws Exception {
+		Database tempDb = new Database();
+		Database database = new Database();
+		String dbid = "";
+		
+		try {
+			tempDb.setDb_name(sqlStandardOperationPlugIn.getDb_name());
+			
+			database = sqlStandardOperationPlugInDao.findDbId(tempDb);
+			
+			dbid = database.getDbid();
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			dbid = "N/A";
+		}
+		
+		return dbid;
+	}
+	
+	@Override
+	public List<Database> findDbid(SqlStandardOperationPlugIn sqlStandardOperationPlugIn) throws Exception {
+		Database tempDb = new Database();
+		Database database = new Database();
+		String dbid = "";
+		List<Database> resultList = new ArrayList<Database>();
+		
+		try {
+			tempDb.setDb_name(sqlStandardOperationPlugIn.getDb_name());
+			
+			database = sqlStandardOperationPlugInDao.findDbId(tempDb);
+			
+			dbid = database.getDbid();
+			
+			resultList.add(database);
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			dbid = "N/A";
+		}
+		
+		return resultList;
+	}
+	
+	/**
+	 * Not used
+	 */
+	@Override
+	public List<SqlStandardOperationPlugIn> getNonComplianceData(SqlStandardOperationPlugIn sqlStandardOperationPlugIn) throws Exception {
+		ProjectSqlQtyChkRule projectSqlQtyChkRule = new ProjectSqlQtyChkRule();
+		List<SqlStandardOperationPlugIn> resultList = new ArrayList<SqlStandardOperationPlugIn>();
+		ProjectSqlQtyChkRule resultModel = new ProjectSqlQtyChkRule();
+		String qty_chk_sql = "";
+		
+		try {
+			sqlStandardOperationPlugIn.setDbid(getDbid(sqlStandardOperationPlugIn));
+			
+			projectSqlQtyChkRule.setProject_id(sqlStandardOperationPlugIn.getProject_id());
+			projectSqlQtyChkRule.setQty_chk_idt_cd(sqlStandardOperationPlugIn.getQty_chk_idt_cd());
+			
+			resultModel = projectSqlQtyChkRuleMngDao.getProjectSqlStdQtyChkSqlUnit(projectSqlQtyChkRule);
+			
+			qty_chk_sql = resultModel.getQty_chk_sql();
+			
+			try {
+				qty_chk_sql = CryptoUtil.decryptAES128(qty_chk_sql, key);
+				resultModel.setQty_chk_sql(qty_chk_sql);
+				sqlStandardOperationPlugIn.setQty_chk_sql(qty_chk_sql);
+			} catch(Exception e) {
+				String msg = "복호화하는 과정에서 에러가 발생하였습니다. 해당 RULE을 수정해 주세요.";
+				logger.error(msg);
+				logger.error(ERROR_TRACE, e);
+				resultModel.setQty_chk_sql(msg);
+			}
+			
+			resultList = sqlStandardOperationPlugInDao.getNonComplianceData(sqlStandardOperationPlugIn);
+			
+			resultList = processingData(resultList);
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			throw e;
+		}
+		
+		return resultList;
+	}
+	
+	private List<SqlStandardOperationPlugIn> processingData(List<SqlStandardOperationPlugIn> orgList) throws Exception {
+		SqlStandardOperationPlugIn model;
+		List<SqlStandardOperationPlugIn> resultList = new LinkedList<SqlStandardOperationPlugIn>();
+		int orgListSize = 0;
+		
+		try {
+			orgListSize = orgList.size();
+			
+			for(int orgListIndex = 0; orgListIndex < orgListSize; orgListIndex++) {
+				model = orgList.get(orgListIndex);
+				
+				compareResultList(resultList, model, orgListIndex);
+			}
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			throw e;
+		}
+		
+		return resultList;
+	}
+	
+	private void compareResultList(List<SqlStandardOperationPlugIn> resultList, SqlStandardOperationPlugIn model, int targetListIndex) throws Exception {
+		SqlStandardOperationPlugIn targetModel;
+		String fileNm = "";
+		String programNm = "";
+		String dirNm = "";
+		
+		try {
+			model.setFile_nm_table(combineFileNmTable(model));
+			model.setProgram_nm_table(combineProgramNmTable(model));
+			model.setDir_nm_table(combineDirNmTable(model));
+			
+			if(targetListIndex == 0) {
+				
+				resultList.add(model);
+				
+				return;
+			}
+			
+			targetModel = resultList.get(targetListIndex - 1);
+			
+			fileNm = model.getFile_nm();
+			programNm = model.getProgram_nm();
+			dirNm = model.getDir_nm();
+			
+			if(model.getErr_msg() == null) {
+				model.setErr_msg("");
+			}
+			
+			if(dirNm.equals(targetModel.getDir_nm())) {
+				model.setDir_nm_table("");
+			}
+			
+			if(fileNm.equals(targetModel.getFile_nm())) {
+				model.setFile_nm_table("");
+			}
+			
+			if(programNm.equals(targetModel.getProgram_nm())) {
+				model.setProgram_nm_table("");
+			}
+			
+			resultList.add(model);
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			throw e;
+		}
+		
+		return;
+	}
+	
+	@Override
+	public List<SqlStandardOperationPlugInResponse> getNonComplianceDataResponse(SqlStandardOperationPlugIn sqlStandardOperationPlugIn) throws Exception {
+		ProjectSqlQtyChkRule projectSqlQtyChkRule = new ProjectSqlQtyChkRule();
+		List<SqlStandardOperationPlugIn> resultList = new ArrayList<SqlStandardOperationPlugIn>();
+		List<SqlStandardOperationPlugInResponse> responseList = null;
+		ProjectSqlQtyChkRule resultModel = new ProjectSqlQtyChkRule();
+		String qty_chk_sql = "";
+		
+		try {
+			sqlStandardOperationPlugIn.setDbid(getDbid(sqlStandardOperationPlugIn));
+			
+			projectSqlQtyChkRule.setProject_id(sqlStandardOperationPlugIn.getProject_id());
+			projectSqlQtyChkRule.setQty_chk_idt_cd(sqlStandardOperationPlugIn.getQty_chk_idt_cd());
+			
+			resultModel = projectSqlQtyChkRuleMngDao.getProjectSqlStdQtyChkSqlUnit(projectSqlQtyChkRule);
+			
+			if(resultModel == null) {
+				String msg = "프로젝트[" + sqlStandardOperationPlugIn.getProject_id() + 
+						"]의 SQL 품질점검 RULE 정보가 DB에 존재하지 않습니다.";
+				throw new Exception(msg); 
+			}
+			
+			qty_chk_sql = resultModel.getQty_chk_sql();
+			
+			try {
+				qty_chk_sql = CryptoUtil.decryptAES128(qty_chk_sql, key);
+				resultModel.setQty_chk_sql(qty_chk_sql);
+				sqlStandardOperationPlugIn.setQty_chk_sql(qty_chk_sql);
+			} catch(Exception e) {
+				String msg = "복호화하는 과정에서 에러가 발생하였습니다. 해당 RULE을 수정해 주세요.";
+				logger.error(msg);
+				logger.error(ERROR_TRACE, e);
+				resultModel.setQty_chk_sql(msg);
+			}
+			
+			resultList = sqlStandardOperationPlugInDao.getNonComplianceData(sqlStandardOperationPlugIn);
+			
+			responseList = processingDataResponse(resultList);
+		} catch(Exception e) {
+			logger.error("getNonComplianceDataResponse >> Exception >>> ", e);
+			throw e;
+		}
+		
+		return responseList;
+	}
+	
+	private List<SqlStandardOperationPlugInResponse> processingDataResponse(List<SqlStandardOperationPlugIn> orgList) throws Exception {
+		SqlStandardOperationPlugIn model;
+		SqlStandardOperationPlugInResponse responseModel;
+		List<SqlStandardOperationPlugInResponse> resultList = new LinkedList<SqlStandardOperationPlugInResponse>();
+		int orgListSize = 0;
+		
+		try {
+			orgListSize = orgList.size();
+			
+			for(int orgListIndex = 0; orgListIndex < orgListSize; orgListIndex++) {
+				responseModel = new SqlStandardOperationPlugInResponse();
+				model = orgList.get(orgListIndex);
+				
+				compareResultListResponse(resultList, responseModel, model, orgListIndex);
+			}
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			throw e;
+		}
+		
+		return resultList;
+	}
+	
+	private void compareResultListResponse(List<SqlStandardOperationPlugInResponse> resultList, 
+			SqlStandardOperationPlugInResponse shortModel, SqlStandardOperationPlugIn model, 
+			int targetListIndex) throws Exception {
+		SqlStandardOperationPlugInResponse targetModel;
+		String fileNm = "";
+		String programNm = "";
+		String dirNm = "";
+		boolean fileCompareFlag = false;
+		
+		try {
+			shortModel.setFile_nm_table(combineFileNmTable(model));
+			shortModel.setProgram_nm_table(combineProgramNmTable(model));
+			shortModel.setDir_nm_table(combineDirNmTable(model));
+			shortModel.setFile_nm(model.getFile_nm());
+			shortModel.setProgram_nm(model.getProgram_nm() == null ? "" : model.getProgram_nm());
+			shortModel.setDir_nm(model.getDir_nm());
+			shortModel.setErr_msg(model.getErr_msg());
+			shortModel.setQty_chk_idt_cd(model.getQty_chk_idt_cd());
+			shortModel.setQty_chk_idt_nm(model.getQty_chk_idt_nm());
+			shortModel.setAbs_dir_nm(model.getAbs_dir_nm());
+			
+			if(targetListIndex == 0) {
+				resultList.add(shortModel);
+				return;
+			}
+			
+			targetModel = resultList.get(targetListIndex - 1);
+			
+			fileNm = model.getFile_nm();
+			programNm = model.getProgram_nm() == null ? "" : model.getProgram_nm();
+			dirNm = model.getDir_nm();
+			fileCompareFlag = fileNm.equals(targetModel.getFile_nm());
+			
+			if(model.getErr_msg() == null) {
+				shortModel.setErr_msg("");
+			}
+			
+			if(dirNm.equals(targetModel.getDir_nm())  && fileCompareFlag == true) {
+				shortModel.setDir_nm_table("");
+			}
+			
+			if(fileCompareFlag) {
+				shortModel.setFile_nm_table("");
+			}
+			
+			if(programNm.equals(targetModel.getProgram_nm()) && fileCompareFlag == true) {
+				shortModel.setProgram_nm_table("");
+			}
+			
+			resultList.add(shortModel);
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			throw e;
+		}
+		
+		return;
+	}
+	
+	private String combineFileNmTable(SqlStandardOperationPlugIn model) throws Exception {
+		StringBuffer fileNmTable = new StringBuffer();
+		
+		try {
+			fileNmTable.append(model.getFile_nm()).append(" (").append(model.getDir_err_cnt()).append(" 건)");
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			throw e;
+		}
+		
+		return fileNmTable.toString();
+	}
+	
+	private String combineProgramNmTable(SqlStandardOperationPlugIn model) throws Exception {
+		StringBuffer programNmTable = new StringBuffer();
+		String program_nm = "";
+		
+		try {
+			program_nm = model.getProgram_nm() == null ? "" : model.getProgram_nm();
+			programNmTable.append(program_nm).append(" (").append(model.getProgram_err_cnt()).append(" 건)");
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			throw e;
+		}
+		
+		return programNmTable.toString();
+	}
+	
+	private String combineDirNmTable(SqlStandardOperationPlugIn model) throws Exception {
+		StringBuffer dirNmTable = new StringBuffer();
+		
+		try {
+			dirNmTable.append(model.getDir_nm());
+		} catch(Exception e) {
+			logger.error(ERROR_TRACE, e);
+			throw e;
+		}
+		
+		return dirNmTable.toString();
+	}
+	
+	private boolean isForceCompletion(String project_id, String sql_std_qty_chkt_id, SqlStandardOperationPlugIn model) {
+		boolean flag = false;
+		int update = -1;
+		HashMap<String, Object> inMap = null;
+		String regist_sql_std_qty_chkt_id = "";
+		
+		if(forceCompletionMap != null && forceCompletionMap.size() > 0 &&
+				forceCompletionMap.containsKey(project_id) == true) {
+			inMap = this.forceCompletionMap.get(project_id);
+			
+			regist_sql_std_qty_chkt_id = inMap.get("sql_std_qty_chkt_id") + "";
+			
+			if(sql_std_qty_chkt_id.equals(regist_sql_std_qty_chkt_id) == true) {
+				forceCompletionMap.remove(project_id);
+				
+				logger.debug("isForceCompletion > This is Force Completion. forceCompletionMap :\n" + forceCompletionMap.toString());
+				update = sqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecForceComplete(model);
+				logger.debug("isForceCompletion > update[" + update + "]");
+				flag = true;
+			}
+		}
+		
+		return flag;
+	}
+	
+	@Override
+	public Result executeSql(SqlStandardOperationPlugIn model) throws Exception {
+		Result result = new Result();
+		int forceCompletionIdx = -1;
+		boolean force_completion = false;
+		String project_id = "";
+		String sql_std_qty_div_cd = "";
+		String sql_std_qty_scheduler_no = "";
+		String sql_std_qty_chkt_id = "";
+		JSONObject jsonObj = null;
+		
+		try {
+			startCxClient();
+			
+			if(model.getJson_list() != null) {
+				jsonObj = model.getJson_list().get(0);
+				
+				force_completion = Boolean.parseBoolean(jsonObj.get("force_completion") + "");
+				project_id = jsonObj.get("project_id") + "";
+				sql_std_qty_div_cd = jsonObj.get("sql_std_qty_div_cd") + "";
+				sql_std_qty_scheduler_no = jsonObj.get("sql_std_qty_scheduler_no") + "";
+				sql_std_qty_chkt_id = jsonObj.get("sql_std_qty_chkt_id") + "";
+			} else {
+				project_id = model.getProject_id();
+				sql_std_qty_div_cd = model.getSql_std_qty_div_cd();
+				sql_std_qty_scheduler_no = model.getSql_std_qty_scheduler_no();
+				sql_std_qty_chkt_id = model.getSql_std_qty_chkt_id();
+			}
+			
+			if(force_completion == false && checkFirstTimeExecuteSql(model) == false) {
+				logger.debug("executeSql >> checkExecuteSqlFirstTime is false");
+				result.setResult(false);
+				return result;
+			}
+			
+			forceCompletionIdx = isAlreadyRegisteredForceComplete(project_id, 
+					Integer.parseInt(sql_std_qty_div_cd), 
+					sql_std_qty_scheduler_no, sql_std_qty_chkt_id, force_completion);
+			
+			if(forceCompletionIdx == 2) {
+				result = processForceCompletion(sql_std_qty_chkt_id);
+				
+				if(result.getResult() == true) {
+					result.setMessage("force completion successful");
+				}
+				
+				return result;
+			} else if(forceCompletionIdx == 1) {
+				result.setResult(false);
+				result.setMessage("force completion data");
+				return result;
+			}
+			
+			result = setSelfSqlQtyChkPgmList(model);
+		} catch(Exception e) {
+			logger.error("executeSql >> Exception >>> ", e);
+			throw new Exception(e);
+		}
+		return result;
+	}
+	
+	private Result setSelfSqlQtyChkPgmList(SqlStandardOperationPlugIn sopi) throws Exception {
+		Result result = new Result();
+		int sql_cnt_list = -1;
+		long checkSqlSleepTime = 0L;
+		float count = 50;
+		float startNum = 1;
+		float endNum = 0;
+		
+		long int_CheckSqlSleepTime = 1000L;
+		long int_CheckSqlSleepTime_alpha = 0L;
+		long sleepTime = 0L;
+		
+		int resultCount = -1;
+		int group = -1;
+		
+		HashMap<String ,String> map = null;
+		int first_time = 0;
+		
+		String sql_std_qty_div_cd = sopi.getSql_std_qty_div_cd();
+		String parser_code = sopi.getParser_code();
+		
+		HashMap<String, String> wrkJobCdMap = null;
+		ArrayList<SqlStandardOperationPlugIn> batchList = null;
+		int updateCnt = 0;
+		long startUpdateTime = 0;
+		
+		try {
+			sql_cnt_list = sopi.getSql_cnt_list();
+			checkSqlSleepTime = sopi.getCheck_sql_sleep_time();
+			resultCount = sqlStandardOperationPlugInDao.selectCountSelfSqlStdQtyChkPgm(sopi);
+			
+			if(resultCount == 0) {
+				JSONObject objLast = new JSONObject();
+				int lastResult = -1;
+				
+				objLast.put("sql_std_qty_chkt_id", sopi.getSql_std_qty_chkt_id());
+				objLast.put("sql_std_qty_div_cd", sopi.getSql_std_qty_div_cd());
+				objLast.put("project_id", sopi.getProject_id());
+				objLast.put("sql_std_qty_scheduler_no", sopi.getSql_std_qty_scheduler_no());
+				objLast.put("sql_cnt", resultCount);
+				
+				lastResult = lastPlan(objLast);
+				result.setMessage("last");				/* use to function Check SQL */
+				result.setResultCount(lastResult);
+				
+				return result;
+			}
+			
+			wrkJobCdMap = getWrkJobCdList();
+			
+			count = sql_cnt_list;
+			int_CheckSqlSleepTime = checkSqlSleepTime;
+			sleepTime = int_CheckSqlSleepTime + int_CheckSqlSleepTime_alpha;
+			endNum = count;
+			
+			//50개씩 그룹으로 묶음. 
+			group = (int) Math.ceil(resultCount/count);
+			
+			for(int iter = 0 ; iter < group ; iter++) {
+				batchList = new ArrayList<SqlStandardOperationPlugIn>();
+				map = new HashMap<String ,String>();
+				map.put("sql_std_qty_chkt_id", sopi.getSql_std_qty_chkt_id());
+				map.put("from_sql_std_qty_program_seq", String.valueOf(startNum));
+				map.put("to_sql_std_qty_program_seq", String.valueOf(endNum));
+				
+				List<SqlStandardOperationPlugIn> list = sqlDiagnosisReportDao.selectSelfSqlStdQtyChkPgm(map);
+				
+				LinkedList<JSONObject> json_list = new LinkedList<JSONObject>();
+				
+				for(SqlStandardOperationPlugIn model : list) {
+					model.setFirst_time(first_time);
+					if(resultCount == first_time + 1) {
+						model.setIs_last(true);
+					}else {
+						model.setIs_last(false);
+					}
+					
+					model.setSql_std_qty_div_cd(sql_std_qty_div_cd);
+					model.setParser_code(parser_code);
+					
+					model = updateSelfsqlStdQtyChkPgmModel(model, wrkJobCdMap);
+					batchList.add(model);
+					
+					json_list.add(setJsonData(sopi, model));
+					first_time ++;
+				}
+				logger.trace("START setSelfSqlQtyChkPgmList.updateSelfsqlStdQtyChkPgmForeach");
+				
+				try {
+					startUpdateTime = System.currentTimeMillis();
+					updateCnt = sqlStandardOperationPlugInDao.updateSelfsqlStdQtyChkPgmForeach(batchList);
+					logger.trace("END setSelfSqlQtyChkPgmList.updateSelfsqlStdQtyChkPgmForeach > iter[" + iter + "] updateCnt[" + updateCnt + 
+							"] update time elapsed[" + (System.currentTimeMillis() - startUpdateTime) / 1000 + "]");
+				} catch(Exception e) {
+					logger.error("*** Foreach Insert Error *********************** :", e);
+				}
+				
+				
+				sopi.setJson_list(json_list);
+				
+				logger.trace("START setSelfSqlQtyChkPgmList.taskExecuteSqlPlan");
+				result = taskPlanExecuteSql(sopi);
+				logger.trace("END setSelfSqlQtyChkPgmList.taskExecuteSqlPlan , sleep [{}]", sleepTime);
+				
+				if(result.getResult() == false) {
+					break;
+				} else {
+					if(StringUtil.isEmpty(result.getMessage()) == false && "last".equalsIgnoreCase(result.getMessage())) {
+//						//타임아웃
+//						if(result.getResultCount() == 0){
+//							result.setMessage("수행 제한 시간을 초과했습니다. 관리자에게 문의 바랍니다.");
+//							throw new Exception();
+//						//에러
+//						} else if(result.getResultCount() == -1) {
+//							result.setMessage("진단 실행 중 에러가 발생했습니다. 관리자에게 문의 바랍니다.");
+//						}
+						
+						if(result.getResultCount() == 1) {
+							result.setMessage("진단 실행 중 에러가 발생했습니다. 관리자에게 문의 바랍니다.");
+						}
+					}
+				}
+				
+				startNum = startNum + count;
+				endNum = endNum + count;
+				
+				if("3".equals(sql_std_qty_div_cd) == false && 
+						isForceCompletion(sopi.getProject_id(), sopi.getSql_std_qty_chkt_id(), sopi) == true) {
+					result.setMessage("setSelfSqlQtyChkPgmList");
+					result.setResultCount(3);
+					break;
+				}
+				
+				try {
+					Thread.sleep(sleepTime);
+				} catch (Exception e) {
+					logger.error(ERROR_TRACE, e);
+					e.printStackTrace();
+				}
+			}
+		} catch(Exception e) {
+			logger.error("setSelfSqlQtyChkPgmList Fail :",e);
+			result.setResult(false);
+			throw new Exception(e.getMessage());
+		}
+		
+		return result;
+	}
+	
+	private SqlStandardOperationPlugIn updateSelfsqlStdQtyChkPgmModel(SqlStandardOperationPlugIn model, HashMap<String, String> wrkJobCdMap) throws Exception {
+		String program_source_desc = "";
+		String sql_std_qty_div_cd = "";
+		String parser_code = "";
+		Map<String, String> idMap = null;
+		String dbio = "", dev_id = "", dev_name = "", program_desc = "", wrkjob_cd = "";
+		
+		try {
+			program_source_desc = model.getProgram_source_desc();
+			sql_std_qty_div_cd = model.getSql_std_qty_div_cd();
+			parser_code = model.getParser_code();
+			
+			if(sql_std_qty_div_cd.length() > 0 && Integer.parseInt(sql_std_qty_div_cd) == KEY_SQL_STD_QTY_DIV_CD_BATCH_EXEC) {
+				idMap = Parser.pullDBIOBatchExec(sql_std_qty_div_cd, 
+						parser_code, program_source_desc, wrkJobCdMap);
+				
+				dbio = idMap.get("dbio") + "";
+				dev_id = idMap.get("developer_id") + "";
+				dev_name = idMap.get("developer_nm") + "";
+				program_desc = idMap.get("program_desc") + "";
+				wrkjob_cd = idMap.get("wrkjob_cd") + "";
+				
+				if(wrkJobCdMap != null && wrkjob_cd.length() > 0 && wrkJobCdMap.containsKey(wrkjob_cd) == true) {
+					wrkjob_cd = wrkJobCdMap.get(wrkjob_cd);
+				}
+				
+				model.setDbio(dbio);
+				model.setDeveloper_id(dev_id);
+				model.setDeveloper_nm(dev_name);
+				model.setProgram_desc(program_desc);
+				model.setWrkjob_cd(wrkjob_cd);
+			}
+		} catch(Exception e) {
+			logger.error("updateSelfsqlStdQtyChkPgm >> Exception >>> ", e);
+			
+			throw new Exception(e);
+		}
+		
+		return model;
+	}
+	
+	private JSONObject setJsonData(SqlStandardOperationPlugIn sopi , SqlStandardOperationPlugIn model) {
+		JSONObject jsonObject = new JSONObject();
+		
+		jsonObject.put("sql_std_qty_chkt_id",StringUtil.nvl(sopi.getSql_std_qty_chkt_id()));
+		jsonObject.put("sql_std_qty_program_seq",StringUtil.nvl(model.getSql_std_qty_program_seq()));
+		jsonObject.put("project_id",StringUtil.nvl(sopi.getProject_id()));
+		jsonObject.put("wrkjob_cd",StringUtil.nvl(sopi.getWrkjob_cd()));
+		jsonObject.put("program_div_cd",StringUtil.nvl(sopi.getProgram_div_cd()));
+		
+		jsonObject.put("program_nm",StringUtil.nvl(sopi.getProgram_nm()));
+		jsonObject.put("program_desc",StringUtil.nvl(sopi.getProgram_desc()));
+		jsonObject.put("dbid",StringUtil.nvl(sopi.getDbid()));
+		jsonObject.put("db_name",StringUtil.nvl(sopi.getDb_name()));
+		jsonObject.put("dbio",StringUtil.nvl(sopi.getDbio()));
+		
+		jsonObject.put("sql_hash",StringUtil.nvl(sopi.getSql_hash()));
+		jsonObject.put("sql_length",StringUtil.nvl(sopi.getSql_length()));
+		jsonObject.put("program_source_desc",StringUtil.nvl(model.getProgram_source_desc()));
+		jsonObject.put("dir_nm",StringUtil.nvl(sopi.getDir_nm()));
+		jsonObject.put("file_nm",StringUtil.nvl(sopi.getFile_nm()));
+		
+		jsonObject.put("program_type_cd",StringUtil.nvl(sopi.getProgram_type_cd()));
+		jsonObject.put("sql_command_type_cd",StringUtil.nvl(sopi.getSql_command_type_cd()));
+		jsonObject.put("dynamic_sql_yn",StringUtil.nvl(sopi.getDynamic_sql_yn()));
+		jsonObject.put("db_user",StringUtil.nvl(sopi.getDb_user()));
+		jsonObject.put("db_name",StringUtil.nvl(sopi.getDb_name()));
+		
+		jsonObject.put("first_time",String.valueOf(sopi.getFirst_time()));
+		jsonObject.put("developer_id",StringUtil.nvl(sopi.getDeveloper_id()));
+		jsonObject.put("developer_nm",StringUtil.nvl(sopi.getDeveloper_nm()));
+		jsonObject.put("abs_dir_nm",StringUtil.nvl(sopi.getAbs_dir_nm()));
+		jsonObject.put("count_create_plan","0");
+		
+//		jsonObject.put("dbid",StringUtil.nvl(sopi.getDbid()));
+		jsonObject.put("dbid",StringUtil.nvl(sopi.getStd_qty_target_dbid()));
+		jsonObject.put("parser_code",StringUtil.nvl(sopi.getParser_code()));
+		jsonObject.put("sql_std_qty_div_cd",StringUtil.nvl(sopi.getSql_std_qty_div_cd()));
+		jsonObject.put("sql_std_qty_scheduler_no",StringUtil.nvl(sopi.getSql_std_qty_scheduler_no()));
+		jsonObject.put("file_cnt",StringUtil.nvl(sopi.getFile_cnt()));
+		
+		jsonObject.put("is_last", model.isIs_last());
+		jsonObject.put("first_time", model.getFirst_time());
+		
+		jsonObject.put("err_msg", "");
+		
+		
+		if(sopi.getSql_cnt() != 0) {
+			jsonObject.put("sql_cnt",StringUtil.nvl(sopi.getSql_cnt() + ""));
+		}
+		
+		return jsonObject;
+	}
+	
+	private Result taskPlanExecuteSql(SqlStandardOperationPlugIn model) throws NullPointerException, Exception {
+		logger.trace("Start taskPlanExecuteSql");
+		Long beforeTime = System.currentTimeMillis();
+		LinkedList<JSONObject> jsonList = null;
+		HashMap resultMap = null;
+		Result result = new Result();
+		JSONObject objLast = null;
+		int lastResult = -1;
+		
+		try {
+			jsonList = model.getJson_list();
+			objLast = jsonList.getLast();
+			
+			objLast = sendMsg(jsonList, jsonList.size(), resultMap);
+			result.setResult(true);
+			result.setResultCount(-1);
+			
+			logger.debug("taskPlanExecuteSql >> wait_for_ci_agent_complete_flag[" + wait_for_ci_agent_complete_flag + "]");
+			if("Y".equalsIgnoreCase(wait_for_ci_agent_complete_flag) &&
+					waitForCiAgentComplete(jsonList) == true) {
+				logger.debug("taskPlanExecuteSql >> waitForCiAgentComplete status is False. Force Out");
+			}
+			
+			if(objLast != null) {
+				logger.debug("taskPlanExecuteSql >> This is last msg");
+				lastResult = lastPlan(objLast);
+				result.setMessage("last");				/* use to function Check SQL */
+				result.setResultCount(lastResult);
+			}
+		} catch(NullPointerException e) {
+			logger.error("taskPlanExecuteSql >> NullPointerException >>> ", e);
+			result.setResult(false);
+			
+			throw new NullPointerException(e.getMessage());
+		} catch(SQLSyntaxErrorException e) {
+			logger.error("taskPlanExecuteSql >> SQLSyntaxErrorException >>> ", e);
+			result.setResult(false);
+			
+			throw new SQLSyntaxErrorException(e);
+		} catch(Exception e) {
+			logger.error("taskPlanExecuteSql >> Exception >>> ", e);
+			result.setResult(false);
+			
+			throw new Exception(e);
+		} finally {
+		}
+		
+		if(resultMap != null) {
+			logger.trace("taskPlanExecuteSql >> resultMap [ " + resultMap.toString() + " ]");
+		}
+		logger.trace("end of taskPlanExecuteSql[" + (System.currentTimeMillis() - beforeTime) / 1000.0 + "]");
+		return result;
+	}
+}

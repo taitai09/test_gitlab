@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>8. 품질 점검</h1>
+		<h2>8.1. SQL 표준 일괄 점검</h2>
+		<h3>8.1.2. 실행기반 SQL 표준 점검 작업</h3>
+		
+		<div>
+			<h4 class="titleStyle-none">개요</h4>
+			<p>
+				테스트 서버에서 실행된 SQL에 대한 표준을 일괄 점검한다. 
+				등록된 스케줄에 의해 SQL이 수집되고 점검을 진행한다. 
+				수행된 표준 점검 결과에 대한 집계 정보 및 표준 미준수 SQL의 상세 정보를 제공한다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<p>
+				화면은 다음과 같은 탭으로 구성되어 있다.
+			</p>
+			
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>Tab 명</th>
+							<th>Tab 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>스케줄러 관리</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										점검을 진행할 SQL 대상을 설정하고, SQL 표준 일괄 점검을 수행할 스케줄을 등록/수정/삭제한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 표준 점검 결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										수집된 SQL에 대한 표준 일괄 점검 진행 상황 및 결과를 조회한다. 점검 수행은 등록된 스케줄에 의해 자동 실행된다.
+									</li>
+									<li>
+										SQL 표준 점검 수행 결과에 대한 집계 정보 및 미준수 SQL의 상세한 정보를 엑셀로 다운로드 받을 수 있다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>표준 미준수 SQL</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										점검 수행 결과 표준을 미준수한 SQL 정보 및 미준수 품질지표 정보를 조회할 수 있다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 표준 준수 현황</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										점검 일자별 표준 미준수 본수 및 표준 미준수율, 품질지표별 미준수 본수에 대한 현황을 그래프로 보여준다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 표준 점검 예외 대상 관리</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										표준 점검 결과 예외로 처리되어야 할 대상을 관리(조회/등록/수정/삭제)한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[스케줄러 관리] 탭</h5>
+			<p>
+				수집 대상 DB정보 및 SQL 점검 대상을 설정하고, SQL 표준 일괄 점검을 수행할 스케줄을 등록/수정/삭제한다.
+			</p>
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					SQL 표준 점검을 수행하기 전에 기준 정보가 등록되어야 한다. 기준 정보 등록은 신규 프로젝트 등록 &gt; 프로젝트별 SQL 품질지표 선정 &gt; 프로젝트별 SQL 품질점검 RULE 등록 순으로 진행한다.
+					<ol>
+						<li>① 신규 프로젝트 등록: 설정 &gt; 기준정보 설정 &gt; 프로젝트 관리 &gt; [프로젝트 관리] 탭 메뉴 이용(이미 프로젝트가 등록되었을 경우 생략) </li>
+						<li>② 프로젝트별 SQL 품질지표 선정: 품질 점검 &gt; SQL 표준 점검 &gt; SQL 표준 점검 설정 &gt; 프로젝트 SQL 품질점검 지표 관리] 탭 메뉴 이용 </li>
+						<li>③ 프로젝트별 SQL 품질점검 RULE 등록: 품질 점검 &gt; SQL 표준 점검 &gt; SQL 표준 점검 설정 &gt; [프로젝트 SQL 품질점검 RULE 관리] 탭 메뉴 이용 </li>
+					</ol>
+				</p>
+			</div>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/173-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로젝트를 선택한다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>스케줄러명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄러명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>표준점검DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 수집 대상 DB</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>스케줄러 시작일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄을 시작하는 일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>스케줄러 종료일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄이 종료되는 일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>실행주기</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										스케줄을 실행하는 주기
+										<ul class="listStyle-dash">
+											<li>일: 매일 수행, 주: 매주 수행, 월: 매월 수행</li>
+										</ul>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Parser Code</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 파싱 엔진의 Parse Code</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 프로젝트 명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>스케줄러 설명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄러에 대한 설명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 소스</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										점검 대상 SQL을 수집하는 기준
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집기간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL을 수집할 기간
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Table Owner in</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 수집 대상 OWNER</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module like</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 수집 대상 Module</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Filter SQL</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 수집 조건</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 행 Click</p>
+			<ol class="listStyle-number">
+				<li>
+					그리드 행을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/173-2.png">
+					</div>
+				</li>
+				<li>
+					선택된 행의 값이 조회되며, 수정/삭제가 가능하다.
+				</li>
+			</ol>
+			
+			<h6>등록/수정/삭제 Area</h6>
+			<p class="title-h7">등록</p>
+			<ol class="listStyle-number">
+				<li>
+					초기화 버튼을 클릭한다.
+					<div class="imageBox" style="width: 830px;">
+						<img src="/resources/images/menual/bgimg_renewal/173-3.png">
+					</div>
+				</li>
+				<li>
+					관련 정보를 입력하고 [저장] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/173-4.png">
+					</div>
+				</li>
+			</ol>
+			
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="table-middleTitle" colspan="2">스케줄러 설정</td>
+						</tr>
+						<tr>
+							<td>스케줄러명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄러명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>표준점검DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 DB</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>스케줄러 시작일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄을 시작하는 일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>스케줄러 종료일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄이 종료되는 일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>실행주기</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										스케줄을 실행하는 주기
+										<ul class="listStyle-dash">
+											<li>일: 매일 수행, 주: 매주 수행, 월: 매월 수행</li>
+										</ul>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Parser Code</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 파싱 엔진의 Parse Code</li>
+									<li>오픈메이드가 고객사의 프레임워크에 맞게 구현한 코드</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 프로젝트 명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>스케줄러 설명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄러에 대한 설명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle" colspan="2">SQL 점검 대상 설정</td>
+						</tr>
+						<tr>
+							<td>SQL 소스</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										점검 대상 SQL을 수집하는 기준
+										<ul class="listStyle-dash">
+											<li>TOP: AWR을 대상으로 SQL 수집</li>
+											<li>전체SQL: V$를 대상으로 SQL 수집</li>
+										</ul>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집기간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL을 수집할 기간
+										<ul class="listStyle-dash">
+											<li>주기<br>
+												일: D-1 수집<br>
+												주: D-1 ~ 이전 1주일<br>
+												월: D-1 ~ 이전 1 개월
+											</li>
+											<li>기간: 사용자가 직접 수집 시작일자와 수집 종료일자를 입력</li>
+										</ul>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Table Owner in</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>특정 OWNER에 대한 수집이 필요한 경우 입력한다.</li>
+									<li>N개의 OWNER를 입력할 경우 콤마(,)로 분리하며 대소문자는 구분하지 않으며 최대 100개까지 입력 가능하다.<br>
+										예) ORACLE, OpenPOP, orange
+									</li>
+									<li>입력된 OWNER와 동일한 SQL에 대해서만 수집한다. 입력된 OWNER는 내부적으로 아래와 같은 조건으로 필터링에 포함된다.</li>
+									<li class="text-italic">WHERE UPEER(OWNER) IN (‘ORACLE’, ‘OPENPOP’, ORANGE’)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module like</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>소스 DB에서 특정 MODULE에 대한 수집이 필요한 경우 입력한다.</li>
+									<li>N개의 MODULE을 입력할 경우 콤마(,)로 분리하며 대소문자는 구분하지 않으며 최대 100개까지 입력 가능하다.<br>
+										예) JDBC, dbsnmp
+									</li>
+									<li>입력된 MODULE이 포함된 SQL에 대해서만 수집한다. 입력된 MODULE은 내부적으로 아래와 같은 조건으로 필터링에 포함된다.</li>
+									<li class="text-italic">WHERE (UPEER(MODULE) LIKE ‘%JDBC%’ OR 
+										UPEER(MODULE) LIKE ‘%DNSMP%’)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Filter SQL</td>
+							<td>
+								<p class="title-h7">Filter SQL</p>
+								<ul class="listStyle-dot">
+									<li>
+										[Filter SQL] 버튼을 클릭한다.
+										<div class="imageBox" style="width: 300px;">
+											<img src="/resources/images/menual/bgimg_renewal/173-5.png">
+										</div>
+									</li>
+									<li>
+										Filter SQL 팝업 창이 뜨고, Module, Action, Parsing Schema Name, 
+										SQL_TEXT, SQL ID 항목에 대한 SQL을 추가한 후 [저장]버튼을 클릭한다.
+										<div class="imageBox" style="width: 300px;">
+											<img src="/resources/images/menual/bgimg_renewal/173-6.png">
+										</div>
+									</li>
+									<li>
+										저장된 내용이 [Filter SQL] 버튼 옆에 보여진다.
+										<div class="imageBox" style="width: 300px;">
+											<img src="/resources/images/menual/bgimg_renewal/173-7.png">
+										</div>
+									</li>
+									<li>SQL_TEXT 선택 시 LIKE , NOT LIKE 만 선택 가능하다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">수정</p>
+			<ol class="listStyle-number">
+				<li>
+					수정하고자 하는 행을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/173-8.png">
+					</div>
+				</li>
+				<li>
+					관련 정보를 입력하고 [저장] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/173-9.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">삭제</p>
+			<ol class="listStyle-number">
+				<li>
+					삭제하고자 하는 행을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/173-10.png">
+					</div>
+				</li>
+				<li>
+					선택된 값이 조회되며, [삭제] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/173-11.png">
+					</div>
+				</li>
+			</ol>
+		</div>
+		
+		
+		<div class="tapScroll">
+			<h5>[SQL 표준 점검 결과] 탭</h5>
+			<p>
+				등록된 스케줄에 의해 테스트 서버에서 실행된 SQL에 대한 표준 일괄 점검을 수행한다. 
+				수행 결과에 대한 진행 상황을 조회하며, 
+				완료 건에 대한SQL 표준 점검 수행 결과에 대한 집계 정보 및 미준수 SQL의 상세한 정보를 엑셀로 다운로드 받을 수 있다. 
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/171-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 프로젝트를 선택한다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>수행 상태 Area</h6>
+			<p class="title-h7">진행상황 자동 조회</p>
+			<div>
+				<p>
+					주기적으로 Refresh할 초를 입력하고, ON으로 변경하면 해당 초의 주기에 따라 자동으로 수행결과를 Refresh한다.
+				</p>
+				<div class="imageBox" style="width: 600px;">
+					<img src="/resources/images/menual/bgimg_renewal/171-2.png">
+				</div>
+			</div>
+			
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="table-middleTitle">스케줄러명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄러명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">수행상태</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL 표준 점검의 수행 상태를 표시한다.
+										<ul class="listStyle-dash">
+											<li>수행중: 수행 중인 상태</li>
+											<li>완료: 정상적으로 수행이 완료되었을 때 상태</li>
+											<li>강제완료: 사용자가 강제완료 처리했을 때 상태</li>
+										</ul>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle" colspan="2">수행결과</td>
+						</tr>
+						<tr>
+							<td>전체</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL 표준 점검 대상 전체 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>완료</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL 표준 점검을 완료 한 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수행중</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검을 수행중인 SQL 수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">수행시작일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검을 실행한 일시</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">수행종료일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검을 종료한 일시</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">수행시간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검을 수행한 총 시간</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">표준점검DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 DB</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로젝트명</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">강제 완료 처리</p>
+			<p>진행 중인 SQL 표준 점검을 중단해야 할 사유 발생 시 강제완료처리를 수행한다. </p>
+			<ol class="listStyle-number">
+				<li>수행 중인 스케줄러를 선택하고, [강제완료처리] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-3.png">
+					</div>
+				</li>
+				<li>선택한 스케줄러의 작업이 강제완료 된다.
+					<div class="imageBox" style="width: 730px;">
+					<img src="/resources/images/menual/bgimg_renewal/171-4.png">
+				</div>
+				</li>
+			</ol>
+			
+			<h6>수행 결과 Area</h6>
+			<p class="title-h7">수행 결과 조회</p>
+			<div>
+				<p>
+					SQL 표준 점검 수행일자 별 표준을 미준수한 SQL 건수 현황을 확인 할 수 있다. 
+					그리드 행을 클릭 시 점검 지표 별 미준수 SQL건수를 조회 할 수 있다.
+				</p>
+			</div>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					수행상태가 ‘완료’인 건에 대해서만 조회가 가능하다.
+				</p>
+			</div>
+			
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>점검일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검이 수행된 일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>미준수본수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 일자의 점검 시 표준을 미준수한 SQL건수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>현황</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>‘<img class="text-image" src="/resources/images/menual/bgimg_renewal/btn-status_graph.png" style="height: 17px;">’ 아이콘 클릭 시 ‘SQL 표준 준수 현황’ 탭으로 이동하여 점검 결과를 조회</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 행 Click</p>
+			<ol class="listStyle-number">
+				<li>수행 결과를 조회할 스케줄러를 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-6.png">
+					</div>
+				</li>
+				<li>하단-좌측 그리드에서 수행 결과 집계를 조회할 점검일자를 클릭한다.
+					<div class="imageBox" style="width: 300px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-7.png">
+					</div>
+				</li>
+				<li>그리드 행을 클릭 시 점검 지표 별 미준수 SQL건수를 조회 할 수 있다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-8.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">‘SQL 표준 준수 현황’ 탭으로 이동</p>
+			<ol class="listStyle-number">
+				<li>수행 결과를 조회할 스케줄러를 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-6.png">
+					</div>
+				</li>
+				<li>하단-좌측 그리드에서 수행 결과 집계를 조회할 점검일자를 클릭한다.
+					<div class="imageBox" style="width: 300px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-9.png">
+					</div>
+				</li>
+				<li>‘SQL 표준 준수 현황’ 탭으로 이동하여 해당 점검일자의 점검 결과를 조회할 수 있다.</li>
+			</ol>
+			
+			<h6>수행 결과 상세 Area</h6>
+			<div>
+				<p>
+					수행 완료 된 SQL 표준 일괄 점검의 결과를 확인할 수 있다. 
+					해당 회차의 품질지표 별 미준수 본수를 확인할 수 있으며, 이전 회차와의 표준 준수율을 비교할 수 있다.
+				</p>
+			</div>
+			
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>프로젝트명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로젝트명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>업무</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										업무명
+									</li>
+									<li>
+										디렉토리명 또는 SQL식별자에 업무코드가 정해진 규칙이 있을 경우 커스터마이징에 의해 표시가 가능
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>전회차 총본수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전 표준점검 시 SQL 전체 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>금회차 총본수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										금번 표준점검 시 SQL 전체 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>전회자 미준수본수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전 표준점검 시 표준을 미준수한 SQL건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>금회자 미준수본수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										금번 표준점검 시 표준을 미준수한 SQL건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>전회차 준수율</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										(전회차 총본수 - 전회자 미준수본수) / 전회차 총본수 * 100
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>금회차 준수율</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										(금회차 총본수 - 금회자 미준수본수) / 금회차 총본수 * 100
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>(동적컬럼)SQL표준점검지표명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로젝트별로 설정된 SQL표준점검지표 단위 미준수 SQL 수
+									</li>
+									<li>
+										동적으로 컬럼이 확장됨. 예를 들어 A프로젝트에 4개의 표준점검지표를 설정했을 경우 4개의 컬럼이 표시됨
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>금회차 작업일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>금번 표준점검 작업일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>전회차 작업일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>이전 표준점검 작업일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>표준점검DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 DB</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집기간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL의 수집기간</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">‘표준 미준수 SQL’ 탭으로 이동</p>
+			<ol class="listStyle-number">
+				<li>수행 결과를 조회할 스케줄러를 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-6.png">
+					</div>
+				</li>
+				<li>하단-좌측 그리드에서 수행 결과 집계를 조회할 점검일자를 클릭한다.
+					<div class="imageBox" style="width: 300px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-7.png">
+					</div>
+				</li>
+				<li>그리드 행을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-10.png">
+					</div>
+				</li>
+				<li>
+					‘표준 미준수 SQL’ 탭으로 이동하여 표준을 미준수한 SQL 정보를 조회할 수 있다.
+				</li>
+			</ol>
+			
+			<p class="title-h7">수행 결과 집계 및 미준수 SQL 엑셀 다운로드</p>
+			<ol class="listStyle-number">
+				<li>
+					다운로드 받을 스케줄러를 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-5.png">
+					</div>
+				</li>
+				<li>
+					하단-좌측 그리드 행을 클릭하면 하단-우측 그리드에 수행 결과 집계가 조회된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-11.png">
+					</div>
+				</li>
+				<li>
+					[엑셀] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/171-12.png">
+					</div>
+				</li>
+			</ol>
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					다운로드 된 엑셀 파일은 3개의 Sheet로 구성되어 있다.
+					<ul class="listStyle-dot">
+						<li>SQL 품질검토 작업 집계표 Sheet: 표준 점검 결과 집계 현황</li>
+						<li>표준 미준수 SQL Sheet: 표준을 미준수 한 SQL. 미준수한 점검지표가 표시됨</li>
+						<li>표준 미준수 개발자 집계표: 개발자 별 표준을 미준수 한 SQL 수 집계 현황</li>
+					</ul>
+				</p>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[표준 미준수 SQL] 탭</h5>
+			<p>
+				점검 수행 결과 표준을 미준수한 SQL 정보 및 미준수 품질지표 정보를 조회할 수 있다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/177-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 프로젝트를 선택한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>스케줄러</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검을 수행한 스케줄러를 선택한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>품질 점검 지표</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>선택된 품질 점검 지표를 미준수한 SQL을 조회한다.</li>
+									<li>‘전체’를 선택할 경우 SQL 표준을 미준수한 SQL 전체를 조회한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL ID로 검색한다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>수행 상태 Area</h6>
+			<p class="title-h7">수행 결과 조회</p>
+			<div>
+				<p>
+					점검 수행 일자별 표준을 미준수한 SQL 건수 현황을 확인 할 수 있다.
+				</p>
+			</div>
+			
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>점검일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검이 수행된 일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>미준수본수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 일자의 점검 시 표준을 미준수한 SQL건수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>현황</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>‘<img class="text-image" src="/resources/images/menual/bgimg_renewal/btn-status_graph.png" style="height: 17px;">’ 아이콘 클릭 시 ‘SQL 표준 준수 현황’ 탭으로 이동하여 점검 결과를 조회</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 행 Click</p>
+			<ol class="listStyle-number">
+				<li>좌측 그리드에서 수행 결과를 조회할 점검일자를 클릭한다. 
+					<div class="imageBox" style="width: 300px;">
+						<img src="/resources/images/menual/bgimg_renewal/177-2.png">
+					</div>
+				</li>
+				<li>그리드 행을 클릭 시 점검 지표 별 미준수 SQL을 조회 할 수 있다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/177-3.png">
+					</div>
+				</li>
+			</ol>
+		</div>
+		
+		<p class="title-h7">‘SQL 표준 준수 현황’ 탭으로 이동</p>
+		<ol class="listStyle-number">
+			<li>좌측 그리드에서 수행 결과를 조회할 점검일자 행의 ‘현황’ 항목을 클릭한다.
+				<div class="imageBox" style="width: 300px;">
+					<img src="/resources/images/menual/bgimg_renewal/177-4.png">
+				</div>
+			</li>
+			<li>‘SQL 표준 준수 현황’ 탭으로 이동하여 해당 점검일자의 점검 결과를 조회할 수 있다.</li>
+		</ol>
+		
+		<h6>수행 결과 상세 Area</h6>
+		<p>
+			수행 완료 된 SQL 표준 일괄 점검의 결과를 확인할 수 있다. 
+			해당 회차의 품질지표 별 미준수 본수를 확인할 수 있으며, 이전 회차와의 표준 준수율을 비교할 수 있다.
+		</p>
+		<p class="title-h7">그리드 칼럼</p>
+		<div>
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>프로젝트명</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>프로젝트명</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>업무</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									업무명
+								</li>
+								<li>
+									디렉토리명 또는 SQL식별자에 업무코드가 정해진 규칙이 있을 경우 커스터마이징에 의해 표시가 가능
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>SQL ID</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									SQL ID
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Module</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Module
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>SQL명령유형</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									SQL명령유형
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>SQL식별자(DBIO)</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									SQL식별자(DBIO)
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>(동적컬럼)SQL표준점검지표명</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									프로젝트별로 설정된 SQL표준점검지표 단위 미준수 SQL 수
+								</li>
+								<li>
+									동적으로 컬럼이 확장됨. 예를 들어 A프로젝트에 4개의 표준점검지표를 설정했을 경우 4개의 컬럼이 표시됨
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>SQL Text</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>SQL Text</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>작업일자</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>표준점검 작업일자</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>표준점검DB</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>SQL 표준 점검 대상 DB</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<p class="title-h7">그리드 행 Click</p>
+		<ol class="listStyle-number">
+			<li>좌측 그리드를 클릭한다.
+				<div class="imageBox" style="width: 300px;">
+					<img src="/resources/images/menual/bgimg_renewal/177-2.png">
+				</div>
+			</li>
+			<li>조회된 우측 그리드 행을 클릭한다.
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/177-5.png">
+				</div>
+			</li>
+			<li>해당 SQL Text 전체를 팝업으로 확인할 수 있다.
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/177-6.png">
+				</div>
+			</li>
+		</ol>
+		
+		<div class="tapScroll">
+			<h5>[SQL 표준 준수 현황] 탭</h5>
+			<p>
+				점검 일자별 표준 미준수 본수 및 표준 미준수율, 품질지표별 미준수 본수에 대한 현황을 그래프로 보여준다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/178-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검을 수행한 프로젝트를 선택한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>스케줄러</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검을 수행한 스케줄러를 선택한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>기준일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>기준일자를 선택한다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>차트 Area</h6>
+			<p class="title-h7">표준 미준수 본수</p>
+			<p>
+				품질 점검 수행일자별 표준 미준수 본수를 보여준다.
+			</p>
+			<div class="imageBox" style="width: 730px;">
+				<img src="/resources/images/menual/bgimg_renewal/178-2.png">
+			</div>
+			
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>그래프 축</th>
+							<th>그래프 축 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>세로축</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>표준 미준수 건수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>가로축</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>수행일자</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그래프 Click</p>
+			<ol class="listStyle-number">
+				<li>차트 그래프를 클릭한다.
+					<div class="imageBox" style="width: 730px;">
+						<img src="/resources/images/menual/bgimg_renewal/178-3.png">
+					</div>
+				</li>
+				<li>그리드 행을 클릭 시 점검 지표 별 미준수 SQL을 조회 할 수 있다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/178-4.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">표준 준수율</p>
+			<p>
+				품질 점검 수행일자별 표준 미준수 SQL의 비율을 보여준다.
+			</p>
+			<div class="imageBox" style="width: 730px;">
+				<img src="/resources/images/menual/bgimg_renewal/178-5.png">
+			</div>
+			
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>그래프 축</th>
+							<th>그래프 축 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>세로축</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>표준 준수율 및 미준수율 (%)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>가로축</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>수행일자</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">품질지표별 미준수 본수</p>
+			<p>
+				해당 수행일자의 품질 지표별 미준수 건수를 보여준다.
+			</p>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/178-4.png">
+			</div>
+			
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>그래프 축</th>
+							<th>그래프 축 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>세로축</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로젝트별로 설정된 SQL표준점검지표</li>
+									<li>검색 시 동적으로 조회됨.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>가로축</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>품질지표별 미준수 건수</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQL 표준 점검 예외 대상 관리] 탭</h5>
+			<p>
+				표준 점검 결과 예외로 처리되어야 할 대상을 관리(조회/등록/수정/삭제)한다.
+			</p>
+		
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/172-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>품질 점검 지표 코드</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>품질 점검 지표 코드</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>표준점검DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 DB</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>업무</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>업무명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 식별자(DBIO)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 식별자(DBIO). Like 검색 가능</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL ID</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>품질 점검 지표 코드</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>품질점검 지표 코드</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>품질 점검 지표명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>품질점검 지표명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>표준점검DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 표준 점검 대상 DB</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL ID</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 식별자(DBIO)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 식별자 SQL 식별자(DBIO)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>업무 코드</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>업무 코드</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>디렉토리명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>제외할 SQL파일이 위치한 디렉토리명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>예외사유</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>예외 사유</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>요청자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>요청자 성명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>등록 일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>예외 처리가 최종 등록된 일시</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 Click</p>
+			<ol class="listStyle-number">
+				<li>
+					그리드 행을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-2.png">
+					</div>
+				</li>
+				<li>
+					선택된 행의 값이 조회되며, 수정, 삭제가 가능하다.
+					<div class="imageBox" style="width: 500px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-3.png">
+					</div>
+				</li>
+			</ol>
+			
+			<h6>등록/수정/삭제 Area</h6>
+			<p class="title-h7">SQL 품질점검 예외 대상 관리 예시</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 10%;">
+						<col style="width: 10%;">
+						<col style="width: 10%;">
+						<col style="width: 15%;">
+						<col style="width: 15%;">
+						<col style="width: 10%;">
+						<col style="width: 30%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<td>품질 점검<br>지표 코드</td>
+							<td>표준점검DB</td>
+							<td>SQL ID</td>
+							<td>SQL 식별자<br>(DBIO)</td>
+							<td>업무코드</td>
+							<td>디렉토리</td>
+							<td>처리 결과</td>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>ALL</td>
+							<td>OPENPOP</td>
+							<td>48302q9vpkr7s</td>
+							<td></td>
+							<td></td>
+							<td></td>
+							<td>
+								‘OPENPOP’ DB의 SQL ID가 ‘48302q9vpkr7s’인 SQL에 대한 모든 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>ALL</td>
+							<td>OPENPOP</td>
+							<td>48302q9vpkr7s</td>
+							<td></td>
+							<td>10002</td>
+							<td></td>
+							<td>
+								업무코드 ‘10002’의 ‘OPENPOP’ DB에 SQL ID가 ‘48302q9vpkr7s’인 SQL에 대한 모든 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>ALL</td>
+							<td></td>
+							<td></td>
+							<td></td>
+							<td>10002</td>
+							<td></td>
+							<td>
+								업무코드 ‘10002’의 ‘/tmp’ 경로에 식별자 ‘97kb5uv4yvnq9’에 대한 모든 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>ALL</td>
+							<td></td>
+							<td></td>
+							<td>97kb5uv4yvnq9</td>
+							<td>10002</td>
+							<td>/tmp</td>
+							<td>
+								업무코드 ‘10002’의 ‘/tmp’ 경로에 식별자 ‘97kb5uv4yvnq9’에 대한 모든 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>ALL</td>
+							<td></td>
+							<td></td>
+							<td>2mduqbvzytujm</td>
+							<td></td>
+							<td>/tmp</td>
+							<td>
+								‘/tmp’ 경로에 식별자 ‘2mduqbvzytujm’에 대한 모든 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>101</td>
+							<td>OPENPOP</td>
+							<td>48302q9vpkr7s</td>
+							<td></td>
+							<td></td>
+							<td></td>
+							<td>
+								‘OPENPOP’ DB의 SQL ID가 ‘48302q9vpkr7s’인 SQL에 대한 ‘101’ 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>101</td>
+							<td></td>
+							<td></td>
+							<td>97upzpjv2qu1p</td>
+							<td>10003</td>
+							<td>/share</td>
+							<td>
+								업무코드 ‘10003’의 ‘/share’ 경로에 식별자 ‘97upzpjv2qu1p’에 대한 ‘101’ 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>101</td>
+							<td></td>
+							<td></td>
+							<td></td>
+							<td>10003</td>
+							<td>/share</td>
+							<td>
+								업무코드 ‘10003’의 ‘/share’ 경로에 대한 ‘101’ 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>101</td>
+							<td></td>
+							<td></td>
+							<td>97upzpjv2qu1p</td>
+							<td>10003</td>
+							<td></td>
+							<td>
+								업무코드 ‘10003’의 식별자 ‘97upzpjv2qu1p’에 대한 ‘101’ 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>101</td>
+							<td></td>
+							<td></td>
+							<td></td>
+							<td>10003</td>
+							<td></td>
+							<td>
+								업무코드 ‘10003’에 대한 ‘101’ 품질점검지표를 예외처리
+							</td>
+						</tr>
+						<tr>
+							<td>101</td>
+							<td></td>
+							<td></td>
+							<td></td>
+							<td></td>
+							<td>/share</td>
+							<td>
+								‘/share’ 경로에 대한 ‘101’ 품질점검지표를 예외처리
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">등록</p>
+			<ol class="listStyle-number">
+				<li>
+					초기화 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-4.png">
+					</div>
+				</li>
+				<li>
+					관련 정보를 입력하고 [저장] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-5.png">
+					</div>
+				</li>
+			</ol>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					[품질 점검 지표 코드]는 필수로 입력되어야 하며 [업무 코드], [SQL 식별자(DBIO)], 
+					[디렉토리명] 중 하나를 입력하거나, [표준점검DB] 와 [SQL ID]가 입력되어야 한다.
+				</p>
+			</div>
+			
+			<p class="title-h7">수정</p>
+			<ol class="listStyle-number">
+				<li>
+					수정하고자 하는 행을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-6.png">
+					</div>
+				</li>
+				<li>
+					선택된 값이 조회되며, 변경할 값을 입력하고 [저장] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-7.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">삭제</p>
+			<ol class="listStyle-number">
+				<li>
+					삭제하고자 하는 행을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-8.png">
+					</div>
+				</li>
+				<li>
+					선택된 값이 조회되며, [삭제] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-9.png">
+					</div>
+				</li>
+			</ol>
+			
+			<h6>일괄 업로드</h6>
+			<p>대량의 데이터를 예외 처리할 경우 엑셀을 이용하여 일괄 업로드 한다. 업로드 후 성공 건수, 실패 건수, 실패 행에 대해 보여준다.</p>
+			
+			<p class="title-h7">일괄 업로드</p>
+			<ol class="listStyle-number">
+				<li>
+					데이터를 업로드 할 수 있는 양식을 다운받는다.
+					<div class="imageBox" style="width: 450px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-10.png">
+					</div>
+				</li>
+				<li>
+					다운 받은 템플릿 파일에 예외처리 할 데이터를 입력 후 저장한다.
+					<div class="noteBox">
+						<p class="noteTitle">NOTE</p>
+						<p>
+							[품질 점검 지표 코드]는 필수로 입력되어야 하며 [업무 코드], [SQL 식별자(DBIO)], 
+							[디렉토리명] 중 하나를 입력하거나, [표준점검DB] 와 [SQL ID]가 입력되어야 한다.
+						</p>
+					</div>
+				</li>
+				<li>
+					[Choose File] 버튼 클릭, 예외 처리할 엑셀 파일을 선택 후 [엑셀 업로드] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 450px;">
+						<img src="/resources/images/menual/bgimg_renewal/172-11.png">
+					</div>
+				</li>
+			</ol>
+		</div>
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

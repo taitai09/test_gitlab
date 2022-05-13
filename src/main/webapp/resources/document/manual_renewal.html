@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP USER GUIDE ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+	<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+	<link rel="stylesheet" href="/resources/css/lib/easyui/default/easyui.css"/>
+	<link rel="stylesheet" href="/resources/css/reset.css"/>
+	<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+	
+	<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery.easyui.min.js"></script>
+</head>
+<body  contextmenu="return false" ondragstart="return false" onselect="return false">
+<div id="wrapper">
+	<div id="body">
+		<div id="menu">
+			<div class="menu-header">
+				MENU
+			</div>
+			<div class="menu-content">
+				<ol>
+					<li>
+						<a href="#" data-item="1.">1. Open-POP 개요</a>
+					</li>
+					<li>
+						<a href="#">2. 제품 구성 요소 및 요구사항</a>
+						<ol>
+							<li><a href="#" data-item="2.1.">2.1. Open-POP 통합 품질 관리 시스템</a></li>
+							<li><a href="#" data-item="2.2.">2.2. 관리대상 DB 서버</a></li>
+						</ol>
+					</li>
+					<li>
+						<a href="#" data-item="3.">3. 화면 구성</a>
+					</li>
+					<li>
+						<a href="#" data-item="4.">4. 사용자 유형</a>
+					</li>
+					<li>
+						<a href="#">5. 기능구성도</a>
+						<ol>
+							<li><a href="#" data-item="5.1.">5.1. 관리자 기능 구성도</a></li>
+							<li><a href="#" data-item="5.2.">5.2. 기능 권한</a></li>
+						</ol>
+					</li>
+					<li>
+						<a href="#">6. Dashboard</a>
+						<ol>
+							<li><a href="#" data-item="6.1.">6.1. 관리자</a></li>
+							<li><a href="#" data-item="6.2.">6.2. DBA</a></li>
+							<li><a href="#" data-item="6.3.">6.3. 튜너</a></li>
+							<li><a href="#" data-item="6.4.">6.4. 개발자</a></li>
+						</ol>
+					</li>
+					<li>
+						<a href="#" data-item="7.">7. 로그인</a>
+					</li>
+					<li>
+						<a href="#" >8. 품질 점검</a>
+						<ol>
+							<li>
+								<a href="#" >8.1. SQL 표준 점검</a>
+								<ol>
+									<li>
+										<a href="#" data-item="8.1.1.">8.1.1. 형상기반 SQL 표준 점검 작업</a>
+										<ol class="tabList">
+											<li>[스케줄러 관리] 탭</li>
+											<li>[SQL 표준 점검 결과] 탭</li>
+											<li>[SQL 표준 점검 예외 대상 관리] 탭</li>
+										</ol>
+									</li>
+									<li>
+										<a href="#" data-item="8.1.2.">8.1.2. 실행기반 SQL 표준 점검 작업</a>
+										<ol class="tabList">
+											<li>[스케줄러 관리] 탭</li>
+											<li>[SQL 표준 점검 결과] 탭</li>
+											<li>[표준 미준수 SQL] 탭</li>
+											<li>[SQL 표준 준수 현황] 탭</li>
+											<li>[SQL 표준 점검 예외 대상 관리] 탭</li>
+										</ol>
+									</li>
+									<li>
+										<a href="#" data-item="8.1.3.">8.1.3. SQL 표준 점검 설정</a>
+										<ol class="tabList">
+											<li>[SQL 품질점검 지표 관리] 탭</li>
+											<li>[SQL 품질점검 RULE 관리] 탭</li>
+											<li>[프로젝트 SQL 품질점검 지표 관리] 탭</li>
+											<li>[프로젝트 SQL 품질점검 RULE 관리] 탭</li>
+										</ol>
+									</li>
+									<li><a href="#" data-item="8.1.4.">8.1.4. SQL 표준 준수 현황</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#" data-item="8.2.">8.2. SQL 성능 셀프 점검</a>
+							</li>
+							<li>
+								<a href="#" data-item="8.3.">8.3. SQL 튜닝 사례/가이드</a>
+							</li>
+						</ol>
+					</li>
+					<li>
+						<a href="#" >9. 성능 검증</a>
+						<ol>
+							<li>
+								<a href="#" >9.1. 배포전 사용자 성능 검증</a>
+								<ol>
+									<li><a href="#" data-item="9.1.1.">9.1.1. 성능 검증 관리</a></li>
+									<li><a href="#" data-item="9.1.2.">9.1.2. 성능 검증 예외 요청</a></li>
+									<li><a href="#" data-item="9.1.3.">9.1.3. 성능 검증 예외 삭제</a></li>
+									<li><a href="#" data-item="9.1.4.">9.1.4. 성능 검증 예외 처리 이력 </a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#" data-item="9.2.">9.2. 배포전 자동 성능 검증</a>
+								<ol class="tabList">
+									<li>[성능 검증 관리] 탭</li>
+									<li>성능 검증 결과</li>
+									<li>[예외 요청] 탭</li>
+									<li>[예외 삭제] 탭</li>
+									<li>[예외 처리 이력] 탭</li>
+								</ol>
+							</li>
+							<li><a href="#" data-item="9.3.">9.3. 성능 검증 현황</a></li>
+							<li><a href="#" data-item="9.4.">9.4. 성능 검증 설정</a></li>
+						</ol>
+						<!-- 탭 예시를 위해 삭제하지 않고 주석처리 하여 남겨두었습니다.
+						<ol>
+							<li>
+								<a href="#" data-item="9.2.">9.2. DB 변경 성능 영향도 분석</a>
+								<ol class="tabList">
+									<li>[성능비교] 탭</li>
+									<li>[성능비교 결과] 탭</li>
+									<li>[튜닝 실적] 탭</li>
+									<li>[SQL점검팩] 탭</li>
+								</ol>
+							</li>
+						</ol>
+						 -->
+					</li>
+					<li>
+						<a href="#" >10. 종합 진단</a>
+						<ol>
+							<li><a href="#" data-item="10.1.">10.1. 일 예방 점검</a></li>
+							<li><a href="#">10.2. 종합 진단</a>
+								<ol>
+									<li><a href="#" data-item="10.2.1.">10.2.1. DB/SQL 종합 진단</a></li>
+									<li>
+										<a href="#" data-item="10.2.2.">10.2.2. SQL 품질 진단</a>
+										<ol class="tabList">
+											<li>[스케줄러 관리] 탭</li>
+											<li>[SQL 품질 진단 현황] 탭</li>
+											<li>[SQL 품질 진단 결과] 탭</li>
+										</ol>
+									</li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">10.3. SQL 성능 진단</a>
+								<ol>
+									<li><a href="#" data-item="10.3.1.">10.3.1. SQL 진단</a></li>
+									<li><a href="#" data-item="10.3.2.">10.3.2. Top SQL 현황</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">10.4. APP 성능 진단</a>
+								<ol>
+									<li><a href="#" data-item="10.4.1.">10.4.1. APP 진단</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">10.5. 타임아웃 예측</a>
+								<ol>
+									<li><a href="#" data-item="10.5.1.">10.5.1. 신규 SQL 타임아웃 예측</a></li>
+									<li><a href="#" data-item="10.5.2.">10.5.2. 신규 APP 타임아웃 예측</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">10.6. 신규 SQL 성능 변화 분석</a>
+								<ol>
+									<li><a href="#" data-item="10.6.1.">10.6.1. 사용자 검증 배포 SQL</a></li>
+									<li>
+										<a href="#" data-item="10.6.2.">10.6.2. 자동 검증 배포 SQL</a>
+										<ol class="tabList">
+											<li>[SQL 성능 추적 현황] 탭 &gt; [성능 검증 SQL] 탭</li>
+											<li>[SQL 성능 추적 현황] 탭 &gt; [예외 처리 SQL] 탭</li>
+											<li>[SQL 성능 추적 현황] 탭 &gt; [Charts] 탭</li>
+											<li>[SQLs] 탭</li>
+										</ol>
+									</li>
+								</ol>
+							</li>
+							
+						</ol>
+					</li>
+					<li>
+						<a href="#" >11. 성능 최적화</a>
+						<ol>
+							<li>
+								<a href="#" >11.1. 성능 최적화 관리</a>
+								<ol>
+									<li><a href="#" data-item="11.1.1.">11.1.1. 튜닝 요청</a></li>
+									<li><a href="#" data-item="11.1.2.">11.1.2. 성능 개선 관리</a></li>
+									<li><a href="#" data-item="11.1.3.">11.1.3. 튜닝 이력 조회</a></li>
+									<li><a href="#" data-item="11.1.4.">11.1.4. 성능 개선 실적</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">11.2. SQL 튜닝대상 선정</a>
+								<ol>
+									<li><a href="#" data-item="11.2.1.">11.2.1. 자동 선정</a></li>
+									<li><a href="#" data-item="11.2.2.">11.2.2. 수동 선정</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#" data-item="11.3.">11.3. APP 성능 분석</a>
+							</li>
+							<li>
+								<a href="#">11.4. SQL 성능 분석</a>
+								<ol>
+									<li><a href="#" data-item="11.4.1.">11.4.1. 모듈 성능 분석</a></li>
+									<li><a href="#" data-item="11.4.2.">11.4.2. SQL 성능 분석</a></li>
+									<li><a href="#" data-item="11.4.3.">11.4.3. 테이블/인덱스 사용 SQL 분석</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">11.5. 인덱스 설계</a>
+								<ol>
+									<li><a href="#" data-item="11.5.1.">11.5.1. 수집 SQL 인덱스 설계</a></li>
+									<li><a href="#" data-item="11.5.2.">11.5.2. 적재 SQL 인덱스 설계</a></li>
+									<li><a href="#" data-item="11.5.3.">11.5.3. 인덱스 자동 설계현황</a></li>
+								</ol>
+							</li>
+						</ol>
+					</li>
+					<li>
+						<a href="#">12. 성능 시험</a>
+						<ol>
+							<li><a href="#" data-item="12.1.">12.1. DB 변경 성능 영향도 분석</a>
+								<ol class="tabList">
+									<li>[성능 영향도 분석] 탭</li>
+									<li>[성능 영향도 분석 결과] 탭</li>
+									<li>[튜닝 실적] 탭</li>
+									<li>[튜닝 SQL 일괄 검증] 탭</li>
+									<li>[운영 SQL 성능 추적] 탭</li>
+									<li>[SQL점검팩] 탭</li>
+								</ol>
+							</li>
+							<li><a href="#" data-item="12.2.">12.2. DB 변경 SQL 성능 영향도 분석</a></li>
+							<li>
+								<a href="#" data-item="12.3.">12.3. 테이블 변경 성능 영향도 분석</a>
+								<ol class="tabList">
+									<li>[성능 영향도 분석] 탭</li>
+									<li>[성능 영향도 분석 결과] 탭</li>
+									<li>[튜닝 실적] 탭</li>
+									<li>[SQL점검팩] 탭</li>
+								</ol>
+							</li>
+						</ol>
+					</li>
+					<li>
+						<a href="#" >13. DB 운영관리</a>
+						<ol>
+							<li>
+								<a href="#">13.1. 장애 예측(자원한계점) 분석</a>
+								<ol>
+									<li><a href="#" data-item="13.1.1.">13.1.1. CPU 사용량 증가원인 예측</a></li>
+									<li><a href="#" data-item="13.1.2.">13.1.2. CPU 한계점 예측</a></li>
+									<li><a href="#" data-item="13.1.3.">13.1.3. Sequence 한계점 예측</a></li>
+									<li><a href="#" data-item="13.1.4.">13.1.4. Memory 한계점 예측</a></li>
+									<li><a href="#" data-item="13.1.5.">13.1.5. Tablespace 한계점 예측</a></li>
+									<li><a href="#" data-item="13.1.6.">13.1.6. Unknown SQL 장애 예측</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">13.2. SPACE 진단</a>
+								<ol>
+									<li><a href="#" data-item="13.2.1.">13.2.1. Reorg 대상 진단</a></li>
+									<li><a href="#" data-item="13.2.2.">13.2.2. 파티셔닝 대상 진단</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">13.3. SPACE 분석</a>
+								<ol>
+									<li><a href="#" data-item="13.3.1.">13.3.1. Tablespace 분석</a></li>
+									<li><a href="#" data-item="13.3.2.">13.3.2. Reorg 대상 분석</a></li>
+									<li><a href="#" data-item="13.3.3.">13.3.3. 파티셔닝 대상 분석</a></li>
+									<li><a href="#" data-item="13.3.4.">13.3.4. 데이터파일 I/O 분석</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">13.4. 오브젝트 분석</a>
+								<ol>
+									<li><a href="#" data-item="13.4.1.">13.4.1. 테이블별 DML 변경 분석</a></li>
+									<li><a href="#" data-item="13.4.2.">13.4.2. 일별 DML 변경 분석</a></li>
+									<li><a href="#" data-item="13.4.3.">13.4.3. 오브젝트 변경 분석</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">13.5. 파라미터 변경 분석</a>
+								<ol>
+									<li><a href="#" data-item="13.5.1.">13.5.1. 파라미터 최근변경내역</a></li>
+									<li><a href="#" data-item="13.5.2.">13.5.2. 표준 파라미터 비교</a></li>
+									<li><a href="#" data-item="13.5.3.">13.5.3. 인스턴스 파라미터 비교</a></li>
+									<li><a href="#" data-item="13.5.4.">13.5.4. 파라미터 변경이력</a></li>
+								</ol>
+							</li>
+						</ol>
+					</li>
+					<li>
+						<a href="#">14. 설정</a>
+						<ol>
+							<li>
+								<a href="#">14.1. Open-POP 설정</a>
+								<ol>
+									<li><a href="#" data-item="14.1.1.">14.1.1. 데이터베이스 관리</a></li>
+									<li><a href="#" data-item="14.1.2.">14.1.2. 인스턴스 관리</a></li>
+									<li><a href="#" data-item="14.1.3.">14.1.3. 메뉴 관리</a></li>
+									<li><a href="#" data-item="14.1.4.">14.1.4. APM 접속 관리</a></li>
+									<li><a href="#" data-item="14.1.5.">14.1.5. 파티션테이블 관리</a></li>
+									<li><a href="#" data-item="14.1.6.">14.1.6. 스케줄러 관리</a></li>
+									<li><a href="#" data-item="14.1.7.">14.1.7. 스케줄러 상세관리</a></li>
+									<li><a href="#" data-item="14.1.8.">14.1.8. 스케줄러 유형코드 관리</a></li>
+									<li><a href="#" data-item="14.1.9.">14.1.9. 스케줄러 종속관계 관리</a></li>
+									<li><a href="#" data-item="14.1.10.">14.1.10. 점검 그룹 관리</a></li>
+									<li><a href="#" data-item="14.1.11.">14.1.11. 점검 그룹 DB 관리</a></li>
+									<li><a href="#" data-item="14.1.12.">14.1.12. 게시판 설정 관리</a></li>
+									<li><a href="#" data-item="14.1.13.">14.1.13. 솔루션 프로그램 관리</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">14.2. 사용자 관리</a>
+								<ol>
+									<li><a href="#" data-item="14.2.1.">14.2.1. 사용자 관리</a></li>
+									<li><a href="#" data-item="14.2.2.">14.2.2. 권한 관리 ( 일괄 변경 )</a></li>
+									<li><a href="#" data-item="14.2.3.">14.2.3. 업무 관리</a></li>
+									<li><a href="#" data-item="14.2.4.">14.2.4. 사용자 DB 권한 관리</a></li>
+									<li><a href="#" data-item="14.2.5.">14.2.5. 사용자 정보 변경</a></li>
+									<li><a href="#" data-item="14.2.6.">14.2.6. 성능담당자 관리</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">14.3. 기준정보 설정</a>
+								<ol>
+									<li><a href="#" data-item="14.3.1.">14.3.1. 시스템 기준정보</a></li>
+									<li><a href="#" data-item="14.3.2.">14.3.2. DB 기준정보</a></li>
+									<li><a href="#" data-item="14.3.3.">14.3.3. 업무 기준정보</a></li>
+									<li><a href="#" data-item="14.3.4.">14.3.4. DB 금지 힌트 관리</a></li>
+									<li><a href="#" data-item="14.3.5.">14.3.5. 일예방점검 설정관리</a></li>
+									<li><a href="#" data-item="14.3.6.">14.3.6. UI 제외 DB 사용자 관리</a></li>
+									<li><a href="#" data-item="14.3.7.">14.3.7. 애플리케이션 코드 관리</a></li>
+									<li><a href="#" data-item="14.3.8.">14.3.8. 프로젝트 관리</a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">14.4. 공지사항 관리</a>
+								<ol>
+									<li><a href="#" data-item="14.4.1.">14.4.1. 공지사항 </a></li>
+								</ol>
+							</li>
+							<li>
+								<a href="#">14.5. 시스템 운영 현황</a>
+								<ol>
+									<li><a href="#" data-item="14.5.1.">14.5.1. Open-POP 점검</a></li>
+									<li><a href="#" data-item="14.5.2.">14.5.2. SQL Editor</a></li>
+								</ol>
+							</li>
+						</ol>
+					</li>
+					<li>
+						<a href="#">15. 기타</a>
+						<ol>
+							<li>
+								<a href="#">15.1. 기타 기능</a>
+								<ol>
+									<li><a href="#" data-item="15.1.1.">15.1.1. 로그인 권한 변경</a></li>
+									<li><a href="#" data-item="15.1.2.">15.1.2. Reset Workplace</a></li>
+									<li><a href="#" data-item="15.1.3.">15.1.3. My Menu 설정</a></li>
+									<li><a href="#" data-item="15.1.4.">15.1.4. ToDo</a></li>
+									<li><a href="#" data-item="15.1.5.">15.1.5. OpenPOP USER GUIDE</a></li>
+									<li>
+										<a href="#" data-item="15.1.6.">15.1.6. 공통 화면</a>
+										<ol class="tabList">
+											<li>Table Info 팝업</li>
+											<li>검증 SQL 목록 팝업</li>
+										</ol>
+									</li>
+								</ol>
+							</li>
+							<li>
+								<a href="#" data-item="15.2.">15.2. FAQ</a>
+							</li>
+						</ol>
+					</li>
+					<li>
+						<a href="#">16. 데이터 백업 &amp; 복구</a>
+						<ol>
+							<li>
+								<a href="#" data-item="16.1.">16.1. 데이터 백업</a>
+							</li>
+							<li>
+								<a href="#" data-item="16.2.">16.2. 데이터 복구</a>
+							</li>
+						</ol>
+					</li>
+					<li>
+						<a href="#">17. Eclipse Plug-in</a>
+						<ol>
+							<li>
+								<a href="#" >17.1. SQL 표준 점검</a>
+								<ol>
+									<li><a href="#" data-item="17.1.1.">17.1.1. Preferences 설정</a></li>
+									<li><a href="#" data-item="17.1.2.">17.1.2. SQL 표준 점검</a></li>
+									<li><a href="#" data-item="17.1.3.">17.1.3. SQL 표준 점검 지표 조회</a></li>
+								</ol>
+							</li>
+						</ol>
+					</li>
+					<li>
+						<a href="#" data-item="18.">18. 제품 품질 보증</a>
+					</li>
+				</ol>
+			</div>
+		</div>
+		<div id="content">
+			<div class="content-header" >
+				<img src="/resources/images/menual/menual_logo.png" alt="Open POP" > USER GUIDE
+			</div>
+			<div class="content-body" style="height:745px;">
+			</div>
+			<div class="content-move prev">
+				<a href="#" title="이전 메뉴"></a>
+			</div>
+			<div class="content-move next">
+				<a href="#" title="다음 메뉴"></a>
+			</div>
+		</div>
+		<div style="clear:both;">
+		</div>
+	</div>
+	<div id="copyright">
+		Copyright Ⓒ OPENMADE CONSULTING. All right reserved.
+	</div>
+</div>
+
+<script>
+$(document).ready(function(){
+	$('.prev').hide();
+	
+	document.oncontextmenu = document.ondragstart = document.onselectstart = document.onkeydown = new Function("return false");
+
+	// 메뉴 2단계, 하위 메뉴여부 아이콘 표기
+	$('#menu .menu-content > ol > li > ol > li > ol').each(function() {
+		$(this).siblings('a').prepend('<span class="children"></span>');
+	});
+
+	// 메뉴 2단계, 선택 시 우측 화살표 표기
+	$('#menu .menu-content > ol > li > ol > li > a').each(function() {
+		$(this).append('<img class="arrow" src="/resources/images/menual/menu_arrow.png" alt="">');
+	});
+
+	// 메뉴 목차 클릭 시 실행되는 이벤트
+	$('#menu a').on('click', function(e) {
+		$('.content-body').scrollTop(0);
+		e.preventDefault();
+		
+		// 하위메뉴 선택 시 상위 메뉴 자동 선택
+		$('#menu').find('li').removeClass('active');				//active 클래스 전체 삭제
+		$('#menu').find('.tabList li').removeClass('activeTap');	//activeTap 클래스 전체 삭제
+		$(this).parents('li').parents('li').parents('li:first').addClass('active');
+		$(this).parents('li').parents('li:first').addClass('active');
+		$(this).parents('li').addClass('active');
+		
+		var item = $(this).data('item');
+		
+		// 상위메뉴 선택 시 하위 메뉴 자동 선택
+		if (!item) {
+			var $a = $(this).parents('li:first').find('li:first').find('a:first');
+			$a.parents('li:first').addClass('active');
+			item = $a.data('item');
+			
+			if (!item) {
+				$a = $a.parents('li:first').find('li:first');
+				$a.addClass('active');
+				item = $a.find('a').data('item');
+			}
+		}
+		
+		if (item) {
+			if ( item == '1.' ) {
+				$(".prev").hide();
+				$(".next").show();
+			} else if( item == '16.' ) {
+				$(".next").hide();
+				$(".prev").show();
+			} else {
+				$(".next").show();
+				$(".prev").show();
+			}
+			var path = '/resources/document/contents_renewal/content-' + item.toString().replace(/(^\.+|\.+$)/, '') + '.html';
+			
+			$.get(path).done(function(html) {
+				var $content = $('<div>' + html + '</div>').find('.content-body');
+				
+				if ($content.length > 0) {
+					$('.content-body').html($content.html());
+				} else {
+					$('.content-body').html('');
+				}
+			}).error(function() {
+				$('.content-body').html('');
+			});;
+		}
+	});
+	
+	// 이전 메뉴로 이동
+	$('.content-move.prev > a').on('click', function() {
+		event.preventDefault();
+ 		$(".content-body").scrollTop(0);
+		
+		var links = $('#menu li a[data-item]').get();
+		var index = links.indexOf($('#menu li.active:last a').get(0));
+		if (index > 0) {
+			$(".menu-content").scroll(links);
+			links[index - 1].click();
+		}
+	});
+	
+	// 다음 메뉴로 이동
+	$('.content-move.next > a').on('click', function() {
+		event.preventDefault();
+		$(".content-body").scrollTop(0);
+		
+		var links = $('#menu li a[data-item]').get();
+		var index = links.indexOf($('#menu li.active:last a').get(0));
+		if (index < links.length - 1) {
+			links[index + 1].click();
+		}
+	});
+	
+	// 초기 메뉴
+	if ($('#menu li.active:last').length == 0) {
+		$('#menu a:first').trigger('click');
+	}
+	
+	/* 탭 클릭시 발생하는 이벤드 */
+	$('.tabList li').on('click', function(){
+		
+		let $this = $(this),
+			$parent = $(this).parents('li:first');
+		
+		// 탭 클릭 시 상위 메뉴 자동 클릭
+		if($parent.attr('class') != 'active'){
+			$parent.find('a').trigger('click');
+			
+			$this.addClass('activeTap');
+			
+			setTimeout(function(){
+				scrollTap($this);
+			}, 25);
+			
+		/* 같은 소제목 내 탭 클릭 시 페이지 내 이동 */
+		} else {
+			$('.content-body').scrollTop(0);
+			scrollTap($this);
+		}
+		
+		/* 클릭한 탭으로 이동시키는 함수 */
+		function scrollTap(target){
+			let index = target.index();
+			let section = $('.tapScroll').eq(index);
+			let sectionTop = section.offset().top - 100;
+			
+			$('.content-body').scrollTop(sectionTop);
+		}
+		
+	}); /* end of onClick */
+	
+	/* 스크롤시 탭 리스트 activeTap 활성화 */
+	$('.content-body').scroll(function(){
+		
+		let scltop = $(window).scrollTop()+120,
+			$contents = $('.tapScroll'),
+			maxIdx = $contents.length-1;
+		
+		/* 스크롤 전일 때 activeTap클래스 삭제 */
+		if( $('.content-body').scrollTop() < $contents.eq(0).offset().top ){
+			$('.tabList li').removeClass('activeTap');
+		
+		/* 스크롤이 끝났을 때 마지막 탭에 activeTap클래스 추가 */
+		} else if ( $('.content-body')[0].scrollHeight - $('.content-body').scrollTop() ==
+						$('.content-body').outerHeight() ){
+			
+			$('.tabList li').removeClass('activeTap');
+			$('.active:last ol li').eq(maxIdx).addClass('activeTap');
+		
+		/* 스크롤시 탭 리스트 activeTap 클래스 삭제 및 추가*/
+		} else {
+			$contents.each(function(index){
+				
+				let $target = $contents.eq(index),
+					targetTop = $target.offset().top;
+					targetTap = $('.active:last ol li').eq(index);
+					
+				if(targetTop <= scltop) {
+					$('.tabList li').removeClass('activeTap');
+					targetTap.addClass('activeTap');
+				}
+			}); /* end of contents.each */
+		} /* end of else */
+		
+	}); /* end of scroll */
+	
+	
+}); /* end of document.ready */
+
+</script>
+</body>
+</html>

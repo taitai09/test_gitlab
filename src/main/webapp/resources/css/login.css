@@ -1,0 +1,104 @@
+html {color:#000000;}
+body {background: #f0f0f0 url(/resources/images/login_bg.gif)repeat;color:#000000;}
+#wrapper {margin-bottom:-500px; z-index:20; position:relative; margin:0 auto; padding:0; }
+#wrapper .contents {
+  padding: 36px 0 88px;
+  background: rgba(0, 17, 45, 1);
+  background: -moz-linear-gradient(top, rgba(0, 17, 45, 1) 0%, rgba(0, 32, 88, 1) 53%, rgba(0, 33, 88, 1) 100%);
+  background: -webkit-gradient(left top, left bottom, color-stop(0%, rgba(0, 17, 45, 1)), color-stop(53%, rgba(0, 32, 88, 1)), color-stop(100%, rgba(0, 33, 88, 1)));
+  background: -webkit-linear-gradient(top, rgba(0, 17, 45, 1) 0%, rgba(0, 32, 88, 1) 53%, rgba(0, 33, 88, 1) 100%);
+  background: -o-linear-gradient(top, rgba(0, 17, 45, 1) 0%, rgba(0, 32, 88, 1) 53%, rgba(0, 33, 88, 1) 100%);
+  background: -ms-linear-gradient(top, rgba(0, 17, 45, 1) 0%, rgba(0, 32, 88, 1) 53%, rgba(0, 33, 88, 1) 100%);
+  background: linear-gradient(to bottom, rgba(0, 17, 45, 1) 0%, rgba(0, 32, 88, 1) 53%, rgba(0, 33, 88, 1) 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#00112d', endColorstr='#002158', GradientType=0 );
+}
+#wrapper .contents .body {text-align: center; vertical-align: middle; position: relative;}
+#wrapper .contents #login_contents {width: 412px; margin: 0 auto; position: relative;}
+#wrapper .contents .logo {margin-bottom: 18px; text-align: center;}
+#wrapper .contents #login_button {position: absolute; right: 0; top: 0; bottom: 0;}
+#wrapper .contents #login_button a {
+  display: block;
+  width: 106px;
+  height: 100%;
+  padding-top: 42px;
+  box-sizing: border-box;
+  background: rgba(13, 123, 197, 1);
+  background: -moz-linear-gradient(top, rgba(13, 123, 197, 1) 0%, rgba(0, 91, 154, 1) 100%);
+  background: -webkit-gradient(left top, left bottom, color-stop(0%, rgba(13, 123, 197, 1)), color-stop(100%, rgba(0, 91, 154, 1)));
+  background: -webkit-linear-gradient(top, rgba(13, 123, 197, 1) 0%, rgba(0, 91, 154, 1) 100%);
+  background: -o-linear-gradient(top, rgba(13, 123, 197, 1) 0%, rgba(0, 91, 154, 1) 100%);
+  background: -ms-linear-gradient(top, rgba(13, 123, 197, 1) 0%, rgba(0, 91, 154, 1) 100%);
+  background: linear-gradient(to bottom, rgba(13, 123, 197, 1) 0%, rgba(0, 91, 154, 1) 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#0d7bc5', endColorstr='#005b9a', GradientType=0 );
+  border-radius: 3px;
+}
+#wrapper .contents #bottom {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-top: 32px;
+  text-align: center;
+  transform: translateX(-50%);
+}
+#wrapper .contents .body .ins {
+	position: relative;
+	left: -58px;
+	font-size: 16px;
+/* 	color: #666666; */
+	box-sizing: border-box;
+	width: 296px;
+	height: 48px;
+	padding: 10px 20px;
+/* 	margin-bottom: 11px; */
+}
+#wrapper .contents .body .ins + .ins {
+  margin-top: 10px;
+}
+#id_save {vertical-align: bottom;display:inline-block;width:16px;height:16px;cursor: pointer;}
+
+.lgn_check{position:absolute;left:40px;bottom:-24px;color:#ffffff;text-align:left;margin-top:20px;margin-left:36px;font-size:13px;font-weight:700;}
+
+#newUser {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#newUser::before {
+  content: "+";
+  display: inline-block;
+  margin: -2px 5px 0 0;
+  font-size: 24px;
+  font-weight: normal;
+  vertical-align: middle;
+}
+
+::-webkit-input-placeholder { /* WebKit, Blink, Edge */
+	color:#888888;
+}
+:-moz-placeholder { /* Mozilla Firefox 4 to 18 */
+	color:#888888;
+	opacity:  1;
+}
+::-moz-placeholder { /* Mozilla Firefox 19+ */
+	color:#888888;
+	opacity:  1;
+}
+:-ms-input-placeholder { /* Internet Explorer 10-11 */
+	color:#888888;
+}
+::-ms-input-placeholder { /* Microsoft Edge */
+	color:#888888;
+}
+
+table.loginT{width:98%; border-top:2px solid #5b554f; margin-top:5px;margin-bottom:10px;}
+table.loginT th{text-align:center;vertical-align: middle;}
+table.loginT th,
+table.loginT td{border:1px solid #ddd;height:25px; padding:2px 5px;}
+table.loginT{table-layout:fixed;}
+table.loginT tr th{background-color:#F3F2F2;color:#333;font-size:11px; border-left:0px;}
+table.loginT tr td{text-overflow: ellipsis;overflow: hidden;word-wrap: break-word;word-break: break-all;vertical-align:middle; border-right:0px;}
+table.loginT.none_click tr{cursor:default;}
+table.loginT.click tr:hover{background-color:#e9eff5;}
+
+span.h3{width:50%; font-size:12px; font-weight:700; margin-left:5px; margin-top:10px;}

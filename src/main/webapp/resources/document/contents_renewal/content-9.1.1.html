@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>9. 성능 검증</h1>
+	<h2>9.1. 배포전 사용자 성능 검증</h2>
+	<h3>9.1.1. 성능 검증 관리</h3>
+
+	<div>
+		<p>애플리케이션을 운영에 배포하기 전에 쿼리의 성능을 점검한다. 하나의 애플리케이션에 들어있는 여러 개의 쿼리의 성능을 각각 점검한다.</p>
+		<h4>성능 점검 대상 조회</h4>
+		<p>개발확정이 되어 성능점검이 필요한 목록을 보는 화면이다. 화면상단에서 성능점검ID를 선택하여 클릭하면 화면하단에 각각의 성능점검대상의 점검단계를 보여준다.</p>
+		<div class="list-b">
+			<ul>
+				<li>- 검색조건으로는 업무, 배포요청일시, 점검상태, 완료방법, 최종점검단계, 배표요청자, 배포ID가 있으며 업무, 배포요청일시는 필수값이다.</li>
+				<li>- [검색] 버튼을 누르면 검색을 수행한다.</li>
+				<li>- [점검결과 통보] 버튼을 클릭하면 성능 점검이 완료된다. 정상적으로 [성능 점검 완료] 버튼을 클릭했으나 배포시스템에 전송되지 않았을 경우에만 사용한다. </li>
+				<li>- [엑셀(上)] 버튼을 클릭하면 성능점검대상 목록을 엑셀파일로 다운받는다.</li>
+				<li>- [엑셀(下)] 버튼을 클릭하면 성능점검대상 점검단계 목록을 엑셀파일로 다운받는다.</li>
+				<li>- [이전], [다음] 버튼을 누르면 검색결과를10건씩 이동하여 볼 수 있다.</li>
+			</ul>
+		</div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-1.jpg"></p>
+	</div>
+	<div>
+		<h4>성능 점검 단계</h4>
+		<p>성능점검대상은 개발확정성능점검 단계와 운용적용성능점검 단계로 나뉜다.<br />그리드를 클릭하면 성능 점검 결과 화면으로 이동한다.<br />이전 단계에서 성능점검이 완료되지 않았을 경우에는 성능점검결과 화면으로 이동할 수 없다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-2.jpg"></p>
+
+		<h4>성능 점검 결과</h4>
+		<p>성능점검 대상 SQL목록과 점검결과 정보를 볼 수 있는 화면이다.<br />상단은 성능점검 대상 SQL목록이 나오고, 하단은 [성능점검기본정보], [프로그램 정보], [성능 점검], [성능 점검 결과] 탭으로 구성되어 있다.</p>
+		<div class="list-b">
+			<ul>
+				<li>- 검색조건으로는 SQL식별자(DBIO), 프로그램, 프로그램유형, SQL 명령 유형, 다이나믹 여부, 점검결과, 미수행여부가 있다.</li>
+				<li>- [검색] 버튼을 누르면 검색을 수행한다.</li>
+				<li>- [엑셀] 버튼을 누르면 성능점검결과를 엑셀 파일로 다운받는다.</li>
+				<li>- [이전], [다음] 버튼을 누르면 검색결과를 이동하여 볼 수 있다.</li>
+				<li>- 하나의 배포ID 에 대한 점검결과 요약정보를 전체, 적합, 오류, 부적합, 미수행, 점검제외로 나누어 보여준다.</li>
+				<li>- 업무개발자/ 업무개발_배포성능관리자/ 배포성능관리자 로 로그인하였을 경우 오류, 부적합, 미수행 건에 대해 예외요청 할 수 있는 버튼이 생성된다.</li>
+				<li>- 업무개발자로 로그인하였을 경우 배포성능점검 상태코드가 점검중 일 때 [성능 점검 완료] 버튼이 보인다.</li>
+				<li>- [성능 점검 완료] 버튼을 누르면 성능점검ID의 성능점검단계에 대한 성능 점검이 완료된다.</li>
+				<li>- 성능 점검 결과가 적합, 오류, 부적합, 미수행인 데이터를 클릭하면 성능점검을 수행할 수 있도록 [성능 점검] 탭을 오픈한다.</li>
+				<li>- 성능 점검 결과가 점검제외인 데이터를 클릭하면 [성능 점검] 탭을 비활성화 시키고 [성능 점검 결과] 탭을 오픈한다.</li>
+			</ul>
+		</div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-3.jpg"></p>
+	</div>
+	<div>
+		<h4>[예외요청] 버튼</h4>
+		<p>예외요청 버튼을 누르면 성능 점검 예외 요청 화면이 새 탭으로 생성된다. 이때 전달할 파라미터는 성능점검ID, 성능점검단계ID, 최종성능점검단계ID, 업무코드, 회차정보이다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-4.jpg"></p>
+
+		<h4>성능 점검 완료</h4>
+		<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/50-5.jpg"></p>
+		<p>[성능 점검 완료] 버튼을 누르면 성능점검ID의 성능점검단계에 대한 성능 점검이 완료된다.</p>
+		<div class="list-a">
+			<ul>
+				<li>- 미수행 프로그램이 존재하면 성능점검ID의 성능점검단계에 성능점검을 완료할 수 없다. 성능 점검 완료 시 미수행 프로그램을 체크한 후 진행한다.</li>
+				<li>- 성능점검완료시 성능점검단계별 예외(영구/한시) 대상을 저장한다.</li>
+				<li>- 성능점검완료 단계가 최종단계(운영적용성능점검 단계)일 경우 점검완료 정보를 저장한다.</li>
+				<li>- 성능점검완료 단계가 최종단계(운영적용성능점검 단계)일 경우 이력테이블에 정보를 저장한다.</li>
+				<li>- 성능점검완료 단계가 최종단계(운영적용성능점검 단계)일 경우 CM을 호출하여 점검완료 결과를 통보한다.</li>
+				<li>- 성능점검완료 단계가 최종단계(운영적용성능점검 단계)가 아닐 경우 현재 점검단계 정보를 저장한다.</li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[성능점검기본정보] 탭</p>
+		상단 성능점검 대상 SQL목록에서 프로그램ID를 선택하면 해당 성능점검ID에 대한 기본 정보를 보여준다.
+	</div>
+	<div><p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/50-6.jpg"></p></div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[프로그램정보] 탭</p>
+		상단 성능점검 대상 SQL목록에서 프로그램ID를 선택하면 해당 프로그램 정보를 보여준다. 프로그램구분, 프로그램명, SQL식별자(DBIO), 프로그램유형, SQL명령 유형, 다이나믹SQL 여부, 프로그램설명, 파일명, 디렉토리, 등록일시, 변경일시, SQL TEXT 정보, 수행회차별 수행회차일시와 바인드값 정보를 볼 수 있다.<br /><br />
+		[SQL 원본 복사] 버튼을 누르면 버퍼에 SQL TEXT 정보인 SQL이 복사된다.<br /><br />
+		[SQL 변환 복사] 버튼을 누르면 버퍼에 SQL TEXT 정보인 SQL에 존재하는 myBatis 형식의 변수 정보를 orange 툴에서 수행이 가능한 변수 정보로 변환된 SQL이 복사된다.<p style="background-color:#fff000; width:230px;">(지원하는 변수 형식 - ${변수 정보})</p>
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-7.jpg"></p>
+		<p>점검제외 항목일 경우 아래와 같이 체크박스에 체크가 되고 한시점검제외, 영구점검제외 여부를 표기한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-8.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[성능점검] 탭</p>
+		성능점검결과 화면의 상단에서 선택한 프로그램ID에 대한 성능 점검을 수행하는 화면이다.
+	</div>
+	<div>
+		<div class="list-a">
+			<ul>
+				<li>- 수행회차는 최종회차+1 로 세팅되며 점검대상DB는 자동으로 입력된다.</li>
+				<li>- Parsing Schema Name은 쿼리를 실행하는 DB OWNER 를 선택한다.</li>
+				<li>- 수행유형은 재수행(default), 바인드패턴별수행 중에서 선택한다.</li>
+				<li>- 재수행은 일반적인 유형이고, 바인드패턴별 수행은 다양한 다이나믹 조건 또는 바인드 값에 따른 성능 차이를 비교하고 점검하기 위한 유형이다.</li>
+				<li>- 페이징 기능이 들어가는 경우 페이징처리에 체크하고 페이징건수를 선택한다.</li>
+				<li>- 프로그램유형[온라인] 이면서 SQL유형[SELECT] 인 경우 성능점검 탭으로 진입시 SQL에 대한 바인드 검색이 자동으로 일어나며, 이력이 존재할 경우 가장 최근 수행회차의 변수값으로 세팅된다. 우선순위는 성능점검이력, SQL수행이력 순이다.</li>
+				<li>- 프로그램유형[온라인] 이면서 SQL유형[INSERT/UPDATE/DELETE/MERGE] 인 경우 바인드 검색은 일어나지 않는다.</li>
+				<li>- [바인드 검색] 버튼을 누르면 좌측 SQL을 실행할 때 사용된 바인드 변수의 이력을 볼 수 있는 팝업창이 오픈된다.</li>
+				<li>- [성능 점검 수행] 버튼을 누르면 해당 프로그램ID에 대한 성능점검을 수행한다.</li>
+				<li>- 프로그램유형[배치] 인 경우 성능점검 탭은 비활성화된다.</li>
+				<li>- SQL명령유형[TRUNCATE] 인 경우 성능점검 탭은 비활성화된다.</li>
+			</ul>
+		</div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-9.jpg"></p>
+	</div>
+	
+	<div class="seperate-line"></div>
+	<div>
+		<h4>Format SQL</h4>
+		<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/50-10.jpg"></p>
+		<p>SQL에 대하여 들여쓰기 등으로 정리해 준다.</p>
+
+		<h4>바인드 검색</h4>
+		<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/50-11.jpg"></p>
+		<p>[성능 점검] 탭에서 [바인드 검색] 버튼을 누르면 다음과 같이 성능점검이력, SQL수행이력을 조회하는 화면이 오픈된다. </p>
+		<div class="list-a">
+			<ul>
+				<li>- 상단 테이블에서 항목을 클릭하면 하단 테이블에 매핑되었던 바인드값 정보가 보여진다.</li>
+				<li>- [바인딩] 버튼을 누르면 바인딩 정보가 성능점검 창의 바인딩 테이블에 입력된다.</li>
+				<li>- [닫기] 버튼을 누르거나 상단의 [x]버튼을 누르면 팝업창이 닫힌다.</li>
+			</ul>
+		</div>
+
+		<h4>바인드 검색 - 성능 점검 이력</h4>
+		<p>성능 점검 이력을 조회한다. 상단 그리드를 클릭하면 하단에 변수 바인드값 목록이 나온다. [바인딩] 버튼을 누르면 부모창 바인드 테이블에 변수타입과 변수값이 입력된다.</p>
+		<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/50-12.jpg"></p>
+
+		<h4>바인드 검색 – SQL 수행 이력</h4>
+		<p>SQL 수행 이력을 조회한다. 상단 그리드를 클릭하면 하단에 변수 바인드값 목록이 나온다. [바인딩] 버튼을 누르면 부모창 바인드 테이블에 변수타입과 변수값이 입력된다.</p>
+		<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/50-13.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[성능점검결과] 탭</p>
+		[성능 점검] 탭에서 [성능 점검 수행] 버튼을 클릭하여 성능점검이 수행되면 성능점검결과 탭으로 이동한다.<br />
+		성능점검결과가 수행회차별로 테이블 형태로 보여지며 그 아래로 최종회차의 점검결과 정보가 조회된다.<br />
+		각각의 회차를 클릭하면 각 회차별 성능점검결과가 조회된다.
+	</div>
+	<div>
+		<div class="list-a">
+			<ul>
+				<li>- 성능점검결과 항목은 수행회차, 상세점검결과, 근거사유1, 근거사유2, 개선가이드, Execution Plan 이 있다.</li>
+				<li>- 성능점검결과가 적합일 경우 근거사유1, 근거사유2, 개선가이드는 보여주지 않는다.</li>
+				<li>- 성능점검결과가 오류일 경우 상세점검결과, 개선가이드, Execution Plan 항목은 보여주지 않는다.</li>
+				<li>- SQL유형이 DML(INSERT, UPDATE, DELETE, MERGE) 인 경우 Execution Plan 대신 예상실행계획을  보여준다.</li>
+				<li>- SQL명령유형이 [TRUNCATE] 인 경우 성능점검 탭은 비활성화된다.</li>
+			</ul>
+		</div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-14.jpg"></p>
+	</div>
+
+	<div>
+		<h4>[튜닝요청] 버튼</h4>
+		<p>수행회차 항목에 있는 [튜닝요청] 버튼을 누르면 튜닝요청 메시지가 뜬다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-15.jpg"></p>
+
+		<p>튜닝요청 완료시 메시지</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-16.jpg"></p>
+
+		<p>이미 튜닝요청 되었을 경우 메시지</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/50-17.jpg"></p>
+	</div>
+</div>
+</body>
+</html>

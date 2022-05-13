@@ -1,0 +1,791 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2019.05.07	임승률	최초작성
+-->
+<mapper namespace="omc.mqm.dao.QualityStdInfoDao">	
+	<sql id="businessClassMngListRefId">
+		/* QualityStdInfoDao.businessClassMngListRefId */
+		SELECT A.LIB_NM
+		     , A.MODEL_NM
+		     , A.SUB_NM
+		     , A.SYS_NM
+		     , A.SYS_CD
+		     , A.MAIN_BIZ_CLS_NM
+		     , A.MAIN_BIZ_CLS_CD
+		     , A.MID_BIZ_CLS_NM
+		     , A.MID_BIZ_CLS_CD
+		     , A.BIZ_DESC
+		     , A.REMARK
+		  FROM TB_OPENM_BIZ_CLS A
+		 WHERE 1=1
+		<if test="lib_nm != null and lib_nm != ''">
+		   AND A.LIB_NM LIKE '%' || #{lib_nm} || '%'
+		</if>
+		<if test="model_nm != null and model_nm != ''">
+		   AND A.MODEL_NM LIKE '%' || #{model_nm} || '%'
+		</if>
+		 ORDER BY
+		       A.LIB_NM
+		     , A.MODEL_NM
+		     , A.SUB_NM
+	</sql>
+	
+	<select id="businessClassMngList" parameterType="openmBizCls" resultType="openmBizCls">
+		/* QualityStdInfoDao.businessClassMngList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="businessClassMngListRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>=]]> (${pagePerCount} * (${currentPage}-1) + 1)	
+	</select>
+	
+	<select id="businessClassMngListByExcelDown" parameterType="openmBizCls" resultType="java.util.LinkedHashMap">
+		/* DatabaseMngDao.businessClassMngListByExcelDown */
+				<include refid="businessClassMngListRefId"/>
+	</select>
+	
+
+	<update id="saveBusinessClassMng" parameterType="openmBizCls">
+		/* DatabaseMngDao.saveBusinessClassMng */
+		MERGE INTO TB_OPENM_BIZ_CLS A
+		     USING DUAL  
+		           ON ( 
+		                LIB_NM = NVL(#{lib_nm}, ' ')
+		            AND MODEL_NM = NVL(#{model_nm}, ' ')
+		            AND SUB_NM = NVL(#{sub_nm}, ' ')
+		            AND SYS_NM = NVL(#{sys_nm}, ' ')
+		            AND MAIN_BIZ_CLS_NM = NVL(#{main_biz_cls_nm}, ' ')
+		            AND MID_BIZ_CLS_NM = NVL(#{mid_biz_cls_nm}, ' ')
+		            )     
+		     WHEN MATCHED THEN
+		          UPDATE 
+		             SET SYS_CD = #{sys_cd}
+		               , MAIN_BIZ_CLS_CD = #{main_biz_cls_cd}
+		               , MID_BIZ_CLS_CD = #{mid_biz_cls_cd}
+		               , BIZ_DESC = #{biz_desc}
+		               , REMARK = #{remark}
+		     WHEN NOT MATCHED THEN
+		          INSERT 
+		                  ( LIB_NM
+		                  , MODEL_NM
+		                  , SUB_NM
+		                  , SYS_NM
+		                  , SYS_CD
+		                  , MAIN_BIZ_CLS_NM
+		                  , MAIN_BIZ_CLS_CD
+		                  , MID_BIZ_CLS_NM
+		                  , MID_BIZ_CLS_CD
+		                  , BIZ_DESC
+		                  , REMARK
+		           ) VALUES (  
+		                    NVL(#{lib_nm}, ' ')
+		                  , NVL(#{model_nm}, ' ')
+		                  , NVL(#{sub_nm}, ' ')
+		                  , NVL(#{sys_nm}, ' ')
+		                  , #{sys_cd}
+		                  , NVL(#{main_biz_cls_nm}, ' ')
+		                  , #{main_biz_cls_cd}
+		                  , NVL(#{mid_biz_cls_nm}, ' ')
+		                  , #{mid_biz_cls_cd}
+		                  , #{biz_desc}
+		                  , #{remark}
+		                  )
+	</update>
+	
+	<delete id="deleteBusinessClassMng" parameterType="openmBizCls">
+		DELETE TB_OPENM_BIZ_CLS A
+		 WHERE A.LIB_NM = #{lib_nm}
+		   AND A.MODEL_NM = #{model_nm}
+		   AND A.SUB_NM = #{sub_nm}
+		   AND A.SYS_NM = #{sys_nm}
+		   AND A.MAIN_BIZ_CLS_NM = #{main_biz_cls_nm}
+		   AND A.MID_BIZ_CLS_NM = #{mid_biz_cls_nm}
+	</delete>
+
+	<select id="qualityCheckSql" parameterType="openmQtyChkSql" resultType="openmQtyChkSql">
+		/* QualityStdInfoDao.qualityCheckSql */
+		SELECT A.QTY_CHK_IDT_CD
+		     , A.QTY_CHK_SQL
+		     , DML_YN
+		  FROM TB_OPENM_QTY_CHK_SQL A
+		 WHERE 1 = 1
+		<if test="qty_chk_idt_cd != null and qty_chk_idt_cd != ''">
+		   AND A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+		</if>
+	</select>
+	
+	<sql id="qualityCheckSqlListRefId2">
+		/* QualityStdInfoDao.qualityCheckSqlListRefId2 */
+		SELECT A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+		     , B.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+		     , A.QTY_CHK_SQL AS QTY_CHK_SQL
+		     
+		  FROM 
+		  	   TB_OPENM_PROJECT_QTY_CHK_SQL A
+		     , TB_OPENM_QAINDI B
+		 WHERE A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD  
+		<if test="qty_chk_idt_cd != null and qty_chk_idt_cd != ''">
+		   AND A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+		</if>
+		<if test="project_id != null and project_id != ''">
+		   AND A.PROJECT_ID = #{project_id}
+	   	</if>
+		 ORDER BY B.SRT_ORD
+	</sql>
+	
+	<sql id="qualityCheckSqlListRefId">
+		/* QualityStdInfoDao.qualityCheckSqlListRefId */
+		SELECT A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+		     , B.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+		     , A.QTY_CHK_SQL AS QTY_CHK_SQL
+		     , A.DML_YN AS DML_YN
+		  FROM TB_OPENM_QTY_CHK_SQL A
+		     , TB_OPENM_QAINDI B
+		 WHERE A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD  
+		<if test="qty_chk_idt_cd != null and qty_chk_idt_cd != ''">
+		   AND A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+		</if>
+		<if test="dml_yn != null and dml_yn != ''">
+		   AND A.DML_YN = #{dml_yn}
+		</if>
+		 ORDER BY B.SRT_ORD
+	</sql>
+	
+	<select id="qualityCheckSqlList" parameterType="openmQtyChkSql" resultType="openmQtyChkSql">
+		/* QualityStdInfoDao.qualityCheckSqlList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="qualityCheckSqlListRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>=]]> (${pagePerCount} * (${currentPage}-1) + 1)	
+	</select>
+
+	<select id="qualityCheckSqlList2" parameterType="openmQtyChkSql" resultType="openmQtyChkSql">
+		/* QualityStdInfoDao.qualityCheckSqlList2 */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="qualityCheckSqlListRefId2"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>=]]> (${pagePerCount} * (${currentPage}-1) + 1)	
+	</select>
+	
+	<update id="saveQualityCheckSqlOrg" parameterType="hashmap">
+		/* DatabaseMngDao.saveQualityCheckSqlOrg */
+		MERGE INTO TB_OPENM_QTY_CHK_SQL A
+		     USING DUAL
+		           ON (
+		                A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+		              )
+		     WHEN MATCHED THEN
+		          UPDATE
+		             SET
+		                 QTY_CHK_SQL = #{qty_chk_sql}
+	</update>
+	
+	<update id="saveQualityCheckSql" parameterType="hashmap">
+		/* DatabaseMngDao.saveQualityCheckSql */
+		MERGE INTO TB_OPENM_QTY_CHK_SQL A
+		     USING DUAL
+		           ON (
+		                A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+		              )
+		     WHEN MATCHED THEN
+		          UPDATE
+		             SET
+		                 DML_YN = #{dml_yn}
+		               , QTY_CHK_SQL = #{qty_chk_sql}
+	</update>
+
+	<insert id="insertQualityCheckSql" parameterType="hashmap">
+		/* DatabaseMngDao.insertQualityCheckSqlList */
+		INSERT INTO TB_OPENM_QTY_CHK_SQL
+		         (         QTY_CHK_IDT_CD
+		                 , DML_YN
+		                 , QTY_CHK_SQL
+		          ) VALUES (
+		                   #{qty_chk_idt_cd}
+		                 , #{dml_yn}
+		                 , #{qty_chk_sql}
+		          )
+	</insert>
+	<delete id="deleteQualityCheckSql" parameterType="openmQtyChkSql">
+		DELETE TB_OPENM_QTY_CHK_SQL A
+		 WHERE A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+	</delete>
+	
+	<select id="qualityCheckSqlListByExcelDown" parameterType="openmQtyChkSql" resultType="java.util.LinkedHashMap">
+		/* DatabaseMngDao.qualityCheckSqlListByExcelDown */
+				<include refid="qualityCheckSqlListRefId"/>
+	</select>
+	
+	<select id="openmQaindiList" parameterType="openmQaindi" resultType="openmQaindi">
+		/* QualityStdInfoDao.openmQaindiList */
+		SELECT A.QTY_CHK_IDT_CD||' '||QTY_CHK_IDT_NM AS QTY_CHK_IDT_CD_NM
+		     , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+		     , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+		  FROM TB_OPENM_QAINDI A
+		 WHERE 1 = 1
+		   AND A.QTY_CHK_TP_CD = '1'
+		ORDER BY A.SRT_ORD
+	</select>
+	
+	
+		<!-- 엔티티유형관리 시작-->
+	<sql id="getTbOpenmEntTypeRefId" >
+		/* QualityStdinfoDao.getTbOpenmEntTypeRefId */
+		SELECT A.ENT_TYPE_CD AS ENT_TYPE_CD                                  -- 엔터티유형
+		     , A.REF_ENT_TYPE_NM AS REF_ENT_TYPE_NM                          -- 참조엔터티명PREFIX
+		     , A.ENT_TYPE_NM AS ENT_TYPE_NM                                  -- 엔터티 SUFFIX
+		     , A.TBL_TYPE_NM AS TBL_TYPE_NM                                  -- 테이블유형명
+		     , A.TBL_TYPE_CD AS TBL_TYPE_CD                                  -- 테이블유형코드
+		     , A.ENT_TYPE_DESC AS ENT_TYPE_DESC                              -- 엔터티유형설명
+		  FROM TB_OPENM_ENT_TYPE A
+ 		<if test="searchValue != null and searchValue != ''">
+		 WHERE A.ENT_TYPE_CD LIKE '%'||#{searchValue}||'%'                     -- 엔터티유형코드
+		 </if>
+	</sql>
+
+	<select id="getTbOpenmEntType" parameterType="qualityStdInfo" resultType="qualityStdInfo">
+		/* QualityStdinfoDao.getTbOpenmEntType */
+	SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+		 		<include refid="getTbOpenmEntTypeRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>=]]> (${pagePerCount} * (${currentPage}-1) + 1)	
+	</select>
+	
+	<select id="getTbOpenmEntTypeByExcelDown" parameterType="qualityStdInfo" resultType="java.util.LinkedHashMap">
+		/* QualityStdinfoDao.getTbOpenmEntTypeByExcelDown */
+	 		<include refid="getTbOpenmEntTypeRefId"/>
+	</select>
+	
+	<update id="saveTbOpenmEntType" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.saveTbOpenmEntType */
+	MERGE INTO TB_OPENM_ENT_TYPE A
+	     USING DUAL  
+	           ON ( 
+	               ENT_TYPE_CD = #{ent_type_cd}                                   -- 엔터티유형
+	              )     
+	     WHEN MATCHED THEN
+	          UPDATE 
+	             SET 
+	                 REF_ENT_TYPE_NM = #{ref_ent_type_nm}                          -- 참조엔터티명PREFIX
+	               , ENT_TYPE_NM = #{ent_type_nm}                                  -- 엔터티 SUFFIX
+	               , TBL_TYPE_NM = #{tbl_type_nm}                                  -- 테이블유형명
+	               , TBL_TYPE_CD = #{tbl_type_cd}                                  -- 테이블유형코드
+	               , ENT_TYPE_DESC = #{ent_type_desc}                              -- 엔터티유형설명
+	     WHEN NOT MATCHED THEN
+	          INSERT 
+	                  ( ENT_TYPE_CD                                                 -- 엔터티유형
+	                  , REF_ENT_TYPE_NM                                             -- 참조엔터티명PREFIX
+	                  , ENT_TYPE_NM                                                 -- 엔터티 SUFFIX
+	                  , TBL_TYPE_NM                                                 -- 테이블유형명
+	                  , TBL_TYPE_CD                                                 -- 테이블유형코드
+	                  , ENT_TYPE_DESC                                               -- 엔터티유형설명
+	           ) VALUES (  
+	                    #{ent_type_cd}                                              -- 엔터티유형
+	                  , #{ref_ent_type_nm}                                          -- 참조엔터티명PREFIX
+	                  , #{ent_type_nm}                                              -- 엔터티 SUFFIX
+	                  , #{tbl_type_nm}                                              -- 테이블유형명
+	                  , #{tbl_type_cd}                                              -- 테이블유형코드
+	                  , #{ent_type_desc}                                            -- 엔터티유형설명
+                 	 ) 
+	</update>	
+	
+	<delete id="deleteTbOpenmEntType" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.deleteTbOpenmEntType */
+		DELETE TB_OPENM_ENT_TYPE A     												-- TB_OPENM_엔터티유형(TABLE)
+			WHERE A.ENT_TYPE_CD = #{ent_type_cd}                                    -- 엔터티유형
+	</delete>	
+	<!-- 엔티티유형관리 끝-->
+	
+	<!-- 품질점검 지표 관리 시작-->
+	<sql id="getQualityCheckManagementRefId" >
+		/* QualityStdinfoDao.getTbOpenmEntTypeRefId */
+				SELECT CD1.CD_NM AS MDI_PCS_NM                               -- 모델링단계
+		     , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD                            -- 품질점검지표코드
+		     , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM                            -- 품질점검지표명
+		     , CD2.CD_NM AS QTY_IDT_TP_NM                                    -- 품질지표유형
+		     , A.QTY_CHK_TG_YN AS QTY_CHK_TG_YN                              -- 품질점검대상여부
+		     , CD3.CD_NM AS QTY_CHK_TP_NM                                    -- 품질점검유형
+		     , A.SRT_ORD AS SRT_ORD                                          -- 정렬순서
+		     , A.QTY_CHK_CONT AS QTY_CHK_CONT                                -- 품질점검내용
+		     , A.SLV_RSL_CONT AS SLV_RSL_CONT                                -- 해결방안내용
+		     , A.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM              -- 품질점검결과테이블명
+		     , A.EXCEL_OUTPUT_YN AS EXCEL_OUTPUT_YN                          -- 엑셀출력여부
+		     , A.OUTPUT_START_ROW AS OUTPUT_START_ROW                        -- 출력시작행
+             , A.OUTPUT_START_COL AS OUTPUT_START_COL                        -- 출력시작열
+		     -- HIDDEN
+		     , A.MDI_PCS_CD AS MDI_PCS_CD                                    -- 모델링단계코드
+		     , A.QTY_IDT_TP_CD AS QTY_IDT_TP_CD                              -- 품질지표유형코드     
+		     , A.QTY_CHK_TP_CD AS QTY_CHK_TP_CD                              -- 품질점검유형코드     
+		  FROM TB_OPENM_QAINDI A    -- TB_OPENQ_모델품질지표기준(TABLE)
+		     , CD CD1 
+		     , CD CD2
+		     , CD CD3
+		 WHERE A.MDI_PCS_CD = CD1.CD(+)
+		   AND CD1.GRP_CD_ID(+) = 'M0001'   
+		   AND A.QTY_IDT_TP_CD = CD2.CD(+)
+		   AND CD2.GRP_CD_ID(+) = 'M0002' 
+		   AND A.QTY_CHK_TP_CD = CD3.CD(+)
+		   AND CD3.GRP_CD_ID(+) = 'M0003' 
+  
+   		<if test="mdi_pcs_cd != null and mdi_pcs_cd != ''">
+		   AND A.MDI_PCS_CD = #{mdi_pcs_cd}                                    -- 모델링단계코드
+		</if>		   
+   		<if test="qty_chk_tp_cd != null and qty_chk_tp_cd != ''">
+		   AND A.QTY_IDT_TP_CD = #{qty_chk_tp_cd}                              -- 품질지표유형코드
+		</if>		   
+   		<if test="qty_chk_idt_nm != null and qty_chk_idt_nm != ''">
+		   AND A.QTY_CHK_IDT_NM LIKE '%'||#{qty_chk_idt_nm}||'%'               -- 품질점검지표명   
+		</if>		   
+		ORDER BY SRT_ORD
+	</sql>
+
+	<select id="getQualityCheckManagement" parameterType="qualityStdInfo" resultType="qualityStdInfo">
+		/* QualityStdinfoDao.getQualityCheckManagement */
+	SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+	 		<include refid="getQualityCheckManagementRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>=]]> (${pagePerCount} * (${currentPage}-1) + 1)	
+	</select>
+	<select id="getQualityCheckManagementByExcelDown" parameterType="qualityStdInfo" resultType="java.util.LinkedHashMap">
+		/* QualityStdinfoDao.getQualityCheckManagementByExcelDown */
+	 		<include refid="getQualityCheckManagementRefId"/>
+	</select>
+	
+	<select id="checkCdPkFromTbOpenmQaindi" parameterType="qualityStdInfo" resultType="int">
+		/* QualityStdinfoDao.checkCdPkFromTbOpenmQaindi */
+		SELECT COUNT(QTY_CHK_IDT_CD) FROM  TB_OPENM_QAINDI WHERE QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+	</select>
+	<select id="checkCdPkFromTbOpenmEntType" parameterType="qualityStdInfo" resultType="int">
+		/* QualityStdinfoDao.checkCdPkFromTbOpenmQaindi */
+		SELECT COUNT(ENT_TYPE_CD) FROM  TB_OPENM_ENT_TYPE WHERE ENT_TYPE_CD = #{ent_type_cd}
+	</select>
+	
+	
+	<update id="saveQualityCheckManagement" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.saveQualityCheckManagement */
+		MERGE INTO TB_OPENM_QAINDI A
+	     USING DUAL  
+	           ON ( 
+	                A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}                           -- 품질점검지표코드
+	              )     
+	     WHEN MATCHED THEN
+	          UPDATE 
+	             SET 
+	                 QTY_CHK_IDT_NM = #{qty_chk_idt_nm}                            -- 품질점검지표명
+	               , MDI_PCS_CD = #{mdi_pcs_cd}                                    -- 모델링단계코드
+	               , QTY_IDT_TP_CD = #{qty_idt_tp_cd}                              -- 품질지표유형코드
+	               , QTY_CHK_TG_YN = #{qty_chk_tg_yn}                              -- 품질점검대상여부
+	               , QTY_CHK_TP_CD = #{qty_chk_tp_cd}                              -- 품질점검유형코드
+	               , SRT_ORD = #{srt_ord}                                          -- 정렬순서
+	               , QTY_CHK_CONT = #{qty_chk_cont}                                -- 품질점검내용
+	               , SLV_RSL_CONT = #{slv_rsl_cont}                                -- 해결방안내용
+	               , QTY_CHK_RESULT_TBL_NM = #{qty_chk_result_tbl_nm}              -- 품질점검결과테이블명
+	               , EXCEL_OUTPUT_YN = #{excel_output_yn}                          -- 엑셀출력여부
+	               , OUTPUT_START_ROW = #{output_start_row}                        -- 엑셀출력시작행
+	               , OUTPUT_START_COL = #{output_start_col}                        -- 엑셀출력시작열
+	     WHEN NOT MATCHED THEN
+	         INSERT 
+	                 ( QTY_CHK_IDT_CD                                              -- 품질점검지표코드
+	                 , QTY_CHK_IDT_NM                                              -- 품질점검지표명
+	                 , MDI_PCS_CD                                                  -- 모델링단계코드
+	                 , QTY_IDT_TP_CD                                               -- 품질지표유형코드
+	                 , QTY_CHK_TG_YN                                               -- 품질점검대상여부
+	                 , QTY_CHK_TP_CD                                               -- 품질점검유형코드
+	                 , SRT_ORD                                                     -- 정렬순서
+	                 , QTY_CHK_CONT                                                -- 품질점검내용
+	                 , SLV_RSL_CONT                                                -- 해결방안내용
+	                 , QTY_CHK_RESULT_TBL_NM                                       -- 품질점검결과테이블명
+	                 , EXCEL_OUTPUT_YN                                             -- 엑셀출력여부
+	                 , OUTPUT_START_ROW                                            -- 출력시작행
+	                 , OUTPUT_START_COL                                            -- 출력시작열
+	          ) VALUES (  
+	                   #{qty_chk_idt_cd}                                            -- 품질점검지표코드
+	                 , #{qty_chk_idt_nm}                                            -- 품질점검지표명
+	                 , #{mdi_pcs_cd}                                                -- 모델링단계코드
+	                 , #{qty_idt_tp_cd}                                             -- 품질지표유형코드
+	                 , #{qty_chk_tg_yn}                                             -- 품질점검대상여부
+	                 , #{qty_chk_tp_cd}                                             -- 품질점검유형코드
+	                 , #{srt_ord}                                                   -- 정렬순서
+	                 , #{qty_chk_cont}                                              -- 품질점검내용
+	                 , #{slv_rsl_cont}                                              -- 해결방안내용
+	                 , #{qty_chk_result_tbl_nm}                                     -- 품질점검결과테이블명
+	                 , #{excel_output_yn}                                           -- 엑셀출력여부
+	                 , #{output_start_row}                                          -- 출력시작행
+	                 , #{output_start_col}                                          -- 출력시작열
+	                 )
+	</update>	
+	
+	<delete id="deleteQualityCheckManagement" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.deleteQualityCheckManagement */
+		DELETE TB_OPENM_QAINDI A     										   -- TB_OPENQ_모델품질지표기준(TABLE)
+		 WHERE A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}                            -- 품질점검지표코드
+	</delete>	
+	<!-- 품질점검 지표 관리 끝-->
+	
+	<!-- 품질점검 예외 대상 관리 시작-->
+	<sql id="getQualityRevExcManagementRefId" >
+		/* QualityStdinfoDao.getQualityRevExcManagementRefId */
+		SELECT A.ERR_TYPE_CD AS QTY_CHK_IDT_CD                            -- 품질점검지표코드
+		     , CASE WHEN B.QTY_CHK_IDT_NM IS NOT NULL THEN
+		                 B.QTY_CHK_IDT_NM
+		            WHEN B.QTY_CHK_IDT_NM IS NULL AND A.ERR_TYPE_CD = 'ALL' THEN
+		                 'ALL'
+		            ELSE NULL
+		        END AS QTY_CHK_IDT_NM                                        -- 품질점검지표명
+		     , A.OBJ_TYPE AS OBJ_TYPE_CD                                     -- 모델객체유형코드
+			 , C.CD_NM AS OBJ_TYPE		     					             -- 모델객체유형명
+		     , A.LIB_NM AS LIB_NM                                            -- 라이브러리명
+		     , A.MODEL_NM AS MODEL_NM                                        -- 모델명
+		     ,REPLACE(REPLACE(A.SUB_NM, TRIM('<![CDATA[<]]>'),TRIM('<![CDATA[&lt;]]>'))
+		     , '>',TRIM('<![CDATA[&gt;]]>')) AS SUB_NM                                            -- 주제영역명
+		     , A.ENT_NM AS ENT_NM                                            -- 엔터티명
+		     , A.ATT_NM AS ATT_NM                                            -- 속성명
+		     , A.REMARK AS REMARK                                            -- 비고
+		     , A.RQPN AS RQPN                                                -- 요청자
+		     , TO_CHAR(A.RGDTTI, 'YYYY-MM-DD HH24:MI:SS') AS RGDTTI          -- 등록일자
+		  FROM TB_OPENQ_EXCEPT_OBJ A    -- TB_OPENQ_예외(TABLE)
+		     , TB_OPENM_QAINDI B        -- TB_OPENQ_모델품질지표기준(TABLE)
+             , (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = 'M0004') C
+		 WHERE 
+		 	   A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD(+)
+		<if test="qty_chk_idt_cd != null and qty_chk_idt_cd != ''">
+		   AND A.ERR_TYPE_CD = #{qty_chk_idt_cd}                            -- 품질점검지표코드
+		</if>
+		<if test="obj_type_cd != null and obj_type_cd != ''">
+		   AND A.OBJ_TYPE = #{obj_type_cd}                                  -- 모델객체유형코드(예외대상객체구분)
+  		</if>
+  		<if test="lib_nm != null and lib_nm != ''">
+		   AND A.LIB_NM = #{lib_nm}                                            -- 라이브러리명
+  		</if>
+  		<if test="model_nm != null and model_nm != ''">
+		   AND A.MODEL_NM = #{model_nm}                                        -- 모델명
+  		</if>
+  		<if test="sub_nm != null and sub_nm != ''">
+		   AND A.SUB_NM = #{sub_nm}                                            -- 주제영역명
+  		</if>
+  		<if test="ent_nm != null and ent_nm != ''">
+		   AND A.ENT_NM LIKE '%'||#{ent_nm}||'%'                               -- 엔터티명
+  		</if>
+  		<if test="att_nm != null and att_nm != ''">
+		   AND A.ATT_NM LIKE '%'||#{att_nm}||'%'                               -- 속성명
+		</if>
+		   AND A.OBJ_TYPE = C.CD(+)
+		   ORDER BY QTY_CHK_IDT_CD, OBJ_TYPE_CD, LIB_NM, SUB_NM, ENT_NM, ATT_NM, REMARK, RGDTTI DESC
+	</sql>
+
+	<select id="getQualityRevExcManagement" parameterType="qualityStdInfo" resultType="qualityStdInfo">
+		/* QualityStdinfoDao.getQualityRevExcManagement */
+	SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+	 		<include refid="getQualityRevExcManagementRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>=]]> (${pagePerCount} * (${currentPage}-1) + 1)	
+	</select>
+	<select id="getQualityRevExcManagementByExcelDown" parameterType="qualityStdInfo" resultType="java.util.LinkedHashMap">
+		/* QualityStdinfoDao.getQualityRevExcManagementByExcelDown */
+	 		<include refid="getQualityRevExcManagementRefId"/>
+	</select>
+	
+	<update id="saveQualityRevExcManagement" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.saveQualityRevExcManagement */
+		MERGE INTO TB_OPENQ_EXCEPT_OBJ A
+		     USING DUAL  
+		           ON ( 
+		                A.ERR_TYPE_CD = NVL(#{qty_chk_idt_cd}, ' ')                      -- 품질점검지표코드
+		            AND A.OBJ_TYPE = NVL(#{obj_type_cd}, ' ')                            -- 모델객체유형코드
+		            AND A.LIB_NM = NVL(#{lib_nm}, ' ')                                   -- 라이브러리명
+		            AND A.MODEL_NM = NVL(#{model_nm}, ' ')                               -- 모델명
+		            AND A.SUB_NM = NVL(#{sub_nm}, ' ')                                   -- 주제영역명
+		            AND A.ENT_NM = NVL(#{ent_nm}, ' ')                                   -- 엔터티명
+		            AND A.ATT_NM = NVL(#{att_nm}, ' ')                                   -- 속성명
+		
+		              )     
+		     WHEN MATCHED THEN
+		          UPDATE 
+		             SET 
+		                 A.REMARK = #{remark}                                            -- 비고
+		               , A.RQPN = #{rqpn}                                                -- 요청자
+		               , A.RGDTTI = SYSDATE                                              -- 등록일자
+		     WHEN NOT MATCHED THEN
+		         INSERT 
+		                 ( ERR_TYPE_CD                                                   -- 품질점검지표코드
+		                 , OBJ_TYPE                                                      -- 모델객체유형코드
+		                 , LIB_NM                                                        -- 라이브러리명
+		                 , MODEL_NM                                                      -- 모델명
+		                 , SUB_NM                                                        -- 주제영역명
+		                 , ENT_NM                                                        -- 엔터티명
+		                 , ATT_NM                                                        -- 속성명
+		                 , REMARK                                                        -- 비고
+		                 , RQPN                                                          -- 요청자
+		                 , RGDTTI                                                        -- 등록일자
+		          ) VALUES (  
+		                   NVL(#{qty_chk_idt_cd}, ' ')                                   -- 품질점검지표코드
+		                 , NVL(#{obj_type_cd}, ' ')                                      -- 모델객체유형코드
+		                 , NVL(#{lib_nm}, ' ')                                           -- 라이브러리명
+		                 , NVL(#{model_nm}, ' ')                                         -- 모델명
+		                 , NVL(#{sub_nm}, ' ')                                           -- 주제영역명
+		                 , NVL(#{ent_nm}, ' ')                                           -- 엔터티명
+		                 , NVL(#{att_nm}, ' ')                                           -- 속성명
+		                 , #{remark}                                                     -- 비고
+		                 , #{rqpn}                                                       -- 요청자
+		                 , SYSDATE                                                       -- 등록일자
+		                 ) 
+	</update>	
+	
+	<delete id="deleteQualityRevExcManagement" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.deleteQualityRevExcManagement */
+			DELETE TB_OPENQ_EXCEPT_OBJ A     -- TB_OPENQ_예외(TABLE)
+			 WHERE 
+			       A.ERR_TYPE_CD = NVL(#{qty_chk_idt_cd},'')                               -- 에러유형코드
+			   AND A.OBJ_TYPE = NVL(#{obj_type_cd},'')                                        -- 모델객체유형코드
+			   AND A.LIB_NM = NVL(#{lib_nm},'')                                            -- 라이브러리명
+			   AND A.MODEL_NM = NVL(#{model_nm},'')                                        -- 모델명
+			   AND A.SUB_NM = NVL(#{sub_nm},'')                                            -- 주제영역명
+			   AND A.ENT_NM = NVL(#{ent_nm},'')                                            -- 엔터티명
+			   AND A.ATT_NM = NVL(#{att_nm},'')                                            -- 속성명
+	</delete>
+	
+	<select id="selectCombobox1" parameterType="qualityStdInfo" resultType="qualityStdInfo">
+		/* QualityStdinfoDao.selectCombobox1 (품질점검지표코드/코드명) */
+			SELECT QTY_CHK_IDT_CD_NM AS CD_NM   -- 품질점검지표코드/코드명
+			     -- HIDDEN
+			     , A.QTY_CHK_IDT_CD AS CD                            -- 품질점검지표코드
+			     , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM                            -- 품질점검지표명
+			  FROM (   
+			        SELECT A.QTY_CHK_IDT_CD||' '||QTY_CHK_IDT_NM AS QTY_CHK_IDT_CD_NM    -- 품질점검지표코드/코드명
+			             -- HIDDEN
+			             , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD                            -- 품질점검지표코드
+			             , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM                            -- 품질점검지표명
+			             , A.SRT_ORD AS SRT_ORD
+			          FROM TB_OPENM_QAINDI A    -- TB_OPENQ_모델품질지표기준(TABLE)
+			         WHERE A.MDI_PCS_CD IN ('LDM', 'PDM')                                -- 모델링단계코드
+			           AND A.QTY_CHK_TG_YN = 'Y'                                         -- 품질점검대상여부
+			           AND A.QTY_CHK_TP_CD = '1'                                         -- 품질점검유형코드(1:정량)
+			        UNION ALL
+			        SELECT 'ALL 전체' 
+			             , 'ALL'
+			             , '전체'
+			             , 0
+			          FROM DUAL   
+			      ) A     
+			ORDER BY A.SRT_ORD
+	</select>
+	
+	<select id="selectCombobox3" parameterType="qualityStdInfo" resultType="qualityStdInfo">
+		/* QualityStdinfoDao.selectCombobox3 (라이브러리명) */
+		SELECT A.LIB_NM AS CD, A.LIB_NM AS CD_NM
+		  FROM (
+		        SELECT A.LIB_NM AS LIB_NM                                            -- 라이브러리명
+		             , A.LIB_NM AS SRT_ORD
+		          FROM TB_OPENM_LIB A    -- TB_OPENM_라이브러리(TABLE)
+		        UNION ALL
+		        SELECT 'ALL' , ' ALL' 
+		          FROM DUAL
+		       ) A
+		ORDER BY A.SRT_ORD   
+	</select>
+	
+	<select id="selectCombobox4" parameterType="qualityStdInfo" resultType="qualityStdInfo">
+		/* QualityStdinfoDao.selectCombobox4 (모델명)*/
+		SELECT A.MODEL_NM AS CD, A.MODEL_NM AS CD_NM
+		  FROM (
+		        SELECT A.MODEL_NM AS MODEL_NM                                            -- 라이브러리명
+		             , A.MODEL_NM AS SRT_ORD
+		          FROM TB_OPENM_MODEL A    -- TB_OPENM_모델(TABLE)
+					<if test="lib_nm != null and lib_nm != ''">
+						WHERE A.LIB_NM = #{lib_nm}        
+					</if>
+		        UNION ALL
+		        SELECT 'ALL' , ' ALL' 
+		          FROM DUAL
+		       ) A
+		ORDER BY A.SRT_ORD  
+	</select>
+	
+	<select id="selectCombobox5" parameterType="qualityStdInfo" resultType="qualityStdInfo">
+		/* QualityStdinfoDao.selectCombobox5 (주제영역명)*/
+			SELECT A.SUB_NM AS CD, A.SRT_ORD AS CD_NM
+		  FROM (
+		        SELECT A.SUB_NM AS SUB_NM                                            -- 라이브러리명
+		             , A.SUB_NM AS SRT_ORD
+		          FROM TB_OPENM_SUB A    -- TB_OPENM_모델(TABLE)
+					<trim prefix="WHERE" prefixOverrides="AND |OR">
+						<if test="lib_nm != null and lib_nm != ''">
+							A.LIB_NM = #{lib_nm} AND         
+						</if>
+						<if test="model_nm != null and model_nm != ''">
+			           		A.MODEL_NM = #{model_nm}
+						</if>
+					</trim>
+		        UNION ALL
+		        SELECT 'ALL' , ' ALL' 
+		          FROM DUAL
+		        UNION ALL
+		        SELECT <![CDATA['<Main Subject Area>']]>, <![CDATA['&lt;Main Subject Area&gt;']]>   
+		          FROM DUAL          
+		       ) A
+		ORDER BY A.SRT_ORD
+	</select>
+	<!-- 품질점검 예외 대상 관리 끝-->
+	
+	<!-- 프로젝트 구조 품질점검 지표/RULE 관리 시작-->
+	<sql id="projectQualityCheckRuleMngRefId" >
+		/* QualityStdinfoDao.projectQualityCheckRuleMngList */
+		SELECT CASE WHEN C.PROJECT_ID IS NULL THEN '미적용' ELSE '적용' END AS APPLY_YN --적용여부
+		     ,(SELECT PROJECT_NM FROM PROJECT WHERE PROJECT_ID = #{project_id})  AS PROJECT_NM   -- 프로젝트 
+		     , CD1.CD_NM AS MDI_PCS_NM                                       -- 모델링 단계
+		     , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD                            -- 품질점검 지표코드
+		     , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM                            -- 품질점검 지표명
+		     , CD2.CD_NM AS QTY_IDT_TP_NM                                    -- 품질지표 유형
+		     , A.QTY_CHK_TG_YN AS QTY_CHK_TG_YN                              -- 품질점검 대상여부
+		     , CD3.CD_NM AS QTY_CHK_TP_NM                                    -- 품질점검 유형
+		     , A.SRT_ORD AS SRT_ORD                                          -- 정렬순서
+		     , A.QTY_CHK_CONT AS QTY_CHK_CONT                                -- 품질점검내용
+		     , A.SLV_RSL_CONT AS SLV_RSL_CONT                                -- 해결방안내용
+		     , CASE WHEN C.PROJECT_ID IS NULL THEN B.QTY_CHK_SQL
+		            ELSE C.QTY_CHK_SQL 
+		        END AS QTY_CHK_SQL                                           -- 품질 점검 SQL
+		     -- HIDDEN
+		     , A.MDI_PCS_CD AS MDI_PCS_CD                                    -- 모델링단계코드
+		     , A.QTY_IDT_TP_CD AS QTY_IDT_TP_CD                              -- 품질지표유형코드     
+		     , A.QTY_CHK_TP_CD AS QTY_CHK_TP_CD                              -- 품질점검유형코드     
+		  FROM TB_OPENM_QAINDI A    -- TB_OPENQ_모델품질지표기준(TABLE)
+		     , TB_OPENM_QTY_CHK_SQL B
+		     , TB_OPENM_PROJECT_QTY_CHK_SQL C
+		     , CD CD1 
+		     , CD CD2
+		     , CD CD3
+		 WHERE 
+		       	   A.QTY_CHK_IDT_CD NOT IN ('002')    -- 모델 정보 수집 제외
+			   AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+			   AND A.QTY_CHK_IDT_CD = C.QTY_CHK_IDT_CD(+)
+			   AND C.PROJECT_ID(+) = #{project_id}
+			   AND A.MDI_PCS_CD = CD1.CD(+)
+			   AND CD1.GRP_CD_ID(+) = 'M0001'   
+			   AND A.QTY_IDT_TP_CD = CD2.CD(+)
+			   AND CD2.GRP_CD_ID(+) = 'M0002' 
+			   AND A.QTY_CHK_TP_CD = CD3.CD(+)
+			   AND CD3.GRP_CD_ID(+) = 'M0003'
+			<if test="qty_chk_idt_cd != null and qty_chk_idt_cd != ''">
+			   -- 품질점검지표코드
+			   AND A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+			</if>
+			<if test="apply_yn != null and apply_yn eq 'Y'.toString()">
+			   -- 적용여부 Y
+			   AND C.PROJECT_ID IS NOT NULL
+			</if>
+			<if test="apply_yn != null and apply_yn eq 'N'.toString()">
+			   -- 적용여부 N
+			   AND NOT EXISTS (SELECT 'Y' 
+			                     FROM TB_OPENM_PROJECT_QTY_CHK_SQL C
+			                    WHERE C.PROJECT_ID = #{project_id}
+			                      AND C.QTY_CHK_IDT_CD = A.QTY_CHK_IDT_CD
+			                   )    
+			</if>
+		ORDER BY A.SRT_ORD
+	</sql>
+	
+	<select id="projectQualityCheckRuleMngList" parameterType="openmQtyChkSql" resultType="openmQtyChkSql">
+		/* QualityStdInfoDao.projectQualityCheckRuleMngList */
+				SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="projectQualityCheckRuleMngRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>=]]> (${pagePerCount} * (${currentPage}-1) + 1)	
+	</select>
+	
+	<select id="projectQualityCheckRuleMngByExcelDown" parameterType="openmQtyChkSql" resultType="java.util.LinkedHashMap">
+		/* QualityStdinfoDao.projectQualityCheckRuleMngByExcelDown */
+				<include refid="projectQualityCheckRuleMngRefId"/>
+	</select>
+	
+	<insert id="saveProjectQualityCheckRuleMng1" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.saveProjectQualityCheckRuleMng1 */
+	INSERT INTO   TB_OPENM_PROJECT_QTY_CHK_SQL    					      -- 프로젝트별SQL표준품질점검지표_점검SQL(TABLE)
+	        ( PROJECT_ID                                                  -- 프로젝트ID
+	        , QTY_CHK_IDT_CD                                              -- 품질점검지표코드
+	        , QTY_CHK_SQL                                                 -- 품질점검SQL
+	 ) VALUES (  
+			  #{project_id}		                                            -- 프로젝트ID
+	        , #{qty_chk_idt_cd}                                             -- 품질점검지표코드
+	        , #{qty_chk_sql}                                                -- 품질점검SQL
+	        ) 
+	</insert>
+
+	<update id="saveProjectQualityCheckRuleMng2" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.saveProjectQualityCheckRuleMng2 */
+		UPDATE TB_OPENM_PROJECT_QTY_CHK_SQL       							 -- 프로젝트별SQL표준품질점검지표_점검SQL(TABLE)
+		   SET QTY_CHK_SQL = #{qty_chk_sql}                                  -- 품질점검SQL
+		 WHERE PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+		   AND QTY_CHK_IDT_CD = #{qty_chk_idt_cd}                            -- 품질점검지표코드
+	</update>
+
+	<delete id="saveProjectQualityCheckRuleMng3" parameterType="qualityStdInfo">
+		/* QualityStdinfoDao.saveProjectQualityCheckRuleMng3 */
+		DELETE TB_OPENM_PROJECT_QTY_CHK_SQL       							 -- 프로젝트별SQL표준품질점검지표_점검SQL(TABLE)
+		 WHERE PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+		   AND QTY_CHK_IDT_CD = #{qty_chk_idt_cd}                            -- 품질점검지표코드
+	</delete>
+	
+	
+	<select id="checkTbOpenmQaindi" parameterType="qualityStdInfo" resultType="int">
+		/* QualityStdInfoDao.checkTbOpenmQaindi */
+		SELECT COUNT(*) AS CNT
+		  FROM TB_OPENM_PROJECT_QTY_CHK_SQL A
+		     , TB_OPENM_QAINDI B
+		 WHERE A.PROJECT_ID = #{project_id}
+		   AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+		   AND ROWNUM = 1
+	</select>
+	
+	<insert id="insertTbOpenmProjectQtyChkSql" parameterType="qualityStdInfo" useGeneratedKeys="false">
+	/* QualityStdinfoDao.insertTbOpenmProjectQtyChkSql */
+	INSERT INTO   TB_OPENM_PROJECT_QTY_CHK_SQL     -- 프로젝트별SQL표준품질점검SQL(TABLE)
+	        ( PROJECT_ID                                                  -- 프로젝트ID
+	        , QTY_CHK_IDT_CD                                              -- 품질점검지표코드
+	        , QTY_CHK_SQL
+	        )
+	SELECT #{project_id}
+	     , QTY_CHK_IDT_CD
+	     , QTY_CHK_SQL
+	  FROM TB_OPENM_QTY_CHK_SQL
+			WHERE QTY_CHK_IDT_CD NOT IN ('002')    --모델 정보 수집 제외 	
+	</insert>
+	<!-- 프로젝트 구조 품질점검 지표/RULE 관리 끝-->
+	
+	
+	
+</mapper>

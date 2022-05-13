@@ -1,0 +1,2029 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="UTF-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+	
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+	
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-mㄹigrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>12. 성능 시험</h1>
+		<h2>12.3. 테이블 변경 성능 영향도 분석</h2>
+		
+		<div>
+			<h4 class="titleStyle-none">개요</h4>
+			<p>
+				인덱스 추가, 파티셔닝 등의 구조변경에 대하여 해당 테이블을 참조하는 SQL의 영향도를 분석한다.
+				 운영 DB 반영 전에 검증 DB에서 성능의 변화를 진단하여, 테이블 변경으로 인한 운영DB 장애를 최소화 할 수 있는 기능을 제공한다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<p>
+				화면은 다음과 같은 탭으로 구성되어 있다.
+			</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>Tab 명</th>
+							<th>Tab 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>성능 영향도 분석</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스 DB에서 운영 중인 SQL을 수집하여 목표DB에 자동 실행한 후,
+										 ASIS 성능과 TOBE 성능 정보를 비교하여 저장한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 영향도 분석 결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB 성능과 목표DB 성능 비교 결과를 다양한 조건으로 검색할 수 있으며,
+										 성능 저하로 인해 튜닝이 필요한 SQL에 대해 튜닝대상으로 선정할 수 있다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝실적</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 저하로 인해 튜닝 대상으로 선정된 SQL에 대한 튜닝 진행 현황 및 개선 실적 정보를 제공한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL점검팩을 등록/변경/삭제할 수 있는 기능을 제공한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						
+					</tbody>
+				</table>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[성능 영향도 분석] 탭</h5>
+			<p>
+				성능 영향도 분석을 수행 할 SQL점검팩을 [SQL점검팩] 탭에서 등록 후, 수집 대상 소스 DB,
+				 목표DB 선택과 수집기간 범위 및 필터링 조건(AWR 또는 전체 SQL, TOP SQL, OWNER/ TABLE/MODULE)을 입력한다.
+				 [실행] 버튼을 클릭하면 성능 영향도 분석이 자동 수행된다.<br>
+				성능 영향도 분석 수행 시 소스 DB의 SQL문, 바인드 값, 실행성능, 플랜정보를 수집한다.
+				 수집된 SQL문장과 바인드 값으로 목표 DB에 실행 후 목표 DB의 실행성능, 플랜정보를 소스 DB와 비교하여 저장한다.
+			</p>
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					SELECT문은 가장 최근의 바인드 값으로 SQL을 실행하여 수행 시간과 블록수 기준으로  성능을 비교한다.<br>
+					DML 문은 바인드 값이 수집되지 않기 때문에 예측 실행플랜을 생성하여 플랜 변경 여부와 플랜상의 비효율적인 동작,
+					즉 테이블 FULL스캔 여부, 전체 파티션 엑세스 여부가 존재하는지를 점검한다.
+				<p>
+			</div>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/154-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>점검팩 등록일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL점검팩을 조회하기 위해 점검팩을 등록한 일자를 선택한다.</li>
+									<li>1주일: 선택 시 점검팩 등록일자가 금일을 기준으로 1주일로 변경된다.</li>
+									<li>1개월: 선택 시 점검팩 등록일자가 금일을 기준으로 1개월로 변경된다.</li>
+									<li>특정일자의 범위를 선택하고자 할 경우 날짜를 선택하면, 선택된 일자로 조회된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 수행할 SQL점검팩을 선택한다.
+									</li>
+									<li>
+										SQL점검팩 선택 시 이미 수행된 성능 영향도 분석 정보가 있을 경우 해당 SQL점검팩의 상세 조건 및 수행결과가 조회된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>성능영향도 분석 실행 Area</h6>
+			<p class="title-h7">성능 영향도 분석 실행</p>
+			<ol class="listStyle-number">
+				<li>
+					신규 일 경우 SQL점검팩을 [SQL점검팩] 탭에서 등록한다. 등록하는 방법은 [SQL점검팩] 탭의  설명을 참조한다.
+				</li>
+				<li>점검팩 등록일자 선택 > SQL점검팩을 선택한다. 신규 SQL점검팩 일 경우 상세 조건을 입력한 후  [실행] 버튼을 클릭한다. 
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/154-2.png">
+					</div>
+					<table>
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<thead>
+							<tr>
+								<th>컬럼</th>
+								<th>컬럼 설명</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>AWR</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											체크 시 AWR을 대상으로 성능 영향도 분석을 수행한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>전체 SQL</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											체크 시 V$를 대상으로 성능 영향도 분석을 수행한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>전체</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											체크 시 수집된 SQL 전체에 대한 성능 영향도 분석을 수행한다.
+										</li>
+										<li>
+											체크 해제 시 TOP N을 입력할 수 있다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>TOP N</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											수집된 SQL 중 TOP N에 입력된 상위 N개의 SQL에 대해서만 성능 영향도 분석을 수행한다.(TOP N의 선정 기준은 BUFFER GETS 기준)
+										</li>
+										<li>
+											전체 체크 해제 시 TOP N을 입력할 수 있다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>소스DB</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											성능 영향도 분석을 수행을 위한 SQL을 수집할 DB를 선택한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>목표DB</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											성능 영향도 분석을 수행할 목표DB를 선택한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>수집기간</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											소스 DB에서 SQL을 수집할 기간을 선택한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>Literal 제외</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											체크 시 Literal SQL을 제외한다.
+										</li>
+										<li>
+											체크 해제 시 Literal SQL을 포함한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>SQL Time Limit</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											SQL 타임 제한 기능을 선택한다. 선택된 시간을 초과한 SQL에 대해서는 실행을 중단하고 다음 SQL을 실행한다.
+										</li>
+										<li>
+											‘직접입력’을 선택할 경우 사용자가 직접 제한 시간을 입력할 수 있다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>최대 Fetch 건수</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											최대 Fetch 건수를 입력한다. 입력된 Fetch 건수를 초과한 SQL에 대해서는 실행을 중단하고 다음 SQL을 실행한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>TABLE_OWNER</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											소스DB의 TABLE OWNER를 선택한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>TABLE_NAME in</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											소스 DB에서 성능 영향도 분석을 수행할 TABLE을 입력한다.
+										</li>
+										<li>
+											N개의 TABLE을 입력할 경우 콤마(,)로 분리하며 대소문자는 구분하지 않으며 최대 100개까지 입력 가능하다.<br>
+											예) USERS, menu, role
+										</li>
+										<li>
+											입력된 TABLE과 동일한 TABLE을 사용하는 SQL에 대해서만 수집한다.
+											입력된 TABLE은 내부적으로 아래와 같은 조건으로 필터링에 포함된다.<br>
+											<span class="text-italic">WHERE UPEER(TABLE_NAME) IN (‘USERS’, ‘MENU’, ‘ROLE’)</span>
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>MODULE like</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											소스 DB에서 특정 MODULE에 대한 수집이 필요한 경우 입력한다.(옵션)
+										</li>
+										<li>
+											N개의 MODULE을 입력할 경우 콤마(,)로 분리하며 대소문자는 구분하지 않으며 최대 100개까지 입력 가능하다.<br>
+											예) JDBC, dbsnmp
+										</li>
+										<li>
+											입력된 MODULE이 포함된 SQL에 대해서만 수집한다. 입력된 MODULE은 내부적으로 아래와 같은 조건으로 필터링에 포함된다.<br>
+											<span class="text-italic">WHERE (UPEER(MODULE) LIKE ‘%JDBC%’ OR <br>UPEER(MODULE) LIKE ‘%DNSMP%’)</span>
+										</li>
+									</ul>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					
+				<li>진행상황을 수행결과에서 조회한다.
+					<div class="imageBox resultArea">
+						<img src="/resources/images/menual/bgimg_renewal/154-3.png">
+					</div>
+					
+					[실행] 버튼 클릭 시 SQL수집 건수가 0건일 경우 아래와 같은 메시지 박스가 팝업되며, 조건값을 수정하여 성능 영향도 분석을 수행할 수 있다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/154-4.png">
+					</div>
+					
+					[실행] 버튼 클릭 시 해당 SQL점검팩에 대한 성능 영향도 분석 작업이 수행 중일 경우, 아래와 같은 메시지 박스가 팝업된다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/154-5.png">
+					</div>
+					
+					<img class="text-image" src="/resources/images/menual/bgimg_renewal/btn-search.png">아이콘 클릭 시 입력된 값을 상세히 볼 수 있다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/154-6.png">
+					</div>
+				</li>
+			</ol>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					성능 영향도 분석 작업은 백그라운드로 실행된다. 따라서 실행 후 다른 작업을 하거나,
+					 Open-POP WEB이 종료되더라도 재접속 후 해당 SQL점검팩의 진행상황을 조회할 수 있다.
+				<p>
+			</div>
+			
+			<p class="title-h7">성능 영향도 분석 재수행</p>
+			<div>
+				<p>목표 DB의 환경변화에 따라 이전에 수행된 SQL점검팩을 재수행 할 수 있다. 재수행 시 이전에 수행된 성능 영향도 분석 정보는 물리적으로 삭제되므로 주의가 필요하다.</p>
+			</div>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					이미 수행된 SQL의 점검팩의 상세 조건은 소스 DB의 성능 영향도 분석 대상 범위를 명확하게 하기 위해 수정할 수 없다.
+					 수정이 필요할 경우 새로운 SQL점검팩을 신규 등록 후 성능 영향도 분석을 수행한다. 불필요한 SQL점검팩의 경우 [SQL점검팩] 탭에서 삭제한다.<br>
+					튜닝대상이 선정되었을 경우 성능 영향도 분석을 재수행 할 수 없다. 재수행 시 모든 데이터가 삭제되므로 실수로 인한 데이터 삭제를 방지하기 위한 목적이다.
+				<p>
+			</div>
+			<ol class="listStyle-number">
+				<li>재수행 할 SQL점검팩을 선택하면 이전에 수행된 SQL점검팩의 상세 조건이 조회된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/154-7.png">
+					</div>
+				</li>
+				<li>[실행] 버튼 클릭 시 아래와 같은 메시지 박스가 팝업되고 [YES] 버튼 클릭 시 성능 영향도 분석 작업이 재수행 된다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/154-8.png">
+					</div>
+					
+					튜닝대상으로 선정된 SQL이 존재하는 경우 아래와 같은 메시지 박스가 팝업되고, SQL점검팩을 삭제할 수 없다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/154-9.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">강제완료처리</p>
+			<div>
+				<p>진행 중인 성능 영향도 분석 작업을 중단해야 할 사유 발생 시 강제완료처리를 수행한다.</p>
+				<ol class="listStyle-number">
+					<li>수행 중인 SQL점금팩에서 [강제완료처리] 버튼을 클릭한다
+						<div class="imageBox" style="width: 355px;">
+							<img src="/resources/images/menual/bgimg_renewal/154-10.png">
+						</div>
+					</li>
+					<li>아래와 같은 메시지 박스가 팝업되고 [YES] 버튼 클릭 시 성능 영향도 분석 작업이 강제완료 된다.
+						<div class="imageBox" style="width: 355px;">
+							<img src="/resources/images/menual/bgimg_renewal/154-11.png">
+						</div>
+						
+						해당 SQL점검팩에 수행 중인 성능 영향도 분석 작업이 없을 경우 아래와 같은 메시지 박스가  팝업된다.
+						<div class="imageBox" style="width: 355px;">
+							<img src="/resources/images/menual/bgimg_renewal/154-12.png">
+						</div>
+					</li>
+					<li>강제완료처리 시 수행결과에 아래와 같이 조회된다. 
+						<div class="imageBox resultArea">
+							<img src="/resources/images/menual/bgimg_renewal/154-13.png">
+						</div>
+					</li>
+				</ol>
+			</div>
+			
+			<p class="title-h7">권한</p>
+			<div>
+				<p>
+					Open-POP의 USER로 성능 영향도 분석을 수행하기 때문에 목표DB에 권한이 부여되지 않아 성능 영향도 분석을 정상적으로 수행할 수 없는 경우가 발생한다.
+					 이때 필요한 권한 스크립트를 자동으로 생성할 수 있는 기능을 제공한다. 생성된 스크립트를 목표DB에 실행한 후 성능 영향도 분석을 재수행한다.
+				</p>
+				<ol class="listStyle-number">
+					<li>[권한] 버튼을 클릭한면 권한스크립트 화면이 실행된다.
+						<div class="imageBox" style="width: 355px;">
+							<img src="/resources/images/menual/bgimg_renewal/154-14.png">
+						</div>
+					</li>
+					<li>Object Owner 선택 &#62;  Object 선택 &#62; [권한스크립트 생성] 버튼 클릭 &#62; [권한스크립트 복사] 버튼을 클릭한다.
+						<div class="imageBox" style="width: 560px;">
+							<img src="/resources/images/menual/bgimg_renewal/154-15.png">
+						</div>
+					</li>
+					<li>[권한스크립트 생성] 버튼을 클릭하면 선택된 Object에 대한 권한 스크립트가 생성되고,
+						 [권한스크립트 복사] 버튼을 클릭하면 클립보드에 복사된다.
+						  복사된 스크립트를 목표 DB에 실행한 후 성능 영향도 분석을 재수행한다.
+					</li>
+				</ol>
+			</div>
+			
+			<h6>수행결과 Area</h6>
+			<p>성능 영향도 분석 수행 시 진행상황을 검색한다.</p>
+			<div class="imageBox resultArea">
+				<img src="/resources/images/menual/bgimg_renewal/154-16.png">
+			</div>
+			
+			<p class="title-h7">수행결과 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>전체</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 수행할 전체 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수행완료</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 완료한 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수행중</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 수행 중인 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>오류</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 시 오류가 발생한 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>점검완료</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석이 정상적으로 완료되었을 경우 표시한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>강제완료</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										[강제완료처리] 버튼을 통해 강제완료 되었을 때 표시한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">진행상황 자동 조회</p>
+			<div>
+				<p>
+					주기적으로 Refresh할 초를 입력하고, ON으로 변경하면 해당 초의 주기에 따라 자동으로 수행결과를 Refresh한다.
+				</p>
+				<div class="imageBox" style="width: 600px;">
+					<img src="/resources/images/menual/bgimg_renewal/154-17.png">
+				</div>
+			</div>
+			
+			<p class="title-h7">진행상황 수동 조회</p>
+			<div>
+				<p>
+					<img class="text-image" src="/resources/images/menual/bgimg_renewal/btn-refresh.png">
+					 아이콘 클릭 시 마다 수행결과를 Refresh한다.
+				</p>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[성능 영향도 분석 결과] 탭</h5>
+			<p>
+				소스DB 성능과 목표DB 성능 영향도 분석 결과를 다양한 조건으로 검색할 수 있으며, 성능 저하로 인해 튜닝이 필요한 SQL에 대해 튜닝대상으로 선정할 수 있다.<br>
+				ELAPSED TIME, BUFFER GETS, FULL SCAN여부, PARTITON ALL ACCESS여부 등 성능 영향도 분석 결과에 대해 소스 DB와 목표DB를 비교하여 제공하며,
+				 버퍼 임팩트(%), 수행시간 임팩트(%), PLAN변경여부 및 성능점검결과가 적합인지 부적합인지에 대한 정보를 제공한다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/155-1.png">
+			</div>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					정상적으로 성능 영향도 분석이 완료된 SQL점검팩에 대해서만 검색이 가능하다.
+					 성능 영향도 분석을 수행 중이거나 강제완료 처리된 SQL점검팩은 검색할 수 없다.
+				<p>
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>소스DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL을 수집한 소스DB를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>점검팩 등록일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL점검팩을 조회하기 위해 점검팩을 등록한 일자를 선택한다.</li>
+									<li>1주일: 선택 시 점검팩 등록일자가 금일을 기준으로 1주일로 변경된다.</li>
+									<li>1개월: 선택 시 점검팩 등록일자가 금일을 기준으로 1개월로 변경된다.</li>
+									<li>특정일자의 범위를 선택하고자 할 경우 날짜를 선택하면, 선택된 일자로 조회된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 수행한 SQL점검팩을 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2" class="table-middleTitle text-bold">SELECT 문</td>
+						</tr>
+						<tr>
+							<td>전체</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										체크 시 SELECT문 전체에 대한 SQL을 검색한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Plan 변경</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB와 비교하여 목표DB에서 Plan이 변경된 SQL을 검색한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능저하(BUFFER GETS 기준)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB BUFFER GETS이 소스DB 평균 BUFFER GETS(평균) 보다 증가한 SQL을 검색한다.<br>
+										<span class="text-italic">목표DB BUFFER GETS &#62; 소스DB BUFFER GETS(평균)</span>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 부적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										체크 시 설정된 성능점검지표들 중 부적합이 1개라도 있는 SQL을 검색한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>오류</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석 시 오류가 발생한 SQL을 검색한다.
+									</li>
+									<li>
+										오류 체크 시 오류가 발생한 SQL만 검색할 수 있다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>BUFFER GETS(ASIS 평균)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB 평균 BUFFER GETS이 입력된 값 이상인 SQL을 검색한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ELAPSED TIME(ASIS 평균)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB 평균 ELAPSED TIME이 입력된 값 이상인 SQL을 검색한다.(소수점 입력 가능)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>BUFFER GETS 성능 저하</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB 와 비교하여 목표DB에서 BUFFER GET이 입력된 값 이상 성능이 저하된 SQL을 검색한다. (소수점 입력 가능)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ELAPSED TIME 성능 저하</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB 와 비교하여 목표DB에서 BUFFER GET이 입력된 값 이상 성능이 저하된 SQL을 검색한다. (소수점 입력 가능)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2" class="table-middleTitle text-bold">DML 문</td>
+						</tr>
+						<tr>
+							<td>전체</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										체크 시 DML문 전체에 대한 SQL을 검색한다
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>FULL SCAN</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										예측 플랜(Explain Plan) 정보에 FULL SCAN 오퍼레이션이 있는 SQL을 검색한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>PARTITION ALL ACCESS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										예측 플랜(Explain Plan) 정보에 PARTITION RANGE ALL, PARTITION LIST ALL, PARTITION HASH ALL 오퍼레이션이 있는 SQL을 검색한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>오류</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석 시 오류가 발생한 SQL을 검색한다.
+									</li>
+									<li>
+										오류 체크 시 오류가 발생한 SQL만 검색할 수 있다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+				
+			<h6>수행결과 Area</h6>
+			<div class="imageBox resultArea">
+				<img src="/resources/images/menual/bgimg_renewal/155-2.png">
+			</div>
+			
+			<p class="title-h7">수행결과 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>전체</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 수행한 전체 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수행완료</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 완료한 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>오류</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석 시 오류가 발생한 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>테이블 현황 Area</h6>
+			<p class="title-h7">그리드 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>TABLE_OWNER</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TABLE_OWNER
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TABLE_NAME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TABLE 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										해당 TABLE명이 포함된 SQL수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>플랜변경 건수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										해당 TABLE명이 포함된 SQL 중 플랜변경이 발생한 SQL수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능저하 건수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										해당 TABLE명이 포함된 SQL 중 성능저하가 발생한 SQL수
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 행 Click</p>
+			<ol class="listStyle-number">
+				<li>
+					해당 TABLE을 사용하는 SQL의 분석이 필요한 경우 그리드 행을 클릭한다.
+					<div class="imageBox" style="width: 730px;">
+						<img src="/resources/images/menual/bgimg_renewal/155-3.png">
+					</div>
+				</li>
+				<li>
+					우측 그리드에  해당 TABLE을 사용하는 SQL이 조회된다. 검색결과 건수에서 해당 TABLE을 사용하는 SQL 수를 확인할 수 있다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/155-4.png">
+					</div>
+				</li>
+			</ol>
+				
+			<h6>SQL 상세 Area</h6>
+			<p class="title-h7">그리드 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>TABLE_NAME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										해당SQL에 포함된 성능 영향도 분석 대상 TABLE 목록
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝상태</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										해당 SQL이 튜닝대상으로 선정되었을 경우 현재 진행 중인 튜닝상태를 표시. 선정되지 않았을 경우 빈 값
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능임팩트 유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SELECT문 성능임팩트
+										<ul class="listStyle-dash">
+											<li>Improved:  성능향상. TOBE BUFFER GETS &#60; ASIS BUFFER GETS(평균)</li>
+											<li>Regressed: 성능저하. TOBE BUFFER GETS &#62; ASIS BUFFER GETS(평균)</li>
+											<li>Unchanged: 성능동일. TOBE BUFFER GETS &#61; ASIS BUFFER GETS(평균)</li>
+										</ul>
+									</li>
+									<li>
+										DML문 성능임팩트
+										<ul class="listStyle-dash">
+											<li>Improved: FULL SCAN이 사라지거나 PARTITION ALL ACCESS가 사라진 경우</li>
+											<li>Regressed: FULL SCAN이 추가 발생하거나 PARTITION ALL ACCESS가 추가 발생할 경우</li>
+											<li>Unchanged: PLAN이 동일하거나, FULL SCAN 또는 PARTITION ALL ACCESS가 추가 발생하지 않은 경우</li>
+										</ul>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>버퍼 임팩트(배)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Buffer Gets이 ASIS 대비 TOBE 성능이 향상(+) 또는 저하(-)된 비율
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수행시간 임팩트(배)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Elapsed Time이 ASIS 대비 TOBE 성능이 향상(+) 또는 저하(-)된 비율
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능점검결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능점검지표 기반의 성능점검 결과값(적합, 부적합)
+									</li>
+									<li>
+										SQL이 정상 수행되지 않은 경우 빈 값
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Plan 변경여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Y: 플랜변경, N: 플랜동일
+									</li>
+									<li>
+										DML문의 경우 예측 실행계획과 ASIS 실제 실행계획을 비교하여 Plan 변경 여부를 확인한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL ID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS PLAN HASH VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB PLAN HASH VALUE
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE PLAN HASH VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB PLAN HASH VALUE
+									</li>
+									<li>
+										DML문의 경우 예측 실행계획을 사용하므로 PLAN HASH VALUE가 없다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS EXECUTIONS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB EXECUTIONS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE EXECUTIONS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB EXECUTIONS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS ROWS PROCESSED</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB ROWS PROCESSED
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE ROWS PROCESSED</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB ROWS PROCESSED
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS ELAPSED TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB ELAPSED TIME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE ELAPSED TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB ELAPSED TIME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS BUFFER GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB BUFFER GETS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE BUFFER GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB BUFFER GETS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS FULLSCAN YN</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB FULLSCAN 여부(Y: FULLSCAN)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE FULLSCAN YN</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB FULLSCAN 여부(Y: FULLSCAN)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS PARTITION ALL<br>ACCESS YN</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB PARTITION ALL ACCESS 여부(Y: PARTITION ALL ACCESS)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE PARTITION ALL<br>ACCESS YN</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB PARTITION ALL ACCESS 여부(Y: PARTITION ALL ACCESS)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 명령 유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SELECT, INSERT, UPDATE, DELETE, MAERGE문인지의 유형
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>에러코드</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										오류 발생 시 ORACLE 에러코드
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>에러메시지</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										오류 발생 시 ORACLE 에러메시지
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL TEXT</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										화면: 앞에서 자른 SQL의 일부분
+									</li>
+									<li>
+										엑셀: 전체 SQL(수용 가능한 엑셀 셀 크기까지)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝대상 선정 시 부여된 번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL점검팩명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL점검팩명
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 행 Click</p>
+			<div>
+				<ol class="listStyle-number">
+					<li>Bind Value, Plan 분석이 필요한 SQL은 그리드 행을 클릭한다.
+						<div class="imageBox" style="width: 730px;">
+							<img src="/resources/images/menual/bgimg_renewal/155-5.png">
+						</div>
+					</li>
+					<li>상세한 분석 화면이 실행된다.
+						<div class="imageBox" style="width: 800px;">
+							<img src="/resources/images/menual/bgimg_renewal/155-6.png">
+						</div>
+					</li>
+				</ol>
+				
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>탭</th>
+							<th>탭 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>SQL TEXT</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL TEXT
+									</li>
+									<li>
+										[SQL ID복사] 버튼을 클릭하면 SQL ID가 클립보드에 복사된다.
+									</li>
+									<li>
+										[SQL 복사] 버튼을 클릭하면 SQL Text가 클립보드에 복사된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Bind Value</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										최종 수행된 바인드 값
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Before Plan</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB Plan
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>After Plan</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB Plan
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>[ASIS PLAN 복사] 버튼</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB Plan이 클립보드에 복사된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>[TOBE PLAN 복사] 버튼</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB Plan이 클립보드에 복사된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">검색결과 건수</p>
+			<div>
+				[검색] 버튼 클릭 또는 좌측 그리드 클릭 시 조회되는 전체 결과 건수를 표시한다.
+			</div>
+			
+			<h6>튜닝대상 선정</h6>
+			<p class="title-h7">튜닝대상 선정 전체 선택</p>
+			<div>
+				<p>
+					검색된 전체 SQL(모든 페이지)에 대해 튜닝대상으로 선정한다. 선정된 튜닝대상에 대한 튜닝 작업은 ‘성능 최적화’ 메뉴에서 진행한다.
+				</p>
+				<ol class="listStyle-number">
+					<li>‘전체’ 체크 박스를 클릭하면 하위의 모든 체크 박스가 체크된다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/155-7.png">
+						</div>
+						<div class="noteBox">
+							<p class="noteTitle">NOTE</p>
+							<p>
+								‘전체 체크’ 박스를 선택할 경우 현재 그리드에 조회된 SQL뿐만 아니라,
+								 검색된 조건의 모든 SQL(다음 페이지 포함)에 대해 튜닝대상으로 선정되므로 주의가 필요하다.
+							<p>
+						</div>
+					</li>
+					<li>[튜닝대상선정] 버튼을 클릭한다. 튜닝 요청 화면이 실행되고 튜닝담당자, 이전 튜닝대상 선정 SQL 제외 항목을 선택하고 [튜닝요청 및 담당자 지정] 버튼을 클릭한다.
+						<div class="imageBox" style="width: 560px;">
+							<img src="/resources/images/menual/bgimg_renewal/155-8.png">
+						</div>
+						<table>
+							<colgroup>
+								<col style="width: 20%;">
+								<col style="width: 80%;">
+							</colgroup>
+							<thead>
+								<tr>
+									<th>컬럼</th>
+									<th>컬럼 설명</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td>튜닝담당자 자동할당</td>
+									<td>
+										<ul class="listStyle-dot">
+											<li>
+												‘Yes’일 경우 튜닝담당자를 자동할당 한다.
+											</li>
+										</ul>
+									</td>
+								</tr>
+								<tr>
+									<td>튜닝담당자</td>
+									<td>
+										<ul class="listStyle-dot">
+											<li>
+												튜닝담당자 자동할당이 ‘No’일 경우 튜닝담당자를 직접 선택한다.
+											</li>
+										</ul>
+									</td>
+								</tr>
+								<tr>
+									<td>이전 튜닝대상 선정 SQL 제외</td>
+									<td>
+										<ul class="listStyle-dot">
+											<li>
+												‘Yes’일 경우 해당 SQL점검팩에서 튜닝대상 선정이 된 적이 있는 SQL은 튜닝대상에서 제외한다.
+											</li>
+										</ul>
+									</td>
+								</tr>
+								<tr>
+									<td>SQL점검팩</td>
+									<td>
+										<ul class="listStyle-dot">
+											<li>
+												SQL점검팩
+											</li>
+										</ul>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</li>
+					<li>튜닝대상 선정 작업이 진행되고 완료되면 아래와 같은 메시지 박스가 팝업된다. 메시지 내용에 선정된 튜닝대상 건수를 확인할 수 있다.
+						<div class="imageBox" style="width: 350px;">
+							<img src="/resources/images/menual/bgimg_renewal/155-9.png">
+						</div>
+					</li>
+					<li>[Ok] 버튼을 클릭하면 그리드가 재조회 되며 튜닝상태, 튜닝번호 컬럼에서 확인이 가능하다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/155-10.png">
+						</div>
+					</li>
+				</ol>
+			</div>
+				
+			<p class="title-h7">튜닝대상 선정 개별 선택</p>
+			<div>
+				<p>
+					검색된 SQL 중 개별 선택된 건에 대해 튜닝대상으로 선정한다. 개별 선택은 현재 페이지에서만 가능하다.
+					[다음] 버튼을 클릭하여 페이지가 변경되면 선택된 체크박스가 해제된다.
+				</p>
+				
+				<ol class="listStyle-number">
+					<li>튜닝대상 SQL에 대한 체크 박스를 클릭한다. 멀티 선택이 가능하다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/155-11.png">
+						</div>
+					</li>
+					<li>
+						이후의 처리 과정은 ‘&#62; 튜닝대상 선정 전체 선택’ 과 처리 과정이 동일하므로 해당 매뉴얼을 참조한다.
+					</li>
+				</ol>
+			</div>
+		</div>
+
+		<div class="tapScroll">
+			<h5>[튜닝 실적] 탭</h5>
+			<p>
+				성능 저하로 인해 튜닝 대상으로 선정된 SQL에 대한 튜닝 진행 현황 및 개선 실적 정보를 제공한다.<br>
+				소스DB 성능과 목표DB 성능 및 TUNING 후의 성능 정보가 SQL별로 제공되어 성능의 개선 정보를 한눈에 볼 수 있다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/156-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>소스DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL을 수집한 소스DB를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>점검팩 등록일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL점검팩을 조회하기 위해 점검팩을 등록한 일자를 선택한다.</li>
+									<li>1주일: 선택 시 점검팩 등록일자가 금일을 기준으로 1주일로 변경된다.</li>
+									<li>1개월: 선택 시 점검팩 등록일자가 금일을 기준으로 1개월로 변경된다.</li>
+									<li>특정일자의 범위를 선택하고자 할 경우 날짜를 선택하면, 선택된 일자로 조회된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										조회할 SQL점검팩을 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>튜닝/개선 실적 Area</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>Tab 명</th>
+							<th>Tab 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="table-middleTitle">SQL점검팩명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL점검팩명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">전체 SQL수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 수행한 전체 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">튜닝선정</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 대상으로 선정된 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">Plan변경</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										(튜닝선정 건 중) Plan이 변경된 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle" colspan="2">성능저하 SQLs</td>
+						</tr>
+						<tr>
+							<td>수행시간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										(튜닝선정 건 중) Elapsed Time이 ASIS 대비 TOBE 성능이 저하된 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>버퍼</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										(튜닝선정 건 중) Buffer Gets이 ASIS 대비 TOBE 성능이 저하된 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle" colspan="2">튜닝 SQLs</td>
+						</tr>
+						<tr>
+							<td>완료</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										업무담당자가 튜닝된 SQL을 적용 완료한 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>진행중</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝이 진행 중인 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle" colspan="2">개선실적(평균 %)</td>
+						</tr>
+						<tr>
+							<td>수행시간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝된 SQL의 Elapsed Time 기준 ASIS 대비 TOBE SQL별 개선 비율의 평균
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>버퍼</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝된 SQL의 Buffer Gets 기준 ASIS 대비 TOBE SQL별 개선 비율의 평균
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 셀 Click</p>
+			<ol class="listStyle-number">
+				<li>
+					<img class="text-image" src="/resources/images/menual/bgimg_renewal/btn-click.png">
+					아이콘의 셀을 클릭하면 해당 컬럼에 대한 조건으로 하단 그리드에 해당 SQL들이 검색된다. 이 외의 셀은 클릭 이벤트가 없다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/156-2.png">
+					</div>
+				</li>
+				<li>
+					예를들어 아래의 화면에서 ‘진행중’ 셀을 클릭하면, 해당 SQL점검팩의 튜닝 진행중인 SQL이 셀의 건수 만큼 하단 그리드에 검색된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/156-3.png">
+					</div>
+				</li>
+			</ol>
+			
+			<h6>SQL별 실적 Area</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>SQL점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL점검팩명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝상태</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										현재 진행 중인 튜닝상태를 표시
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>버퍼 임팩트(배)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Buffer Gets이 ASIS 대비 TOBE 성능이 향상(+) 또는 저하(-)된 비율
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수행시간 임팩트(배)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Elapsed Time이 ASIS 대비 TOBE 성능이 향상(+) 또는 저하(-)된 비율
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능점검결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능점검지표 기반의 성능점검 결과값(적합, 부적합)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Plan변경여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Y: 플랜변경, N: 플랜동일
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL ID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS PLAN HASH VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB PLAN HASH VALUE
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS ELAPSED TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB의 ELAPSED TIME(평균)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS BUFFER GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스DB의 BUFFER GETS(평균)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE PLAN HASH VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB PLAN HASH VALUE
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE ELAPSED TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB의 ELAPSED TIME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE BUFFER GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										목표DB의 BUFFER GETS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TUNING ELAPSED TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TUNING 후 목표DB의 ELAPSED TIME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TUNING BUFFER GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TUNING 후 목표DB의 BUFFER GETS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL_TEXT</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										화면: 앞에서 자른 SQL의 일부분
+									</li>
+									<li>
+										엑셀: 전체 SQL(수용 가능한 엑셀 셀 크기까지)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										 튜닝대상 선정 시 부여된 번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQL점검팩] 탭</h5>
+			<p>
+				SQL점검팩을 등록/수정/삭제할 수 있는 기능을 제공한다. SQL점검팩 삭제 시 SQL점검팩 및 수행된 성능 영향도 분석 정보도 모두 삭제되므로 주의가 필요하다.
+			</p>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					성능 영향도 분석 작업이 완료되고 튜닝대상을 선정한 SQL점검팩에 대해서는 삭제할 수 없다.<br>
+					SQL점검팩을 삭제할 경우 튜닝 실적 등 성능 영향도 분석 작업 완료 후 수행된 모든 정보를 삭제하므로,
+					 사용자 실수로 인한 삭제를 방지하기 위한 목적이다.
+				<p>
+			</div>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/157-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>소스DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL을 수집한 소스DB를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>점검팩 등록일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL점검팩을 조회하기 위해 점검팩을 등록한 일자를 선택한다.</li>
+									<li>1주일: 선택 시 점검팩 등록일자가 금일을 기준으로 1주일로 변경된다.</li>
+									<li>1개월: 선택 시 점검팩 등록일자가 금일을 기준으로 1개월로 변경된다.</li>
+									<li>특정일자의 범위를 선택하고자 할 경우 날짜를 선택하면, 선택된 일자로 조회된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										조회할 SQL점검팩을 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>SQL점검팩 Area</h6>
+			<p class="title-h7">SQL점검팩 등록</p>
+			<ol class="listStyle-number">
+				<li>[등록/수정] 버튼을  클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/153-6.png">
+					</div>
+				</li>
+				<li>
+					SQL점검팩 화면이 실행되며, 관련 정보를 입력하고 [저장] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/157-2.png">
+					</div>
+					다른 방법으로, [초기화] 버튼 클릭 시 입력 된 정보가 초기화되며 신규 등록이 가능하다.
+				
+					<table>
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<thead>
+							<tr>
+								<th>컬럼</th>
+								<th>컬럼 설명</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>SQL점검팩명</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											성능 영향도 분석을 수행할 SQL점검팩명을 입력한다. 
+										</li>
+										<li>
+											다양한 필터링 조건에 대한 성능 영향도 분석 작업이 필요할 경우, 각각의 SQL점검팩을 생성한 후 필터링 조건을 입력하고 수행한다.
+										</li>
+									</ul>
+								</td>
+							</tr>
+							<tr>
+								<td>SQL점검팩 설명</td>
+								<td>
+									<ul class="listStyle-dot">
+										<li>
+											SQL점검팩명에 대한 설명
+										</li>
+									</ul>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</li>
+			</ol>
+			
+			<p class="title-h7">SQL점검팩 수정</p>
+			<ol class="listStyle-number">
+				<li>수정할 SQL점검팩을 그리드에서 클릭하고, [등록/수정] 버튼을 클릭한다. 
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/157-3.png">
+					</div>
+				</li>
+				
+				<li>SQL점검팩 화면이 실행되며 해당 SQL점검팩의 정보가 조회된다. 수정할 정보를 입력하고 [저장] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/157-4.png">
+					</div>
+					
+					다른 방법으로, SQL점검팩 화면에서 수정할 SQL점검팩을 선택한 후 수정할 수 있다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/157-5.png">
+					</div>
+					[초기화] 버튼 클릭 시 입력 된 정보가 초기화되며 신규 등록이 가능하다.
+				</li>
+			</ol>
+			
+			<p class="title-h7">SQL점검팩 삭제</p>
+			<ol class="listStyle-number">
+				<li>
+					[검색] 후 그리드에서 삭제할 SQL점검팩을 체크한 후 [삭제] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/157-6.png">
+					</div>
+				</li>
+				<li>
+					아래와 같은 메시지 박스가 팝업되고 [YES] 버튼 클릭 시 SQL점검팩이 삭제되었다는 메시지 박스가 팝업된다.
+					 SQL점검팩 삭제시 성능 영향도 분석 정보가 모두 삭제되므로 주의가 필요하다.
+					<div class="imageBox" style="width: 730px;">
+						<img src="/resources/images/menual/bgimg_renewal/157-7.png">
+					</div>
+					
+					튜닝대상으로 선정된 SQL이 존재하는 경우 아래와 같은 메시지 박스가 팝업되고, SQL점검팩을 삭제할 수 없다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/157-8.png">
+					</div>
+				</li>
+			</ol>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					튜닝대상이 선정되었을 경우 SQL점검팩을 삭제할 수 없다. 삭제 시 모든 데이터가 삭제되므로 실수로 인한 데이터 삭제를 방지하기 위한 목적이다.
+				<p>
+			</div>
+		</div>
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

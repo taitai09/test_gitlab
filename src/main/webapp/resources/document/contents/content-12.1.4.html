@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>12.	DB 진단/점검</h1>
+	<h2>12.1. 일 예방 점검 – DB 상태 점검</h2>
+	<h3>12.1.4.	Object 점검</h3>
+
+	<div>
+		<h4>Invalid Object</h4>
+		<p>Invalid Object를 점검한 결과이며 목록과 함께 조치 스크립트를 함께 제공한다. Valid 상태로 변경되지 않는 경우 오브젝트 참조 관계를 검토한 후 재 컴파일하여야 한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-1.jpg"></p>
+
+		<h4>Nologging Object </h4>
+		<p>Nologging Object를 점검한 결과이며 목록과 함께 조치 스크립트를 함께 제공한다. Archive Log 을 생성하지 않기 때문에 복구 누락이 될 수 있으므로 Logging 상태로 변경해야 한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-2.jpg"></p>
+
+		<h4>Parallel Object</h4>
+		<p>Parallel Object를 점검한 결과이며 목록과 함께 조치 스크립트를 함께 제공한다. 오브젝트 단위의 Parallel 옵션은 관련 SQL에 모두 적용되기 때문에 매우 위험하므로 Noparallel 로 변경한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-3.jpg"></p>
+
+		<h4>Unusable Index</h4>
+		<p>Unusable Index를 점검한 결과이며 목록과 함께 조치 스크립트를 함께 제공한다. Index를 사용하는 SQL의 성능저하가 우려되므로 Rebuild를 통해 Usable상태로 변경한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-4.jpg"></p>
+
+		<h4>Chained Rows</h4>
+		<p>Chain이 발생한 건수가 전체 건수의 1% 이상인 테이블을 점검한 결과이다. Chain이 많이 발생한 경우 I/O 가 많아지므로 Reorg작업을 수행하는 것을 권고한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-5.jpg"></p>
+
+		<h4>Corrupted Block</h4>
+		<p>손상된 블록을 점검한 결과이다. 손상된 블록은 dbms_repair 프로시저를 사용하여 데이터 블록을 손상된 데이터 블록으로 표시하여 해당 테이블을 사용하는 쿼리를 유지할 수 있다. 계속해서 손상된 블록으로 보고될 경우 아래와 같이 rebuild를 권고한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-6.jpg"></p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-7.jpg"></p>
+
+		<h4>Sequence</h4>
+		<p>설정한 임계치에 근접한 시퀀스 목록이다. 시퀀스 max값 변경이 필요하다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-8.jpg"></p>
+
+		<h4>Foreign Key Without Index</h4>
+		<p>Foreign Key에 인덱스가 없는 오브젝트를 점검한 결과이다. Foreign Key에 인덱스가 없으면 DML작업시 TM락(테이블락) 발생으로 동시성이 저하된다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-9.jpg"></p>
+
+		<h4>Disabled Constraint</h4>
+		<p>Disable된 제약조건 목록이다. 제약조건이 disable되어 있는 경우 데이터 정합성이 훼손될 수 있으므로 enable상태로 변경해야 한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-1-4-10.jpg"></p>
+	</div>
+</div>
+</body>
+</html>

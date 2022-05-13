@@ -1,0 +1,21 @@
+/* 
+ * Open Sans
+ */
+@font-face {
+	font-family: 'Open Sans';
+	font-style: normal;
+	font-weight: 400;
+	src: url('fonts/OpenSans-Regular-webfont.eot');
+	src: url('fonts/OpenSans-Regular-webfont.eot?#iefix') format('embedded-opentype'),
+		url('fonts/OpenSans-Regular-webfont.woff') format('woff'),
+		url('fonts/OpenSans-Regular-webfont.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Open Sans Bold';
+	font-style: normal;
+	font-weight: 700;
+	src: url('fonts/OpenSans-Bold-webfont.eot');
+	src: url('fonts/OpenSans-Bold-webfont.eot?#iefix') format('embedded-opentype'),
+		url('fonts/OpenSans-Bold-webfont.woff') format('woff'),
+		url('fonts/OpenSans-Bold-webfont.ttf') format('truetype');
+}

@@ -1,0 +1,702 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.04.10	이원식	OPENPOP V2 최초작업 (SQL 정보 탭구성 호출)
+-->
+<mapper namespace="omc.spop.dao.SQLInformationDao">
+	<select id="sqlText" parameterType="odsHistSqlText" resultType="odsHistSqlText">
+		/* omc.spop.dao.SQLInformationDao.sqlText */
+		SELECT DBID, SQL_TEXT
+		FROM ODS_HIST_SQLTEXT
+		WHERE DBID = #{dbid}
+		AND SQL_ID = #{sql_id}
+	</select>
+
+	<select id="sqlTextAll" parameterType="odsHistSqlText" resultType="odsHistSqlText">
+		/* omc.spop.dao.SQLInformationDao.sqlTextAll */
+		SELECT DBID, SQL_FULLTEXT AS SQL_TEXT
+		FROM VSQL_TEXT
+		WHERE DBID = #{dbid}
+		AND SQL_ID = #{sql_id}
+		AND ROWNUM = 1
+	</select>
+	
+	<select id="sqlTreePlanList" parameterType="sqlGrid" resultType="sqlGrid">
+		/* omc.spop.dao.SQLInformationDao.sqlTreePlanList */
+		WITH TUN AS (
+			SELECT *
+			FROM ODS_HIST_SQL_PLAN
+			WHERE DBID = #{dbid}
+			AND SQL_ID = #{sql_id}
+			AND PLAN_HASH_VALUE = #{plan_hash_value}
+		)
+		SELECT /*+  */ 
+			ID, NVL(PARENT_ID,'-1') AS PARENT_ID, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID, 
+			(OPERATION
+			|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+			|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+			|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+			|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+			  || (CASE WHEN CARDINALITY IS NOT NULL THEN ' '||'CARD=' || CARDINALITY ELSE '' END)
+			  || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+			) AS TEXT
+		FROM TUN
+		ORDER BY ID 
+	</select>
+	
+	<select id="sqlTreePlanListAll" parameterType="sqlGrid" resultType="sqlGrid">
+		/* omc.spop.dao.SQLInformationDao.sqlTreePlanListAll */
+			WITH TUN AS (
+			    SELECT *
+			    FROM VSQL_PLAN
+			WHERE DBID = #{dbid}
+			AND PLAN_HASH_VALUE = #{plan_hash_value}
+			)
+			SELECT /*+  */ 
+			    ID, NVL(PARENT_ID,'-1') AS PARENT_ID, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID, 
+				(OPERATION
+				|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+				|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+				|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+				|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+				  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+				  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+				  || (CASE WHEN CARDINALITY IS NOT NULL THEN ' '||'CARD=' || CARDINALITY ELSE '' END)
+				  || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+				  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+				) AS TEXT
+			FROM TUN
+			ORDER BY ID
+
+	</select>
+	
+	<select id="sqlTextPlanList" parameterType="odsHistSqlText" resultType="odsHistSqlText">
+		/* omc.spop.dao.SQLInformationDao.sqlTextPlanList */
+		WITH TUN AS (
+			SELECT *
+			FROM ODS_HIST_SQL_PLAN
+			WHERE DBID = #{dbid}
+			AND SQL_ID = #{sql_id}
+			AND PLAN_HASH_VALUE = #{plan_hash_value}
+		)
+		SELECT TO_CHAR(ID,'9999')||' '||LPAD(' ',2*LEVEL) 
+			|| OPERATION
+			|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+			|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+			|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+			|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+			  || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+			  || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+			AS EXECUTION_PLAN
+		FROM TUN
+		CONNECT BY PRIOR ID = PARENT_ID 
+		START WITH ID = 0 
+		ORDER BY ID 
+	</select>
+
+	<select id="sqlTextPlanListAll" parameterType="odsHistSqlText" resultType="odsHistSqlText">
+		/* omc.spop.dao.SQLInformationDao.sqlTextPlanListAll */
+			WITH TUN AS (
+			    SELECT *
+			    FROM VSQL_PLAN
+				WHERE DBID = #{dbid}
+				AND PLAN_HASH_VALUE = #{plan_hash_value}
+			)
+			SELECT TO_CHAR(ID,'9999')||' '||LPAD(' ',2*LEVEL) 
+				|| OPERATION
+				|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+				|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+				|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+				|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+				  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+				  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+				  || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+				  || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+				  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+				AS EXECUTION_PLAN
+			FROM TUN
+			CONNECT BY PRIOR ID = PARENT_ID 
+			START WITH ID = 0 
+			ORDER BY ID
+	</select>
+	
+	<select id="sqlGridPlanList" parameterType="sqlGrid" resultType="sqlGrid">
+		/* omc.spop.dao.SQLInformationDao.sqlGridPlanList */
+		WITH TUN AS (
+			SELECT *
+			FROM ODS_HIST_SQL_PLAN
+			WHERE DBID = #{dbid}
+			AND SQL_ID = #{sql_id}
+			AND PLAN_HASH_VALUE = #{plan_hash_value}
+		)
+		SELECT ID, NVL(PARENT_ID,'-1') AS PARENT_ID, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID,  
+			(OPERATION
+			|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+			|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+			|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+			|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST || ' ' ELSE '' END)
+			  || (CASE WHEN CARDINALITY IS NOT NULL THEN 'CARD=' || CARDINALITY || ' ' ELSE '' END)
+			  || (CASE WHEN BYTES IS NOT NULL THEN 'BYTES=' || BYTES ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+			) AS OPERATION,
+			OBJECT_NODE, 
+			OBJECT# AS OBJECT, 
+			OBJECT_OWNER, 
+			OBJECT_NAME, 
+			OBJECT_TYPE, 
+			OPTIMIZER, 
+			COST, 
+			CARDINALITY, 
+			BYTES, 
+			OTHER_TAG, 
+			PARTITION_START, 
+			PARTITION_STOP,   
+			CPU_COST, 
+			IO_COST, 
+			ACCESS_PREDICATES, 
+			FILTER_PREDICATES, 
+			PROJECTION, 
+			TIME, 
+			QBLOCK_NAME, 
+			TIMESTAMP
+		FROM TUN
+		ORDER BY ID 	
+	</select>
+	
+	<select id="sqlGridPlanListAll" parameterType="sqlGrid" resultType="sqlGrid">
+		/* omc.spop.dao.SQLInformationDao.sqlGridPlanListAll */
+		WITH TUN AS (
+		    SELECT *
+		    FROM VSQL_PLAN
+			WHERE DBID = #{dbid}
+			AND PLAN_HASH_VALUE = #{plan_hash_value}
+		)
+		SELECT ID, NVL(PARENT_ID,'-1') AS PARENT_ID, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID,  
+			(OPERATION
+			|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+			|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+			|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+			|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST || ' ' ELSE '' END)
+			  || (CASE WHEN CARDINALITY IS NOT NULL THEN 'CARD=' || CARDINALITY || ' ' ELSE '' END)
+			  || (CASE WHEN BYTES IS NOT NULL THEN 'BYTES=' || BYTES ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+			) AS OPERATION,
+		    OBJECT_NODE, 
+		    OBJECT# AS OBJECT, 
+		    OBJECT_OWNER, 
+		    OBJECT_NAME, 
+		    OBJECT_TYPE, 
+		    OPTIMIZER, 
+		    COST, 
+		    CARDINALITY, 
+		    BYTES, 
+		    OTHER_TAG, 
+		    PARTITION_START, 
+		    PARTITION_STOP,   
+		    CPU_COST, 
+		    IO_COST, 
+		    ACCESS_PREDICATES, 
+		    FILTER_PREDICATES, 
+		    PROJECTION, 
+		    TIME, 
+		    QBLOCK_NAME, 
+		    TIMESTAMP
+		FROM TUN
+		ORDER BY ID 	
+	</select>
+	
+	<select id="bindValueList" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* omc.spop.dao.SQLInformationDao.bindValueList */
+        WITH SQL_STAT AS
+        (
+        SELECT B.DBID, B.SNAP_ID, B.SQL_ID, REGEXP_SUBSTR(B.MODULE,'[^@]+',1,1) MODULE, B.PARSING_SCHEMA_NAME
+            , MAX(B.PLAN_HASH_VALUE) PLAN_HASH_VALUE
+            --, ROUND(AVG(B.ELAPSED_TIME_DELTA  /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+            --, ROUND(MAX(B.ELAPSED_TIME_DELTA  /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) MAX_ELAP
+            --, ROUND(AVG(B.CPU_TIME_DELTA      /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+            --, TRUNC(AVG(B.BUFFER_GETS_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_BGET
+            --, TRUNC(AVG(B.DISK_READS_DELTA    /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_DRDS
+            --, TRUNC(AVG(B.ROWS_PROCESSED_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_ROWS
+            --, SUM(B.EXECUTIONS_DELTA)                                         EXES
+			, ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+			, ROUND(MAX(B.ELAPSED_TIME_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4)          MAX_ELAP
+			, ROUND(SUM(B.CPU_TIME_DELTA)      /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+			, TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_BGET
+			, TRUNC(SUM(B.DISK_READS_DELTA)    /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_DRDS
+			, TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_ROWS
+			, DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))                                         EXES
+            , SUM(B.ELAPSED_TIME_DELTA)                                       ELAP
+            , SUM(B.PARSE_CALLS_DELTA)                                        PARSE
+            , SUM(B.FETCHES_DELTA)                                            FETCH
+            , TO_CHAR(MAX(C.BEGIN_INTERVAL_TIME), 'YYYY-MM-DD HH24:MI')       FIRST_TIME
+            , MAX(C.INSTANCE_NUMBER)  INSTANCE_NUMBER
+         FROM ODS_HIST_SNAPSHOT C, ODS_HIST_SQLSTAT B
+        WHERE C.DBID = ${dbid}
+          AND B.EXECUTIONS_DELTA  >  0
+          AND B.SQL_ID   = #{sql_id}
+          AND C.SNAP_ID = B.SNAP_ID
+          AND C.DBID    = B.DBID
+          AND C.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+          --전체 데이터 기준으로 변경
+          --AND B.BEGIN_INTERVAL_TIME >= ADD_MONTHS(SYSDATE, -1)
+        GROUP BY B.DBID, B.SNAP_ID, B.SQL_ID, B.MODULE, B.PARSING_SCHEMA_NAME
+        )
+		SELECT *
+		  FROM (
+		        SELECT ROWNUM AS RNUM,
+                       SNAP_ID,
+		               LOWER(NAME) AS NAME,
+		               DECODE(VALUE_STRING, 'NULL','',VALUE_STRING) AS VALUE,
+		               FN_NUM_TO_CHAR_FORMAT(DECODE(SEQ,1,AVG_ELAP,NULL)) AS ELAPSED_TIME,
+		               DECODE(SEQ,1,AVG_BGET,NULL) AS BUFFER_GETS,
+		               DECODE(SEQ,1,AVG_ROWS,NULL) AS ROWS_PROCESSED,
+		               DECODE(SEQ,1,PLAN_HASH_VALUE,NULL) AS PLAN_HASH_VALUE,
+                       DECODE(SEQ,1,LAST_CAPTURED,NULL) AS EXEC_TIME,
+		               DECODE(SEQ,1,INSTANCE_NUMBER,NULL) AS EXEC_INST_ID
+		          FROM (
+		                SELECT A.SNAP_ID,
+                               A.INSTANCE_NUMBER,
+		                       A.NAME,
+                               A.POSITION,
+		                       A.VALUE_STRING,
+		                       AVG_ELAP,
+		                       AVG_BGET,
+		                       AVG_ROWS,
+		                       PLAN_HASH_VALUE,
+		                       FIRST_TIME,
+                               LAST_CAPTURED,
+                               ROW_NUMBER() OVER (PARTITION BY A.SNAP_ID, A.INSTANCE_NUMBER, A.LAST_CAPTURED ORDER BY A.POSITION) SEQ,
+                               MIN(A.POSITION) OVER (PARTITION BY A.SNAP_ID, A.INSTANCE_NUMBER, A.NAME, A.LAST_CAPTURED) MIN_POSITION,
+                               MIN(A.INSTANCE_NUMBER) OVER (PARTITION BY A.SNAP_ID) MIN_INSTANCE_NUMBER
+		                  FROM ODS_HIST_SQLBIND A,
+		                       SQL_STAT B
+		                 WHERE A.DBID = ${dbid}
+				           AND A.SQL_ID = #{sql_id}
+                           AND A.SNAP_ID = B.SNAP_ID
+                           AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		                   AND A.SQL_ID  = B.SQL_ID
+                           AND A.WAS_CAPTURED = 'YES'
+                         ORDER BY A.SNAP_ID DESC, A.INSTANCE_NUMBER, A.LAST_CAPTURED, A.POSITION
+		               )
+                 WHERE POSITION = MIN_POSITION
+                 AND INSTANCE_NUMBER = MIN_INSTANCE_NUMBER
+                 AND ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage})
+		       )
+		WHERE RNUM >= (${pagePerCount} * (${currentPage} - 1) + 1)
+		
+	</select>
+	
+	<select id="bindValueListAll" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+				/* omc.spop.dao.SQLInformationDao.bindValueListAll */
+		 WITH SQL_STAT AS (SELECT 
+		               B.DBID,
+		               B.SQL_ID,
+		               MAX(B.SNAP_NO) AS SNAP_ID,
+		               MAX(B.PLAN_HASH_VALUE) PLAN_HASH_VALUE ,
+		               --ROUND(AVG(B.ELAPSED_TIME /DECODE(B.EXECUTIONS, 0, 1, B.EXECUTIONS))/1000000, 4) AVG_ELAP ,
+		               --ROUND(MAX(B.ELAPSED_TIME /DECODE(B.EXECUTIONS, 0, 1, B.EXECUTIONS))/1000000, 4) MAX_ELAP ,
+		               --ROUND(AVG(B.CPU_TIME /DECODE(B.EXECUTIONS, 0, 1, B.EXECUTIONS))/1000000, 4) AVG_CPU ,
+		               --TRUNC(AVG(B.BUFFER_GETS /DECODE(B.EXECUTIONS, 0, 1, B.EXECUTIONS)) ) AVG_BGET ,
+		               --TRUNC(AVG(B.DISK_READS /DECODE(B.EXECUTIONS, 0, 1, B.EXECUTIONS)) ) AVG_DRDS ,
+		               --TRUNC(AVG(B.ROWS_PROCESSED/DECODE(B.EXECUTIONS, 0, 1, B.EXECUTIONS)) ) AVG_ROWS ,
+		               --SUM(B.EXECUTIONS) EXES ,
+						ROUND(SUM(B.ELAPSED_TIME)  /DECODE(SUM(B.EXECUTIONS), 0, 1, SUM(B.EXECUTIONS))/1000000,4) AVG_ELAP,
+						ROUND(MAX(B.ELAPSED_TIME   /DECODE(B.EXECUTIONS, 0, 1, B.EXECUTIONS))/1000000,4)          MAX_ELAP,
+						ROUND(SUM(B.CPU_TIME)      /DECODE(SUM(B.EXECUTIONS), 0, 1, SUM(B.EXECUTIONS))/1000000,4) AVG_CPU,
+						TRUNC(SUM(B.BUFFER_GETS)   /DECODE(SUM(B.EXECUTIONS), 0, 1, SUM(B.EXECUTIONS))          ) AVG_BGET,
+						TRUNC(SUM(B.DISK_READS)    /DECODE(SUM(B.EXECUTIONS), 0, 1, SUM(B.EXECUTIONS))          ) AVG_DRDS,
+						TRUNC(SUM(B.ROWS_PROCESSED)/DECODE(SUM(B.EXECUTIONS), 0, 1, SUM(B.EXECUTIONS))          ) AVG_ROWS,
+						DECODE(SUM(B.EXECUTIONS), 0, 1, SUM(B.EXECUTIONS))                                            EXES,
+		               SUM(B.ELAPSED_TIME) ELAP ,
+		               SUM(B.PARSE_CALLS) PARSE ,
+		               SUM(B.FETCHES) FETCH ,
+		               TO_CHAR(MAX(C.SNAP_DT), 'YYYY-MM-DD HH24:MI') FIRST_TIME ,
+		               MAX(C.INSTANCE_NUMBER) INSTANCE_NUMBER
+		          FROM VSQL_SNAPSHOT C,
+		               VSQL_STATS B
+		         WHERE C.DBID = ${dbid}
+		           AND B.EXECUTIONS > 0
+		           AND B.SQL_ID = #{sql_id}
+		           AND C.SNAP_NO = B.SNAP_NO
+		           AND C.DBID = B.DBID
+		           AND C.INSTANCE_NUMBER = B.INST_ID
+		         GROUP BY B.DBID, B.SQL_ID )
+		SELECT *
+		  FROM (SELECT ROWNUM AS RNUM,
+		               SNAP_ID,
+		               LOWER(NAME) AS NAME,
+		               DECODE(VALUE_STRING, 'NULL', '', VALUE_STRING) AS VALUE,
+		               FN_NUM_TO_CHAR_FORMAT(DECODE(SEQ, 1, AVG_ELAP, NULL)) AS ELAPSED_TIME,
+		               DECODE(SEQ, 1, AVG_BGET, NULL) AS BUFFER_GETS,
+		               DECODE(SEQ, 1, AVG_ROWS, NULL) AS ROWS_PROCESSED,
+		               DECODE(SEQ, 1, PLAN_HASH_VALUE, NULL) AS PLAN_HASH_VALUE,
+		               DECODE(SEQ, 1, LAST_CAPTURED, NULL) AS EXEC_TIME,
+		               NULL AS EXEC_INST_ID, SEQ
+		          FROM (
+		                SELECT B.SNAP_ID,
+		                       A.NAME,
+		                       A.POSITION,
+		                       A.VALUE_STRING,
+		                       AVG_ELAP,
+		                       AVG_BGET,
+		                       AVG_ROWS,
+		                       PLAN_HASH_VALUE,
+		                       FIRST_TIME,
+		                       LAST_CAPTURED,
+		                       ROW_NUMBER() OVER (PARTITION BY A.LAST_CAPTURED ORDER BY A.POSITION) SEQ,
+		                       MIN(A.POSITION) OVER (PARTITION BY A.NAME, A.LAST_CAPTURED) MIN_POSITION
+		                  FROM VSQL_BIND_CAPTURE A,
+		                       SQL_STAT B
+		                 WHERE A.DBID = ${dbid}
+				           AND A.SQL_ID = #{sql_id}
+		                   AND A.DBID = B.DBID
+		                   AND A.SQL_ID = B.SQL_ID
+		                 ORDER BY A.LAST_CAPTURED,
+		                       A.POSITION 
+		                       )
+		         WHERE POSITION = MIN_POSITION
+                 AND ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage}))
+		WHERE RNUM >= (${pagePerCount} * (${currentPage} - 1) + 1)
+
+	</select>
+	
+	<!-- VSQL BindVlue 불러오기 -->
+	<select id="bindValueNewList" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* omc.spop.dao.SQLInformationDao.bindValueNewList */
+		
+		WITH SQL_STAT AS (
+              SELECT /*+ INDEX_SS(B PK_VSQL_STATS_D) */ 
+                     B.DBID,
+                     B.SQL_ID,
+                     NULL AS SNAP_ID,
+                     MAX(B.PLAN_HASH_VALUE) PLAN_HASH_VALUE ,
+                     ROUND(SUM(B.ELAPSED_TIME_DELTA) /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000, 4) AVG_ELAP ,
+                     ROUND(MAX(B.ELAPSED_TIME_DELTA) /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000, 4) MAX_ELAP ,
+                     ROUND(SUM(B.CPU_TIME_DELTA) /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000, 4) AVG_CPU ,
+                     TRUNC(SUM(B.BUFFER_GETS_DELTA) /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_BGET ,
+                     TRUNC(SUM(B.DISK_READS_DELTA) /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_DRDS ,
+                     TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_ROWS ,
+                     SUM(B.EXECUTIONS_DELTA) EXES ,
+                     SUM(B.ELAPSED_TIME_DELTA) ELAP ,
+                     SUM(B.PARSE_CALLS_DELTA) PARSE ,
+                     SUM(B.FETCHES_DELTA) FETCH ,
+                     B.LOG_DT ,
+                     MAX(B.INST_ID) INSTANCE_NUMBER
+                FROM VSQL_STATS_D B
+               WHERE B.DBID = ${dbid}
+                 AND B.SQL_ID = #{sql_id}
+               GROUP BY B.DBID, B.SQL_ID, B.LOG_DT)
+      SELECT *
+        FROM (SELECT ROWNUM AS RNUM,
+                     NULL SNAP_ID,
+                     LOWER(NAME) AS NAME,
+                     DECODE(VALUE_STRING, 'NULL', '', VALUE_STRING) AS VALUE,
+                     FN_NUM_TO_CHAR_FORMAT(DECODE(SEQ, 1, AVG_ELAP, NULL)) AS ELAPSED_TIME,
+                     DECODE(SEQ, 1, AVG_BGET, NULL) AS BUFFER_GETS,
+                     DECODE(SEQ, 1, AVG_ROWS, NULL) AS ROWS_PROCESSED,
+                     DECODE(SEQ, 1, PLAN_HASH_VALUE, NULL) AS PLAN_HASH_VALUE,
+                     DECODE(SEQ, 1, LAST_CAPTURED, NULL) AS EXEC_TIME,
+                     NULL AS EXEC_INST_ID, SEQ
+                FROM (
+                      SELECT B.SNAP_ID,
+                             A.NAME,
+                             A.POSITION,
+                             A.VALUE_STRING,
+                             AVG_ELAP,
+                             AVG_BGET,
+                             AVG_ROWS,
+                             PLAN_HASH_VALUE,
+                             LAST_CAPTURED,
+                             ROW_NUMBER() OVER (PARTITION BY A.LAST_CAPTURED ORDER BY A.POSITION) SEQ,
+                             MIN(A.POSITION) OVER (PARTITION BY A.NAME, A.LAST_CAPTURED) MIN_POSITION
+                        FROM VSQL_BIND_CAPTURE A,
+                             SQL_STAT B
+                       WHERE A.DBID = ${dbid}
+                         AND A.SQL_ID = #{sql_id}
+                         AND A.DBID = B.DBID(+)
+                         AND A.SQL_ID = B.SQL_ID(+)
+                         AND TRUNC(A.LAST_CAPTURED) = TRUNC(B.LOG_DT(+))
+                       ORDER BY A.LAST_CAPTURED,
+                             A.POSITION 
+                             )
+		        WHERE POSITION = MIN_POSITION
+                  AND ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage}))
+		WHERE RNUM >= (${pagePerCount} * (${currentPage} - 1) + 1)
+
+	</select>
+	
+	
+	<select id="outLineList" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* omc.spop.dao.SQLInformationDao.outLineList */
+		SELECT EXTRACTVALUE(VALUE(T), '.') HINT
+		FROM TABLE(
+			SELECT XMLSEQUENCE(EXTRACT(XMLTYPE(OTHER_XML), '/other_xml/outline_data/hint'))
+			FROM ODS_HIST_SQL_PLAN
+			WHERE DBID = #{dbid}
+			AND SQL_ID = #{sql_id}
+			AND PLAN_HASH_VALUE = #{plan_hash_value}
+			AND OTHER_XML IS NOT NULL
+		) T	
+ 
+	</select>
+
+
+	<!-- 2019-10-24 변경 outLineList 공통적으로 쓰는 쿼리를 변경할수 없기에 하나 더 만들어 수정 -->
+	<select id="outLineListAll" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* omc.spop.dao.SQLInformationDao.outLineListAll */
+		SELECT EXTRACTVALUE(VALUE(T), '.') HINT
+		  FROM TABLE(
+		        SELECT HINT
+		        FROM (
+		         SELECT ROWNUM RNUM, XMLSEQUENCE(EXTRACT(XMLTYPE(OTHER_XML), '/other_xml/outline_data/hint')) HINT
+		         FROM VSQL_PLAN
+					WHERE DBID = #{dbid}
+					AND PLAN_HASH_VALUE = #{plan_hash_value}
+		         AND OTHER_XML IS NOT NULL
+		         )
+		         WHERE RNUM = 1
+		 ) T
+	</select>
+	
+	<select id="similaritySqlList" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* omc.spop.dao.SQLInformationDao.similaritySqlList */
+		SELECT A.SQL_ID 
+			,A.AVG_ELAP ELAPSED_TIME
+			,A.AVG_BGET BUFFER_GETS
+			,A.AVG_ROWS ROWS_PROCESSED
+			,A.EXES EXECUTIONS
+			,A.MAX_ELAP MAX_ELAPSED_TIME
+			,A.AVG_CPU CPU_TIME
+			,A.AVG_DRDS DISK_READS
+			,DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) SQL_TEXT
+		FROM (
+			SELECT B.SQL_ID
+				--, RTRIM(TO_CHAR(ROUND(AVG(B.ELAPSED_TIME_DELTA  /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.') AVG_ELAP
+				--, RTRIM(TO_CHAR(ROUND(MAX(B.ELAPSED_TIME_DELTA  /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.') MAX_ELAP
+				--, RTRIM(TO_CHAR(ROUND(AVG(B.CPU_TIME_DELTA      /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.') AVG_CPU
+				--, TRUNC(AVG(B.BUFFER_GETS_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_BGET
+				--, TRUNC(AVG(B.DISK_READS_DELTA    /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_DRDS
+				--, TRUNC(AVG(B.ROWS_PROCESSED_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_ROWS
+				--, SUM(DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))                                         EXES
+				, RTRIM(TO_CHAR(ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.') AVG_ELAP
+				, RTRIM(TO_CHAR(ROUND(MAX(B.ELAPSED_TIME_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.')          MAX_ELAP
+				, RTRIM(TO_CHAR(ROUND(SUM(B.CPU_TIME_DELTA)      /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.') AVG_CPU
+				, TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_BGET
+				, TRUNC(SUM(B.DISK_READS_DELTA)    /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_DRDS
+				, TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_ROWS
+				, DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))                                         EXES
+				, SUM(B.ELAPSED_TIME_DELTA)                                       ELAP
+				, SUM(B.PARSE_CALLS_DELTA)                                        PARSE
+				, SUM(B.FETCHES_DELTA)                                            FETCH
+			FROM ODS_HIST_SQLSTAT B
+			WHERE DBID = #{dbid}
+			AND DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)  >  0
+			GROUP BY B.SQL_ID
+		) A
+		,(
+			SELECT /*+ NO_MERGE(A) */
+				B.SQL_ID
+				,SQL_TEXT
+			FROM ODS_HIST_SQLTEXT B
+			WHERE 1=1
+			AND DBID = #{dbid}
+			AND DBMS_LOB.SUBSTR(SQL_TEXT, 100, 1) = (
+				SELECT DBMS_LOB.SUBSTR(SQL_TEXT, 100, 1) 
+				FROM ODS_HIST_SQLTEXT
+				WHERE DBID = #{dbid}
+				AND SQL_ID = #{sql_id}
+			)
+			<![CDATA[
+				AND SQL_ID <> #{sql_id}
+			]]>
+		) B
+		WHERE A.SQL_ID = B.SQL_ID
+		ORDER BY A.AVG_ELAP DESC 	
+	</select>
+	
+	<select id="similaritySqlListAll" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* omc.spop.dao.SQLInformationDao.similaritySqlListAll */
+		SELECT /*+ LEADING(A) USE_NL(B) */
+			A.SQL_ID
+			, RTRIM(TO_CHAR(ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.') ELAPSED_TIME
+			, TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) BUFFER_GETS
+			, TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) ROWS_PROCESSED
+			, DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))                                              EXECUTIONS                
+			, RTRIM(TO_CHAR(ROUND(MAX(B.ELAPSED_TIME_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.')          MAX_ELAPSED_TIME
+			, RTRIM(TO_CHAR(ROUND(SUM(B.CPU_TIME_DELTA)      /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4), 'FM999999999999990.9999'), '.') CPU_TIME
+			, TRUNC(SUM(B.DISK_READS_DELTA)    /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) DISK_READS
+			, DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+		FROM ODS_HIST_SQLTEXT A
+		, ODS_HIST_SQLSTAT B
+		WHERE 1=1
+		AND A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+		AND A.DBID = #{dbid}
+		AND DBMS_LOB.SUBSTR(A.SQL_TEXT, 100, 1) = (
+		    SELECT DBMS_LOB.SUBSTR(SQL_TEXT, 100, 1) 
+		    FROM ODS_HIST_SQLTEXT
+		    WHERE DBID = #{dbid}
+		    AND SQL_ID = #{sql_id}
+		)
+		AND A.SQL_ID  <![CDATA[<>]]> #{sql_id}
+		GROUP BY A.SQL_ID, DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1)
+		HAVING DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) > 0
+		ORDER BY ELAPSED_TIME DESC 
+
+	</select>
+	
+	<select id="sqlPerformHistoryList" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* omc.spop.dao.SQLInformationDao.sqlPerformHistoryList */
+		SELECT *
+		FROM (
+				SELECT ROWNUM RNUM, X.*
+				FROM
+				(
+					SELECT /*+ LEADING(B C) USE_NL(C) */
+					    TO_CHAR(C.BEGIN_INTERVAL_TIME,'YYYY-MM-DD HH24:MI:SS') AS BEGIN_INTERVAL_TIME,
+						B.SNAP_ID,
+						B.INSTANCE_NUMBER,
+						B.SQL_ID,
+						B.PLAN_HASH_VALUE,
+						B.MODULE,
+						B.PARSING_SCHEMA_NAME ,
+						TRUNC(B.BUFFER_GETS_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) BUFFER_GETS ,
+						TRUNC(B.DISK_READS_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) DISK_READS ,
+						TRUNC(B.ROWS_PROCESSED_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) ROWS_PROCESSED ,
+						RTRIM(TO_CHAR(ROUND(B.ELAPSED_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4), 'FM999999999999990.9999'), '.') ELAPSED_TIME ,
+						RTRIM(TO_CHAR(ROUND(B.CPU_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4), 'FM999999999999990.9999'), '.') CPU_TIME ,
+						RTRIM(TO_CHAR(ROUND(B.CLWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4), 'FM999999999999990.9999'), '.') CLWAIT_TIME ,
+						RTRIM(TO_CHAR(ROUND(B.IOWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4), 'FM999999999999990.9999'), '.') IOWAIT_TIME ,
+						RTRIM(TO_CHAR(ROUND(B.APWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4), 'FM999999999999990.9999'), '.') APWAIT_TIME ,
+						RTRIM(TO_CHAR(ROUND(B.CCWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4), 'FM999999999999990.9999'), '.') CCWAIT_TIME ,
+						RTRIM(TO_CHAR(ROUND(CPU_TIME_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA) *100,2), 'FM990.99'), '.') CPU_RATE,
+		                RTRIM(TO_CHAR(ROUND(CLWAIT_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA)*100,2), 'FM990.99'), '.') CLWAIT_RATE,
+		                RTRIM(TO_CHAR(ROUND(IOWAIT_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA)*100,2), 'FM990.99'), '.') IOWAIT_RATE,
+		                RTRIM(TO_CHAR(ROUND(APWAIT_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA)*100,2), 'FM990.99'), '.') APWAIT_RATE,
+		                RTRIM(TO_CHAR(ROUND(CCWAIT_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA)*100,2), 'FM990.99'), '.') CCWAIT_RATE,
+		                B.EXECUTIONS_DELTA EXECUTIONS ,
+						B.PARSE_CALLS_DELTA PARSE_CALLS ,
+						B.FETCHES_DELTA FETCHES ,
+						B.OPTIMIZER_ENV_HASH_VALUE
+					FROM ODS_HIST_SNAPSHOT C, ODS_HIST_SQLSTAT B
+					WHERE C.DBID = #{dbid}
+					AND B.SQL_ID = #{sql_id}
+					AND B.CPU_TIME_DELTA > 0
+					AND C.SNAP_ID = B.SNAP_ID
+					AND C.DBID = B.DBID
+					AND C.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+					--전체 데이터를 대상으로 조회 변경
+		            --AND B.BEGIN_INTERVAL_TIME >= ADD_MONTHS(SYSDATE, -1)
+					ORDER BY B.SNAP_ID DESC
+				) X
+		        WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage})
+		    ) 
+		WHERE RNUM >= (${pagePerCount} * (${currentPage} - 1) + 1)
+	</select>
+
+	<!-- VSQL History NEW List -->
+	<select id="sqlPerformNewHistoryList" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* omc.spop.dao.SQLInformationDao.sqlPerformHistoryList */
+        SELECT *
+        FROM (
+              SELECT ROWNUM RNUM, X.*
+              FROM (
+                    SELECT /*+ LEADING(B C) USE_NL(C) PUSH_PRED(C) */
+                           TO_CHAR(B.LOG_DT,'YYYY-MM-DD HH24:MI:SS') AS BEGIN_INTERVAL_TIME
+                         , NULL AS SNAP_ID
+                         , B.INST_ID  AS INSTANCE_NUMBER
+                         , B.SQL_ID
+                         , B.PLAN_HASH_VALUE
+                         , C.MODULE
+                         , D.PARSING_SCHEMA_NAME
+                         , TRUNC(B.BUFFER_GETS_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) BUFFER_GETS
+                         , TRUNC(B.DISK_READS_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) DISK_READS
+                         , TRUNC(B.ROWS_PROCESSED_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) ROWS_PROCESSED
+                         , RTRIM(TO_CHAR(ROUND(B.ELAPSED_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4), 'FM999999999999990.9999'), '.') ELAPSED_TIME
+                         , RTRIM(TO_CHAR(ROUND(B.CPU_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4), 'FM999999999999990.9999'), '.') CPU_TIME
+                         , RTRIM(TO_CHAR(ROUND(B.CLWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4), 'FM999999999999990.9999'), '.') CLWAIT_TIME
+                         , RTRIM(TO_CHAR(ROUND(B.IOWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4), 'FM999999999999990.9999'), '.') IOWAIT_TIME
+                         , RTRIM(TO_CHAR(ROUND(B.APWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4), 'FM999999999999990.9999'), '.') APWAIT_TIME
+                         , RTRIM(TO_CHAR(ROUND(B.CCWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4), 'FM999999999999990.9999'), '.') CCWAIT_TIME
+                         , RTRIM(TO_CHAR(ROUND(CPU_TIME_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA) *100,2), 'FM990.99'), '.') CPU_RATE
+                         , RTRIM(TO_CHAR(ROUND(CLWAIT_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA)*100,2), 'FM990.99'), '.') CLWAIT_RATE
+                         , RTRIM(TO_CHAR(ROUND(IOWAIT_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA)*100,2), 'FM990.99'), '.') IOWAIT_RATE
+                         , RTRIM(TO_CHAR(ROUND(APWAIT_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA)*100,2), 'FM990.99'), '.') APWAIT_RATE
+                         , RTRIM(TO_CHAR(ROUND(CCWAIT_DELTA/DECODE(B.ELAPSED_TIME_DELTA, 0, 1, B.ELAPSED_TIME_DELTA)*100,2), 'FM990.99'), '.') CCWAIT_RATE
+                         , B.EXECUTIONS_DELTA EXECUTIONS
+                         , B.PARSE_CALLS_DELTA PARSE_CALLS
+                         , B.FETCHES_DELTA FETCHES
+                         , NULL AS OPTIMIZER_ENV_HASH_VALUE
+                      FROM VSQL_STATS_D B
+                         , (
+                            SELECT DBID
+                                 , SQL_ID
+                                 , MODULE
+                                 , ROW_NUMBER() OVER(PARTITION BY DBID, SQL_ID ORDER BY SNAP_TIME DESC) RNUM
+                              FROM VSQL_MODULE 
+                            ) C
+                         , VSQL_TEXT D
+                     WHERE B.DBID = C.DBID(+)
+                       AND B.SQL_ID = C.SQL_ID(+)
+                       AND C.RNUM(+) = 1
+                       AND B.DBID = D.DBID
+                       AND B.SQL_ID = D.SQL_ID
+                       AND B.PLAN_HASH_VALUE = D.PLAN_HASH_VALUE
+                       AND B.DBID = #{dbid}
+                       AND B.SQL_ID = #{sql_id}
+                     ORDER BY B.LOG_DT DESC
+                 ) X
+		     WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage})
+		     ) 
+		WHERE RNUM >= (${pagePerCount} * (${currentPage} - 1) + 1)
+	</select>
+	
+	<select id="loadSqlText" parameterType="dbioLoadSql" resultType="dbioLoadSql">
+		/* omc.spop.dao.SQLInformationDao.loadSqlText */
+		SELECT SQL_TEXT
+		FROM DBIO_LOAD_SQL 
+		WHERE FILE_NO = #{file_no}
+		AND QUERY_SEQ = #{query_seq}
+	</select>
+	
+	<select id="sqlGraphicList" parameterType="dbioPlanTable" resultType="sqlGrid">
+		/* omc.spop.dao.SQLInformationDao.sqlGraphicList */
+		SELECT LEVEL, ID, NVL(PARENT_ID,'-1') AS PARENT_ID, 
+			OPERATION||' '||OPTIONS||' '||OBJECT_NAME||' ' 
+			|| DECODE(OBJECT_NODE,'','','['||OBJECT_NODE||'] ') 
+			|| DECODE(OPTIMIZER,'','','['||OPTIMIZER||'] ') 
+			||DECODE(ID,0,'COST='||POSITION, 
+						DECODE(COST,'','',' COST='||COST||' ' 
+						||DECODE(ID,0,'','CARD='||CARDINALITY||' ') 
+						||DECODE(ID,0,'','BYTES='||BYTES) 
+					) 
+			) AS QUERY_OUTPUT 
+		FROM DBIO_PLAN_TABLE 
+		START WITH ID = 0 AND STATEMENT_ID = #{file_no} || '_' || #{explain_exec_seq} || '_' || #{query_seq}
+		CONNECT BY PRIOR ID = PARENT_ID
+		AND STATEMENT_ID = #{file_no} || '_' || #{explain_exec_seq} || '_' || #{query_seq}
+	</select>
+	
+	<select id="sqlTextList" parameterType="dbioPlanTable" resultType="dbioPlanTable">
+		/* omc.spop.dao.SQLInformationDao.sqlTextList */
+		SELECT TO_CHAR(ID,'9999')||' '||LPAD(' ',2*LEVEL)||OPERATION
+			||' '||OPTIONS 
+			||' '||OBJECT_NAME 
+			||' '||DECODE(OBJECT_ALIAS,NULL,'','('||OBJECT_ALIAS||')') 
+			||DECODE(OBJECT_ALIAS,NULL,'','('||OBJECT_ALIAS||')') AS QUERY_OUTPUT 
+		FROM DBIO_PLAN_TABLE 
+		START WITH ID = 0 AND STATEMENT_ID = #{file_no} || '_' || #{explain_exec_seq} || '_' || #{query_seq}
+		CONNECT BY PRIOR ID = PARENT_ID
+		AND STATEMENT_ID = #{file_no} || '_' || #{explain_exec_seq} || '_' || #{query_seq}
+	</select>	
+</mapper>

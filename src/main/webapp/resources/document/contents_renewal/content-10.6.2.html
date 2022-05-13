@@ -1,0 +1,1966 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>10. 종합 진단</h1>
+		<h2>10.6. 신규 SQL 성능 변화 분석</h2>
+		<h3>10.6.2. 자동 검증 배포 SQL</h3>
+		
+		<h4 class="titleStyle-none">개요</h4>
+		<p>
+			<span class="text-bold">배포전 자동 성능 검증</span>을 통해 운영에 적용된 신규 또는 변경 SQL의 성능을 운영 환경에서 추적 관리하여,
+			 지속적인 성능저하 현상이 감지되는 지 검증한다.
+		</p>
+		
+		<h4 class="titleStyle-none">화면 구성</h4>
+		<p>
+			화면은 다음과 같은 탭으로 구성되어 있다.
+		</p>
+		
+		<div>
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>Tab 명</th>
+						<th>Tab 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td class="table-middleTitle">SQL 성능 추적 현황</td>
+						<td></td>
+					</tr>
+					<tr>
+						<td>성능 검증 SQL</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									성능 검증을 수행 후 <span class="text-bold">적합</span>
+									 판정을 받고 운영에 적용된 SQL의 성능 검증 현황을 제공한다.
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>예외 처리 SQL</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									영구 / 한시 검증제외 예외 처리를 하고 운영에 적용된 SQL의
+									 성능 검증 현황을 제공한다.
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Charts</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Buffer Get, Elapsed Time, 성능 검증 SQL, 예외 처리 SQL의 관점에서
+									 성능 검증 현황에 대한 정보를 Chart로 제공한다.
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td class="table-middleTitle">SQLs</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									개별 SQL에 대한 성능 추적, Plan 정보, 성능 점검 결과 비교,
+									 프로그램 정보, 성능 추이 정보를 제공한다.
+								</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQL 성능 추적 현황] 탭 &gt; [성능 검증 SQL] 탭</h5>
+			<p>
+				성능 자동 검증 수행 후 <span class="text-bold">적합</span> 판정을 받고 운영에 적용된 SQL의 성능을 검증한다.
+				 배포일로 부터 현재 시점까지 추적하여 배포전 대비 성능 향상, 성능 저하, 부적합에 대한 현황 정보를 조회한다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/167-1.png">
+			</div>
+			
+			<h6>검색 조건 Area</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>업무</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>업무를 선택한다.</li>
+									<li>최상위를 체크 해제하면 하위 업무가 조회된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>배포일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포일자를 선택한다. (시작일자~종료일자)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1일이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1주일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1주일이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1개월</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1개월이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>업무</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>업무명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>배포 SQL수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 검증을 수행 후 <span class="text-bold">적합</span>
+										 판정을 받고 배포된 프로그램 내 SQL 수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>실행 SQL 수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>적합 판정을 받고 배포된 SQL 중 SQL식별자(DBIO) 기준으로 실행된 SQL 수</li>
+									<li>Dynamic SQL일 경우 배포 SQL 1개에 N개의 실행 SQL이 존재함</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 향상</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>블럭수 기준으로 배포전 성능 검증 결과 보다 운영 성능이 향상된 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 저하</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>블럭수 기준으로 배포전 성능 검증 결과 보다 운영 성능이 저하된 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>부적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL 수행시간, 블럭수, 대용량 테이블 Full Scan 중 한 개라도 임계치를 초과한 SQL 수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">성능 저하(배)</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 2x</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 2배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 5x</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 2배 이상 5배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 10x</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 5배 이상 10배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 30x</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 10배 이상 30배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 50x</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 30배 이상 50배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 100x</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 50배 이상 100배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&gt;= 100</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 점검 결과 블럭수 보다 운영에 수행된 평균 블럭수가 100배 이상인 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>업무 ▷ Click</h6>
+			<p>
+				업무 클릭 시 하위 업무에 대한 검증 현황이 조회된다.
+			</p>
+			<ol class="listStyle-number">
+				<li>
+					업무명 앞 ▷를 클릭한다.
+					<div class="imageBox" style="width: 500px;">
+						<img src="/resources/images/menual/bgimg_renewal/167-2.png">
+					</div>
+				</li>
+				<li>
+					하위에 있는 업무의 검증 현황이 조회된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/167-3.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">그리드 셀 Click</p>
+			<ol class="listStyle-number">
+				<li>
+					아이콘의 셀을 클릭하면 [SQLs] 탭이 실행되고 해당 컬럼에 대한 조건으로
+					 그리드에 해당 SQL들이 검색된다. 이 외의 셀은 클릭 이벤트가 없다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/167-4.png">
+					</div>
+				</li>
+				<li>
+					예를들어 아래의 화면에서 ‘부적합’ 셀을 클릭하면,
+					 [SQLs] 탭이 실행되면서 해당 업무의 부적합인SQL 건수 만큼 그리드에 검색된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/167-5.png">
+					</div>
+				</li>
+			</ol>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQL 성능 추적 현황] 탭 &gt; [예외 처리 SQL] 탭</h5>
+			<p>
+				<span class="text-bold">영구 / 한시 검증제외 예외 처리</span>를 하고 운영에 적용된 SQL의 성능을 검증한다.
+				 배포일로 부터 현재 시점까지 추적하여 적합, 부적합에 대한 현황 정보를 조회한다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/168-1.png">
+			</div>
+			
+			<h6>검색 조건 Area</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>업무</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>업무를 선택한다.</li>
+									<li>최상위를 체크 해제하면 하위 업무가 조회된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>배포일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포일자를 선택한다. (시작일자~종료일자)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1일이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1주일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1주일이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1개월</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1개월이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>예외처리방법</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>예외 처리 방법을 선택한다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>업무</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>업무명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>배포 SQL수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>영구 검증제외 / 한시 검증제외 예외처리 후 배포된 프로그램 내 SQL 수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>실행 SQL 수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>영구 검증제외 / 한시 검증제외 예외처리 후 SQL식별자(DBIO) 기준으로 실행된 SQL 수</li>
+									<li>Dynamic SQL일 경우 배포 SQL 1개에 N개의 실행 SQL이 존재함</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL 수행시간, 블럭수, 대용량 테이블 Full Scan 모두 임계치 내에 있는 SQL 수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>부적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL 수행시간, 블럭수, 대용량 테이블 Full Scan 중 한 개라도 임계치를 초과한 SQL 수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">수행시간(초)</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt;= 0.1s</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 2배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 0.3s</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 2배 이상 5배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 1s</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 5배 이상 10배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 3s</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 10배 이상 30배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 10s</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 30배 이상 50배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&lt; 60s</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 50배 이상 100배 미만으로 증가한 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">&gt;= 60s</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 점검 결과 블럭수 보다 운영에 수행된 평균 블럭수가 100배 이상인 SQL수</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>업무 ▷ Click</h6>
+			<p>
+				업무 클릭 시 하위 업무에 대한 검증 현황이 조회된다.
+			</p>
+			<ol class="listStyle-number">
+				<li>
+					업무명 앞 ▷를 클릭한다.
+					<div class="imageBox" style="width: 500px;">
+						<img src="/resources/images/menual/bgimg_renewal/168-2.png">
+					</div>
+				</li>
+				<li>
+					하위에 있는 업무의 검증 현황이 조회된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/168-3.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">그리드 셀 Click</p>
+			<ol class="listStyle-number">
+				<li>
+					아이콘의 셀을 클릭하면 [SQLs] 탭이 실행되고 해당 컬럼에 대한 조건으로
+					 그리드에 해당 SQL들이 검색된다. 이 외의 셀은 클릭 이벤트가 없다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/168-4.png">
+					</div>
+				</li>
+				<li>
+					예를들어 아래의 화면에서 ‘부적합’ 셀을 클릭하면,
+					 [SQLs] 탭이 실행되면서 해당 업무의 부적합인SQL 건수 만큼 그리드에 검색된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/168-5.png">
+					</div>
+				</li>
+			</ol>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQL 성능 추적 현황] 탭 &gt; [Charts] 탭</h5>
+			<p>
+				Buffer Get, Elapsed Time, 성능 검증 SQL, 예외 처리 SQL의 관점에서 성능 검증 현황에 대한 정보를 Chart로 제공한다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/169-1.png">
+			</div>
+			
+			<h6>Buffer Gets 차트</h6>
+			<p>
+				성능 검증 지표인 <span class="text-bold">블럭수</span> 관점에서 운영에서
+				 성능 검증 결과, 일일 부적합 추이, 적합 · 부적합 현황,
+				 배포 대비 성능 향상 및 저하에 대한 정보를 차트로 조회한다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/169-2.png">
+			</div>
+			
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>일일 부적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>일 부적합 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>일일 부적합률(%)</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포 SQL 수 대비 부적합 건수 비율</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에서 성능 검증 결과 성능 검증 지표인 블럭수 평균이 임계치 내에 있는 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>부적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL 수행시간, 블럭수, 대용량 테이블 Full Scan 중 한 개라도 임계치를 초과한 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Improved</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 향상된 경우</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Regressed</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 저하된 경우</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			
+			<h6>Elpased Time 차트</h6>
+			<p>
+				성능 검증 지표인 <span class="text-bold">SQL수행시간</span> 관점에서 운영에서 성능 검증 결과,
+				 일일 부적합 추이, 적합 · 부적합 현황, 배포 대비 성능 향상 및 저하에 대한 정보를 차트로 조회한다.
+			</p>
+			
+			<div class="imageBox" style="width: 500px;">
+				<img src="/resources/images/menual/bgimg_renewal/169-3.png">
+			</div>
+			
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>일일 부적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>일 부적합 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>일일 부적합률(%)</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포 SQL 수 대비 부적합 건수 비율</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL수행시간 평균이 임계치 내에 있는 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>부적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL수행시간 평균이 임계치를 초과한 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Improved</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 SQL수행시간 보다 운영에 수행된 평균 SQL수행시간이 향상된 경우</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Regressed</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 SQL수행시간 보다 운영에 수행된 평균 SQL수행시간이 저하된 경우</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			
+			<h6>성능 검증 SQL 차트</h6>
+			<p>
+				성능 검증 시 <span class="text-bold">적합</span> 판정을 받고 운영에 적용된
+				 SQL의 운영 성능 검증 결과 일일 부적합 추이, 적합 · 부적합 현황,
+				 성능 저하에 대한 정보를 차트로 조회한다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/169-4.png">
+			</div>
+			
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>일일 부적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>일 부적합 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>일일 부적합률(%)</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포 SQL 수 대비 부적합 건수 비율</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL 수행시간, 블럭수, 대용량 테이블 Full Scan 모두 임계치 내에 있는 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>부적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL 수행시간, 블럭수, 대용량 테이블 Full Scan 중 한 개라도 임계치를 초과한 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 2x</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 2배 미만으로 증가한 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 5x</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 2배 이상 5배 미만으로 증가한 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 10x</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 5배 이상 10배 미만으로 증가한 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 30x</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 10배 이상 30배 미만으로 증가한 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 50x</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 30배 이상 50배 미만으로 증가한 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 100x</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 50배 이상 100배 미만으로 증가한 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&gt;= 100x</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 SQL수행시간이 저하된 경우</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			
+			<h6>예외 처리 SQL 차트</h6>
+			<p>
+				영구 / 한시 검증제외 <span class="text-bold">예외 처리</span>를 하고 운영에 적용된 SQL의
+				 운영 성능 검증 결과 일일 부적합 추이, 적합 · 부적합 현황, 성능 저하에 대한 정보를 차트로 조회한다.
+			</p>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/169-5.png">
+			</div>
+			
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>일일 부적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>일 부적합 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>일일 부적합률(%)</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>배포 SQL 수 대비 부적합 건수 비율</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL 수행시간, 블럭수, 대용량 테이블 Full Scan 모두 임계치 내에 있는 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>부적합</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에서 성능 검증 결과 성능 검증 지표인 SQL 수행시간, 블럭수, 대용량 테이블 Full Scan 중 한 개라도 임계치를 초과한 SQL 수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt;= 0.1s</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에 수행된 평균 수행시간이 0.1초 이하인 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 0.3s</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에 수행된 평균 수행시간이 0.1초를 초과하고 0.3초 미만인 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 1s</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에 수행된 평균 수행시간이 0.3초 이상 1초 미만인 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 3s</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에 수행된 평균 수행시간이 1초 이상 3초 미만인 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 10s</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에 수행된 평균 수행시간이 3초 이상 10초 미만인 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&lt; 60s</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에 수행된 평균 수행시간이 10초 이상 60초 미만인 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>&gt;= 60s</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>운영에 수행된 평균 수행시간이 60초 이상인 SQL수</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			
+			
+			
+			
+			
+			
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQLs] 탭</h5>
+			<p>
+				배포전 자동 성능 검증을 통해 운영에 적용된 SQL을 추적하여 각 SQL에 대한 성능 추적,
+				 성능 검증 결과 비교, 프로그램 정보, 성능 추이 정보를 조회한다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/170-1.png">
+			</div>
+			
+			<h6>검색 조건 Area</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>업무</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>업무를 선택한다.</li>
+									<li>최상위를 체크 해제하면 하위 업무가 조회된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>배포일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포일자를 선택한다. (시작일자~종료일자)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1일이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1주일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1주일이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>1개월</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>클릭하면 배포종료일자를 기준으로 1개월이 선택된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>검색조건</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>전체를 선택하면 배포된 전체 SQL이 조회된다.</li>
+									<li>성능 검증 SQL을 선택하면 적합 판정을 받고 운영에 적용된 SQL이 검색된다.</li>
+									<li>예외 처리 SQL을 선택하면 영구 / 한시 검증제외 예외 처리를 하고 운영에 적용된 SQL이 검색된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>부적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>체크 시 운영 성능 검증 결과 부적합 건에 대한 SQL이 검색된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>체크 시 운영 성능 검증 결과 적합 건에 대한 SQL이 검색된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 저하</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 BUFFER GETS이 배포 BUFFER GETS 보다 증가한 SQL을 검색한다.</li>
+									<li>운영 BUFFER GETS &gt; 배포 BUFFER GETS</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 향상</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 BUFFER GETS이 배포 BUFFER GETS 보다 감소한 SQL을 검색한다.</li>
+									<li>운영 BUFFER GETS &lt;= 배포 BUFFER GETS</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>블럭수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>&lt; 2x: 배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 2배 미만으로 증가한 SQL을 검색한다.</li>
+									<li>&lt; 5x: 배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 2배 이상 5배 미만으로 증가한 SQL을 검색한다.</li>
+									<li>&lt; 10x: 배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 5배 이상 10배 미만으로 증가한 SQL을 검색한다.</li>
+									<li>&lt; 30x: 배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 10배 이상 30배 미만으로 증가한 SQL을 검색한다.</li>
+									<li>&lt; 50x: 배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 30배 이상 50배 미만으로 증가한 SQL을 검색한다.</li>
+									<li>&lt; 100x: 배포전 성능 검증 결과 블럭수 보다 운영에 수행된 평균 블럭수가 50배 이상 100배 미만으로 증가한 SQL을 검색한다.</li>
+									<li>&gt;= 100: 배포전 성능 점검 결과 블럭수 보다 운영에 수행된 평균 블럭수가 100배 이상인 SQL을 검색한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL ID로 검색한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL식별자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL식별자(DBIO)로 검색한다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="table-middleTitle">SQL식별자(DBIO)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL식별자(DBIO)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">프로그램</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로그래명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL ID</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">PLAN HASH VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>PLAN HASH VALUE</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2" class="table-middleTitle">평균 수행시간(초)</td>
+						</tr>
+						<tr>
+							<td>배포</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포 시 평균 수행시간(초)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>운영</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 시 평균 수행시간(초)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Activity(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 SQL의 수행시간이 DB 전체 SQL 수행시간에서 차지하는 비율</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2" class="table-middleTitle">평균 블럭수</td>
+						</tr>
+						<tr>
+							<td>배포</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포 시 평균 블럭수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>운영</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 시 평균 블럭수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Activity(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 SQL의 읽은 블럭수가 DB 전체 SQL이 읽은 블럭수에서 차지하는 비율</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2" class="table-middleTitle">평균 처리건수</td>
+						</tr>
+						<tr>
+							<td>배포</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포 시 평균 처리건수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>운영</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 시 평균 처리건수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">수행횟수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영에서 수행횟수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">예외방법</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>영구, 한시 검증제외로 예외 처리했는지 구분</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">부적합여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>부적합일 경우 ‘Y’</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">성능검증일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능검증 수행 일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle">배포일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포일자</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 행 Click</p>
+			<ol class="listStyle-number">
+				<li>
+					그리드 행 클릭 시 하단 탭에 조회된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/170-2.png">
+					</div>
+				</li>
+				<li>
+					그리드 클릭 시 디폴트로 [SQL 성능 추적] 탭 화면이 실행된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/170-3.png">
+					</div>
+				</li>
+			</ol>
+			
+			<h6>튜닝대상선정</h6>
+			<p class="title-h7">튜닝대상 선정 전체 선택</p>
+			<p>
+				검색된 전체 SQL(모든 페이지)에 대해 튜닝대상으로 선정한다.
+				 선정된 튜닝대상에 대한 튜닝 작업은 ‘성능 최적화’ 메뉴에서 진행한다. 
+			</p>
+			<ol class="listStyle-number">
+				<li>
+					‘전체’ 체크 박스를 클릭하면 하위의 모든 체크 박스가 체크된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/170-4.png">
+					</div>
+				</li>
+				<li>
+					[튜닝대상선정] 버튼을 클릭하면 튜닝 요청 화면이 실행된다.
+					 튜닝담당자, 이전 튜닝대상 선정 SQL 제외 항목을 선택하고
+					 [튜닝요청 및 담당자지정] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 500px;">
+						<img src="/resources/images/menual/bgimg_renewal/170-5.png">
+					</div>
+				</li>
+			</ol>
+			
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>튜닝담당자 자동할당</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>‘Yes’일 경우 튜닝담당자를 자동할당 한다.</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>튜닝담당자</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>튜닝담당자 자동할당이 ‘No’일 경우 튜닝담당자를 직접 선택한다. </li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>프로젝트</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>선택 불필요</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>튜닝진행단계</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>선택 불필요</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			
+			<p class="title-h7">튜닝대상 선정 개별 선택</p>
+			<p>
+				검색된 SQL 중 개별 선택된 건에 대해 튜닝대상으로 선정한다.
+				 개별 선택은 현재 페이지에서만 가능하다.
+				 [다음] 버튼을 클릭하여 페이지가 변경되면 선택된 체크박스가 해제된다.
+			</p>
+			<ol class="listStyle-number">
+				<li>
+					튜닝대상 SQL에 대한 체크 박스를 클릭한다. 멀티 선택이 가능하다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/170-6.png">
+					</div>
+				</li>
+				<li>
+					이후의 처리 과정은 ‘&gt; 튜닝대상 선정 전체 선택’ 과 처리 과정이 동일하므로 해당 매뉴얼을 참조한다.
+				</li>
+			</ol>
+			
+			<h6>SQLs 탭 Area &gt; [SQL 성능 추적] 탭</h6>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/170-7.png">
+			</div>
+			
+			<p class="title-h7">SQL 성능 추적 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td colspan="2" class="table-middleTitle">성능검증</td>
+						</tr>
+						<tr>
+							<td>수행시간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능 검증 시 평균 수행시간(elapsed time)</li>
+									<li style="list-style: none;">
+										예) <img class="text-image" src="/resources/images/after_ratio_up_arrow.png">
+											2.00 x: 2배 향상, 
+											<img class="text-image" src="/resources/images/after_ratio_down_arrow.png">
+											2.00 x: 2배 저하
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>블럭수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능 검증 시 평균 블럭수(buffer gets)</li>
+									<li style="list-style: none;">
+										예) <img class="text-image" src="/resources/images/after_ratio_up_arrow.png">
+											2.00 x: 2배 향상, 
+											<img class="text-image" src="/resources/images/after_ratio_down_arrow.png">
+											2.00 x: 2배 저하
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>처리건수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능 검증 시 평균 처리건수(rows processed)</li>
+									<li style="list-style: none;">
+										예) <img class="text-image" src="/resources/images/after_ratio_up_arrow.png">
+											2.00 x: 2배 향상, 
+											<img class="text-image" src="/resources/images/after_ratio_down_arrow.png">
+											2.00 x: 2배 저하
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능검증일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능검증일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>배포일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2" class="table-middleTitle">배포후 운영 성능</td>
+						</tr>
+						<tr>
+							<td>수행시간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 평균 수행시간(elapsed time)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>블럭수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 평균 블럭수(buffer gets)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>처리건수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 평균 처리건수(rows processed)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 SQL ID</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>PLAN HASH VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 PLAN HASH VALUE</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>최종수행일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 SQL 최종 수행 일시</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수행시간 Activity(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 SQL의 수행시간이 DB 전체 SQL 수행시간에서 차지하는 비율</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>블럭수 Activity(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 SQL의 읽은 블럭수가 DB 전체 SQL이 읽은 블럭수에서 차지하는 비율</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">SQL ID 클릭</p>
+			<p>
+				SQL_ID를 클릭하면 해당 SQL의 운영 성능 정보 추이를 확인할 수 있다.
+			</p>
+			<ol class="listStyle-number">
+				<li>
+					밑줄 친 SQL ID명을 클릭한다.
+					<div class="imageBox" style="width: 500px;">
+						<img src="/resources/images/menual/bgimg_renewal/170-8.png">
+					</div>
+				</li>
+				<li>
+					SQL ID로 탭이 실행되며 아래와 같은 정보가 조회된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/170-9.png">
+					</div>
+				</li>
+			</ol>
+			
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>탭</th>
+						<th>탭 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>SQL TEXT</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>해당 SQL ID의 SQL Text</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Bind Value</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>쿼리 실행에 사용된 바인드 값과 바인드 값 별 성능정보</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Tree Plan, Text Plan, Grid Plan</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>다양한 포맷의 Plan</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>OutLine</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>Oracle Out Line</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>SQL Stat Trend</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>Executions, Elapsed Time, Buffer Gets, Disk Reads 일별 추이</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>SQL Stat History</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>SQL의 일별 Elapsed Time, Buffer Gets, Disk Reads 등의 Stat 정보</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			
+			<h6>SQLs 탭 Area &gt; [SQL Info] 탭</h6>
+			<p>
+				운영에서 수행된 SQL문 및 바인드 값, Plan 정보가 검색된다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/170-10.png">
+			</div>
+			
+			<ol class="listStyle-number">
+				<li>[SQL Info] 탭 명에 있는 
+					<img class="text-image" src="/resources/images/menual/bgimg_renewal/btn-extend.png">
+					 아이콘을 클릭하면 SQL Info 화면이 팝업된다.
+					
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/170-11.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">Plan 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>COST(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>실행 단계별 COST(%)의 비율. 누적값이며 해당 라인에서의 COST(%)를 알고 싶다면 이전 단계의 수행시간(%)값을 빼면된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>CPU_COST(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>실행 단계별 CPU_COST(%)의 비율. 누적값이며 해당 라인에서의 CPU_COST(%)를 알고 싶다면 이전 단계의 수행시간(%)값을 빼면된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>IO_COST(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>실행 단계별 IO_COST(%)의 비율. 누적값이며 해당 라인에서의 IO_COST(%)를 알고 싶다면 이전 단계의 수행시간(%)값을 빼면된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>플랜에 순서대로 부여되는 번호</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>OPERATION</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>실행 Operation명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>COST</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 Operation에서 CPU_COST 와 IO_COST를 더하여 계산한 예측 비용</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>CPU_COST</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 Operation 작업에 필요한 CPU 사용량을 예측한 비용</li>
+									<li class="text-bold">다른 Operation 보다 CPU 비용이 높은 경우 부하지점</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>IO_COST</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 Operation 작업에 필요한 디스크 I/O 량을 예측한 비용</li>
+									<li class="text-bold">다른 Operation 보다 IO 비용이 높은 경우 부하지점</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>SQLs 탭 Area &gt; [성능 검증 결과] 탭</h6>
+			<p>
+				검증 지표에 대한 배포전 성능 검증 결과와 배포후 성능 검증 결과에 대한 적합, 부적합이 조회된다.<br>
+				운영 DB에서의 메모리 사용량은 부하를 줄이기 위하여 수집하지 않아 N/A로 표시된다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/170-12.png">
+			</div>
+			
+			<p class="title-h7">성능 검증 결과 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 15%;">
+						<col style="width: 15%;">
+						<col style="width: 70%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th colspan="2">컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td colspan="2">검증지표</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능 검증 지표명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>적합 판단을 하는 기준값. 기준값 이하일 경우 적합</li>
+									<li>대용량 테이블 Full Scan 여부, 전체 파티션 엑세스 여부는 ‘N’일 경우 적합</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">부적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>부적합 판단을 하는 기준값. 기준값 초과일 경우 부적합</li>
+									<li>대용량 테이블 Full Scan 여부, 전체 파티션 엑세스 여부는 ‘Y’일 경우 부적합</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td rowspan="2">배포전 성능</td>
+							<td>검증 결과값</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 시 검증 결과값</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>검증 결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포전 성능 검증 시 검증 결과(적합 또는 부적합)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td rowspan="2">배포후 성능</td>
+							<td>검증 결과값</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 성능 검증 시 검증 결과값</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>검증 결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>운영 성능 검증 시 검증 결과(적합 또는 부적합)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">예외등록여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>예외로 등록되었는지 여부(Y: 예외 등록)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">성능 검증 결과 내용</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>부적합 시 부적합 원인 및 조치 방법 기술</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>SQLs 탭 Area &gt; [프로그램 정보] 탭</h6>
+			<p>
+				SQL의 프로그램 정보가 조회된다.
+			</p>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/170-13.png">
+			</div>
+			
+			<p class="title-h7">프로그램 정보 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>업무명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>업무명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>배포요청자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>배포요청자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로그램구분</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로그램을 구분(SQL, 프로그램, 거래)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로그램명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로그램명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL식별자(DBIO)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL식별자(DBIO)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로그램유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로그램 유형(온라인, 배치)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL명령유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL문이 SELECT, INSERT, UPDATE, DELETE, MAERGE 구문인지의 유형</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>다이나믹SQL 여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>다이나믹 SQL일 경우 'Y'</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로그램설명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>프로그램에 대한 설명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>파일명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>파일명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>디렉토리</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>디렉토리명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>등록일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>등록된 일시</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>변경일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>변경된 일시</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

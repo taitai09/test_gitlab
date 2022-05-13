@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>11.	성능 진단</h1>
+	<h2>11.1. SQL 성능 진단</h2>
+	<h3>11.1.4.	TOP SQL 추이/현황</h3>
+
+	<div>
+		<p>
+			검색영역에서 조건값을 입력하여 검색하면 좌측영역에 다음과 같은 6가지의 그래프를 보여준다.<br />
+			[CPU], [Elapsed Time SQL], [CPU Time SQL], [Executions], [Logical Reads], [Physical Reads]<br /><br />
+			[CPU] 차트를 제외한 각 차트의 그래프를 클릭하면 우측에 Module, Action, Parsing Schema 각각에 대한 추이를 볼 수있으며, 각 탭의 Module, Action, Parsing Schema를 클릭시 ‘AND’ 조건으로 TOP SQL이 하단에 출력된다.
+		</p>
+
+		<h4>차트별 현황 마우스 클릭</h4>
+		<p>좌측 현황 화면에서 각 추이차트 그래프를 클릭하면 각 차트별, 날짜별로 우측영역에Module, Action, Parsing Schema에 대한 현황을 보여준다.</p>
+
+		<h4>Module, Action, Parsing Schema 그리드 클릭</h4>
+		<p>TAG영역에 Module, Action, Parsing Schema 에 대한 정보가 각1개씩 TAG 영역에 추가되며, 추가/삭제 시 마다 ‘AND’ 값 조건으로 TOP SQL 이 조회된다.</p>
+
+		<h4>엑셀 다운로드</h4>
+		<p>엑셀 다운로드시 최종 검색 조건이 반영된 TOP SQL이 반영된다.</p>
+		<p class="imagebox"><img src="/resources/images/menual/bgimg/11-1-4-1.jpg"></p>
+	</div>
+
+</div>
+</body>
+</html>

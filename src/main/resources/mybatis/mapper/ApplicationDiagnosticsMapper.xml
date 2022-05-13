@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.04.11	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.ApplicationDiagnosticsDao">	
+	<select id="summaryList" parameterType="trcdPerfSum" resultType="trcdPerfSum">
+		/* ApplicationDiagnosticsDao.summaryList */
+		<choose>
+			<when test="(day_gubun != null and (day_gubun eq 'D'.toString()))">
+				SELECT
+					#{base_day} AS BASE_DAY,
+					#{base_day} AS MIN_DAY,
+					#{base_day} AS MAX_DAY,
+					NVL(SUM(1),0) AS TOTAL_CNT,
+					NVL(SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '1' THEN 1 ELSE 0 END),0) TIMEOUT_CNT,
+					NVL(SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '2' THEN 1 ELSE 0 END),0) ELAPSED_TIME_DELAY_CNT
+				FROM TRCD_PERF_SUM
+				WHERE WRKJOB_CD = #{wrkjob_cd} 
+				AND BASE_DAY = #{base_day}
+			</when>			
+			<when test="(day_gubun != null and (day_gubun eq 'W'.toString()))">
+				SELECT
+					NVL(BASE_DAY,'SUM') AS BASE_DAY,
+					NVL(DAY_NAME,'SUM') AS DAY_NAME,
+					MIN_DAY,
+					MAX_DAY,
+					TOTAL_CNT,
+					TIMEOUT_CNT,
+					ELAPSED_TIME_DELAY_CNT
+				FROM
+				(
+					SELECT
+						CAL.DAY_8CHAR BASE_DAY, 
+						CAL.DAY_OF_WEEK DAY_NAME,
+						GROUPING(CAL.DAY_8CHAR) GDAY1,
+						GROUPING(CAL.DAY_OF_WEEK) GDAY2,
+						NVL(SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '1' THEN 1 ELSE 0 END),0) TIMEOUT_CNT,
+						NVL(SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '2' THEN 1 ELSE 0 END),0) ELAPSED_TIME_DELAY_CNT,
+						NVL(COUNT(A.BASE_DAY),0) TOTAL_CNT,
+						MIN(CAL.MIN_DAY) MIN_DAY,
+						MAX(CAL.MAX_DAY) MAX_DAY
+					FROM
+					(
+						SELECT DAY_8CHAR, DAY_OF_WEEK, 
+							MIN(DAY_8CHAR) OVER() MIN_DAY,
+							MAX(DAY_8CHAR) OVER() MAX_DAY
+						FROM CALENDAR
+						WHERE DAY BETWEEN TO_DATE(#{base_day}, 'YYYYMMDD') - 6 AND TO_DATE(#{base_day}, 'YYYYMMDD')
+					) CAL LEFT OUTER JOIN TRCD_PERF_SUM A 
+					PARTITION BY (A.WRKJOB_CD) ON CAL.DAY_8CHAR = A.BASE_DAY 
+					AND A.WRKJOB_CD = #{wrkjob_cd} 
+					AND A.BASE_DAY BETWEEN TO_CHAR(TO_DATE(#{base_day}, 'YYYYMMDD')-6, 'YYYYMMDD') AND #{base_day}
+					WHERE A.WRKJOB_CD = #{wrkjob_cd} 
+					GROUP BY ROLLUP(CAL.DAY_8CHAR, CAL.DAY_OF_WEEK)
+					ORDER BY DAY_8CHAR
+				)
+				WHERE (GDAY1 = 0 AND GDAY2 = 0) OR (BASE_DAY IS NULL)
+				ORDER BY BASE_DAY, DAY_NAME			
+			</when>
+			<when test="(day_gubun != null and (day_gubun eq 'M'.toString()))">
+				WITH CAL AS
+				(
+					SELECT DAY, DAY_8CHAR, WEEK,
+						MIN(DAY_8CHAR) OVER(PARTITION BY WEEK) MIN_DAY,
+						MAX(DAY_8CHAR) OVER(PARTITION BY WEEK) MAX_DAY
+					FROM
+					(
+						SELECT DAY, DAY_8CHAR,
+						(CASE 
+							WHEN NUM BETWEEN 1  AND 7  THEN '1주'
+							WHEN NUM BETWEEN 8  AND 14 THEN '2주'
+							WHEN NUM BETWEEN 15 AND 21 THEN '3주'
+							WHEN NUM BETWEEN 22 AND 28 THEN '4주'
+						END) WEEK
+						FROM
+						(
+							SELECT ROWNUM NUM, DAY, DAY_8CHAR
+							FROM CALENDAR
+							WHERE DAY BETWEEN TO_DATE(#{base_day}, 'YYYYMMDD') - 27 AND TO_DATE(#{base_day}, 'YYYYMMDD')
+						)
+					)
+				)
+				SELECT
+					NVL(MIN_DAY, 'SUM') BASE_DAY,
+					NVL(DAY_NAME, 'SUM') DAY_NAME, 
+					NVL(MIN_DAY, TO_CHAR(TO_DATE(#{base_day}, 'YYYYMMDD') - 27,'YYYYMMDD')) MIN_DAY,
+					NVL(MAX_DAY, #{base_day}) MAX_DAY,
+					TOTAL_CNT,
+					TIMEOUT_CNT,
+					ELAPSED_TIME_DELAY_CNT
+				FROM
+				(
+					SELECT CAL.WEEK AS DAY_NAME,
+						NVL(SUM(NVL2(TR_PERF_INDC_TYPE_CD, 1, 0)), 0) TOTAL_CNT,
+						NVL(SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '1' THEN 1 ELSE 0 END), 0) TIMEOUT_CNT,
+						NVL(SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '2' THEN 1 ELSE 0 END), 0) ELAPSED_TIME_DELAY_CNT,
+						CAL.MIN_DAY,
+						CAL.MAX_DAY,
+						GROUPING(CAL.MIN_DAY) GDAY1,
+						GROUPING(CAL.MAX_DAY) GDAY2
+					FROM CAL LEFT OUTER JOIN TRCD_PERF_SUM A 
+					PARTITION BY (A.WRKJOB_CD) ON CAL.DAY_8CHAR = A.BASE_DAY 
+					AND A.WRKJOB_CD = #{wrkjob_cd}
+					AND A.BASE_DAY BETWEEN TO_CHAR(TO_DATE(#{base_day}, 'YYYYMMDD') - 27, 'YYYYMMDD') AND #{base_day}
+					WHERE A.WRKJOB_CD = #{wrkjob_cd}
+					GROUP BY ROLLUP(CAL.WEEK, CAL.MIN_DAY, CAL.MAX_DAY)
+				)
+				WHERE (GDAY1 = 0 AND GDAY2 = 0) OR (DAY_NAME IS NULL)
+				ORDER BY DAY_NAME			
+			</when>
+		</choose>
+	</select>
+	
+	<select id="summaryChartList" parameterType="trcdPerfSum" resultType="trcdPerfSum">
+		/* ApplicationDiagnosticsDao.summaryChartList */
+		<choose>
+			<when test="(day_gubun != null and (day_gubun eq 'D'.toString()))">
+				SELECT #{base_day} AS BASE_DAY,
+					TO_CHAR(TO_DATE(#{base_day},'YYYY-MM-DD'),'YYYY-MM-DD') AS MIN_DAY,
+					TO_CHAR(TO_DATE(#{base_day},'YYYY-MM-DD'),'YYYY-MM-DD') AS MAX_DAY,
+					TR_PERF_INDC_TYPE_CD,
+					CASE 
+						WHEN TR_PERF_INDC_TYPE_CD = '1' THEN '타임아웃'
+						WHEN TR_PERF_INDC_TYPE_CD = '2' THEN '응답시간지연' 
+					END AS TR_PERF_INDC_TYPE_NM,
+					NVL(SUM(1),0) AS TOTAL_CNT
+				FROM TRCD_PERF_SUM
+                WHERE WRKJOB_CD IN ( SELECT WRKJOB_CD
+                                 FROM WRKJOB_CD
+                                START WITH WRKJOB_CD = #{wrkjob_cd} 
+                              CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)
+				AND BASE_DAY = #{base_day}
+				GROUP BY TR_PERF_INDC_TYPE_CD
+			</when>			
+			<when test="(day_gubun != null and (day_gubun eq 'W'.toString()))">
+				SELECT TO_CHAR(TO_DATE(CAL.DAY_8CHAR,'YYYY-MM-DD'),'YYYY-MM-DD') || ' (' || CAL.DAY_OF_WEEK || ')' AS BASE_DAY,
+					TO_CHAR(TO_DATE(MIN(CAL.DAY_8CHAR),'YYYY-MM-DD'),'YYYY-MM-DD') MIN_DAY,
+					TO_CHAR(TO_DATE(MAX(CAL.MAX_DAY),'YYYY-MM-DD'),'YYYY-MM-DD') MAX_DAY,
+					SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '1' THEN 1 ELSE 0 END) TIMEOUT_CNT,
+					SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '2' THEN 1 ELSE 0 END) ELAPSED_TIME_DELAY_CNT
+				FROM (
+					SELECT DAY_8CHAR, DAY_OF_WEEK, 
+						MIN(DAY_8CHAR) OVER() MIN_DAY,
+						MAX(DAY_8CHAR) OVER() MAX_DAY
+					FROM CALENDAR
+					WHERE DAY BETWEEN TO_DATE(#{base_day}, 'YYYYMMDD') - 6 AND TO_DATE(#{base_day}, 'YYYYMMDD')
+				) CAL LEFT OUTER JOIN TRCD_PERF_SUM A PARTITION BY (A.WRKJOB_CD) ON CAL.DAY_8CHAR = A.BASE_DAY 
+				AND A.BASE_DAY BETWEEN TO_CHAR(TO_DATE(#{base_day}, 'YYYYMMDD') - 6, 'YYYYMMDD') AND #{base_day}
+			    WHERE WRKJOB_CD IN ( SELECT WRKJOB_CD
+                                    FROM WRKJOB_CD
+                                   START WITH WRKJOB_CD = #{wrkjob_cd}
+                                 CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)
+				GROUP BY CAL.DAY_8CHAR, CAL.DAY_OF_WEEK
+				ORDER BY DAY_8CHAR
+			</when>
+			<when test="(day_gubun != null and (day_gubun eq 'M'.toString()))">
+				WITH CAL AS
+				(
+					SELECT DAY, DAY_8CHAR, WEEK,
+						MIN(DAY_8CHAR) OVER(PARTITION BY WEEK) MIN_DAY,
+						MAX(DAY_8CHAR) OVER(PARTITION BY WEEK) MAX_DAY
+					FROM (
+						SELECT DAY, DAY_8CHAR,
+							(CASE 
+								WHEN NUM BETWEEN 1  AND 7  THEN '1주'
+								WHEN NUM BETWEEN 8  AND 14 THEN '2주'
+								WHEN NUM BETWEEN 15 AND 21 THEN '3주'
+								WHEN NUM BETWEEN 22 AND 28 THEN '4주'
+							END) WEEK
+						FROM (
+							SELECT ROWNUM NUM, DAY, DAY_8CHAR
+          					FROM CALENDAR
+							WHERE DAY BETWEEN TO_DATE(#{base_day}, 'YYYYMMDD') - 27 AND TO_DATE(#{base_day}, 'YYYYMMDD')
+						)
+					)
+				)
+				SELECT TO_CHAR(TO_DATE(MIN_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') || ' (' || DAY_NAME || ')' AS BASE_DAY,
+					TO_CHAR(TO_DATE(NVL(MIN_DAY, TO_CHAR(TO_DATE(#{base_day}, 'YYYYMMDD') - 27,'YYYYMMDD')),'YYYY-MM-DD'),'YYYY-MM-DD') MIN_DAY,    
+					TO_CHAR(TO_DATE(NVL(MAX_DAY, #{base_day}),'YYYY-MM-DD'),'YYYY-MM-DD') MAX_DAY,
+					TIMEOUT_CNT, ELAPSED_TIME_DELAY_CNT
+				FROM (
+					SELECT  CAL.WEEK AS DAY_NAME,
+						NVL(SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '1' THEN 1 ELSE 0 END), 0) TIMEOUT_CNT,
+						NVL(SUM(CASE WHEN TR_PERF_INDC_TYPE_CD = '2' THEN 1 ELSE 0 END), 0) ELAPSED_TIME_DELAY_CNT,
+						CAL.MIN_DAY,
+						CAL.MAX_DAY
+					FROM CAL LEFT OUTER JOIN TRCD_PERF_SUM A PARTITION BY (A.WRKJOB_CD) ON CAL.DAY_8CHAR = A.BASE_DAY 
+					AND A.BASE_DAY BETWEEN TO_CHAR(TO_DATE(#{base_day}, 'YYYYMMDD') - 27, 'YYYYMMDD') AND #{base_day}
+					WHERE WRKJOB_CD IN ( SELECT WRKJOB_CD
+                                 FROM WRKJOB_CD
+                                START WITH WRKJOB_CD = #{wrkjob_cd}
+                              CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)
+					GROUP BY CAL.WEEK, CAL.MIN_DAY, CAL.MAX_DAY
+				)
+				ORDER BY DAY_NAME
+			</when>
+		</choose>
+	</select>	
+	
+	<select id="timeoutList" parameterType="trcdPerfSum" resultType="trcdPerfSum">
+		/* ApplicationDiagnosticsDao.timeoutList */
+		SELECT A.TR_CD
+			,B.TR_CD_NM
+			,C.USER_NM
+			,A.EXEC_CNT
+		FROM (
+			SELECT A.TR_CD
+				,SUM(A.EXEC_CNT) EXEC_CNT
+			FROM TRCD_PERF_SUM A
+			WHERE A.WRKJOB_CD = #{wrkjob_cd}
+			AND A.BASE_DAY BETWEEN REPLACE(#{strStartDt},'-','') AND REPLACE(#{strEndDt},'-','')
+			AND A.TR_PERF_INDC_TYPE_CD = '1'
+			GROUP BY TR_CD) A
+			, TR_CD B, USERS C
+		WHERE A.TR_CD = B.TR_CD(+)
+		AND B.WRKJOB_CD(+) = #{wrkjob_cd}
+		AND B.MGR_ID = C.USER_ID(+)
+		ORDER BY A.EXEC_CNT DESC
+	</select>
+	
+	<select id="elapsedTimeDelayList" parameterType="trcdPerfSum" resultType="trcdPerfSum">
+		/* ApplicationDiagnosticsDao.elapsedTimeDelayList */
+		SELECT A.BASE_DAY
+			,A.TR_CD
+			,B.TR_CD_NM
+			,C.USER_NM
+			,A.EXEC_CNT
+			,A.PREV_ELAP_TIME
+			,A.CUR_ELAP_TIME
+			,A.DELAY_ELAP_TIME
+			,A.ELAP_TIME_INCREASE_RATIO
+		FROM TRCD_PERF_SUM A, TR_CD B, USERS C
+		WHERE A.WRKJOB_CD = B.WRKJOB_CD(+)
+		AND A.TR_CD = B.TR_CD(+)
+		AND B.MGR_ID = C.USER_ID(+)
+		AND A.WRKJOB_CD = #{wrkjob_cd}
+		AND A.BASE_DAY BETWEEN REPLACE(#{strStartDt},'-','') AND REPLACE(#{strEndDt},'-','')
+		AND A.TR_PERF_INDC_TYPE_CD = '2'
+	</select>	
+</mapper>

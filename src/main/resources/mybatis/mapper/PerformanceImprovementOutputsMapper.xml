@@ -1,0 +1,561 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.06.01	이원식	최초작업
+	2021.07.14	이재우	성능개선실적 > 산출물 상세 조회 추가.
+-->
+<mapper namespace="omc.spop.dao.PerformanceImprovementOutputsDao">
+	<sql id="performanceImprovementOutputsListRefId">
+		SELECT A.TUNING_NO
+			 , A.DBID 
+			 , D.DB_NAME
+			 , A.CHOICE_DIV_CD
+			 , CD1.CD_NM AS CHOICE_DIV_CD_NM
+			 , SQL_ID
+			 , TR_CD
+			 , DBIO
+			 , MODULE
+			 , PERFR_ID
+			 , U.USER_NM AS PERFR_NM
+			 , TUNING_STATUS_CD
+			 , CD2.CD_NM AS TUNING_STATUS_NM
+			 , CASE
+					WHEN A.TUNING_STATUS_CD = '6' THEN CD3.CD_NM
+					WHEN A.TUNING_STATUS_CD = '8' THEN CD4.CD_NM
+					ELSE ''
+			   END AS TUNING_WHY_NM
+			 , TO_CHAR(A.TUNING_REQUEST_DT,'YYYY/MM/DD HH24:MI:SS') TUNING_REQUEST_DT
+			 , U2.USER_NM AS TUNING_REQUESTER_NM
+			   , U3.USER_NM AS WRKJOB_MGR_NM
+			 , TO_CHAR(B.TUNING_COMPLETE_DT,'YYYY/MM/DD') TUNING_COMPLETE_DT
+			 , B.IMPRB_ELAP_TIME
+			 , B.IMPRB_BUFFER_CNT
+			 , B.IMPRA_ELAP_TIME
+			 , B.IMPRA_BUFFER_CNT
+			 , B.ELAP_TIME_IMPR_RATIO
+			 , B.BUFFER_IMPR_RATIO
+			 , TO_CHAR(B.TUNING_APPLY_DT,'YYYY/MM/DD') TUNING_APPLY_DT
+			 , C.PROJECT_NM
+			 , C.TUNING_PRGRS_STEP_NM
+			 
+			 , B.CONTROVERSIALIST         -- 문제점
+			 , B.IMPR_SBST                -- 개선내용
+		  FROM TUNING_TARGET_SQL A
+			 , SQL_TUNING B
+			 , USERS U
+			 , USERS U2
+			 , USERS U3
+			 , DATABASE D
+			 , CD CD1
+			 , CD CD2
+			 , CD CD3
+			 , CD CD4
+			 , (SELECT A.PROJECT_ID
+					 , A.PROJECT_NM
+					 , B.TUNING_PRGRS_STEP_SEQ
+					 , B.TUNING_PRGRS_STEP_NM
+				  FROM PROJECT A
+					 , PROJECT_TUNING_PRGRS_STEP B
+				 WHERE A.PROJECT_ID = B.PROJECT_ID
+			   ) C
+		 WHERE A.TUNING_NO = B.TUNING_NO(+)
+		   AND A.TUNING_NO IN (SELECT TUNING_NO FROM SQL_TUNING WHERE NVL(ALL_TUNING_END_YN, 'N') <![CDATA[<>]]> 'Y')
+		   AND A.PERFR_ID = U.USER_ID(+)
+		   AND A.TUNING_REQUESTER_ID = U2.USER_ID(+)
+		   AND A.WRKJOB_MGR_ID = U3.USER_ID(+)
+		   AND A.DBID = D.DBID
+		   AND A.CHOICE_DIV_CD = CD1.CD
+		   AND CD1.GRP_CD_ID = '1003'
+		   AND A.TUNING_STATUS_CD = CD2.CD
+		   AND CD2.GRP_CD_ID = '1004'
+		   AND B.TUNING_COMPLETE_WHY_CD = CD3.CD(+)
+		   AND CD3.GRP_CD_ID(+) = '1008'
+		   AND B.TUNING_END_WHY_CD = CD4.CD(+)
+		   AND CD4.GRP_CD_ID(+) = '1009'
+		   AND (A.TUNING_STATUS_CD = '6' OR (A.TUNING_STATUS_CD = '8' AND B.TUNING_COMPLETE_WHY_CD IS NOT NULL)) --6:적용대기 OR (8:튜닝종료 AND 튜닝완료사유코드 IS NOT NULL)
+		   AND A.PROJECT_ID = C.PROJECT_ID(+) 
+		   AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+) 
+		
+		<choose>
+			<when test="(strGubun != null and (strGubun eq '01'.toString()))">
+		-- 튜닝요청일자
+		   AND A.TUNING_REQUEST_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '02'.toString()))">
+		-- 튜닝반려일자
+		   AND A.TUNING_RCESS_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt}|| ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '03'.toString()))"> 
+		-- 튜닝완료일자
+		   AND B.TUNING_COMPLETE_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt}|| ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '04'.toString()))"> 
+		-- 튜닝적용일자
+		   AND B.TUNING_APPLY_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt}|| ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '05'.toString()))"> 
+		-- 튜닝종료일자
+		   AND B.TUNING_END_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt}|| ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+		</choose>
+		
+		<if test="dbid != null and dbid != ''">
+		   AND A.DBID = #{dbid}
+		</if>
+		<if test="perfr_id != null and perfr_id != ''">
+		   AND A.PERFR_ID = #{perfr_id}
+		</if>
+		<choose>
+			<when test="(searchKey != null and (searchKey eq '01'.toString()))">
+		   AND A.PERFR_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+			<when test="(searchKey != null and (searchKey eq '02'.toString()))">
+		   AND A.TUNING_REQUESTER_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+			<when test="(searchKey != null and (searchKey eq '03'.toString()))">
+		   AND A.WRKJOB_MGR_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+		</choose>
+		<if test="tr_cd != null and tr_cd != ''">
+		   AND A.TR_CD LIKE #{tr_cd} || '%'
+		</if>
+		<if test="dbio != null and dbio != ''">
+		   AND A.DBIO LIKE #{dbio} || '%'
+		</if>
+		<if test="sql_id != null and sql_id != ''">
+		   AND A.SQL_ID = #{sql_id}
+		</if>
+		
+		<if test="project_id != null and project_id != ''">
+		-- 프로젝트가 선택되면
+		   AND A.PROJECT_ID = #{project_id}
+		</if>
+		<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+		-- 튜닝진행단계가 선택되면
+		   AND A.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}              
+		</if>
+		-- AND B.ALL_TUNING_END_YN(+) <![CDATA[<>]]> 'N'      -- 일괄튜닝종료여부추가(20191015)
+		ORDER BY A.TUNING_NO DESC
+	</sql>
+	
+	<sql id="performanceImprovementOutputsListRefId_V2">
+		SELECT A.TUNING_NO
+			 , CD1.CD_NM AS CHOICE_DIV_CD_NM
+			 , D.DB_NAME
+			 , A.SQL_ID
+			 , A.TR_CD
+			 , A.DBIO
+			 , A.MODULE
+			 , U.USER_NM AS PERFR_NM
+			 , CD2.CD_NM AS TUNING_STATUS_NM
+			 , CD3.CD_NM TUNING_COMPLETE_WHY_NM            -- 튜닝완료사유
+			 , CD4.CD_NM TUNING_END_WHY_NM                 -- 튜닝종료사유
+			 , TO_CHAR(A.TUNING_REQUEST_DT,'YYYY/MM/DD HH24:MI:SS') TUNING_REQUEST_DT
+			 , U2.USER_NM AS TUNING_REQUESTER_NM
+			 , E.WRKJOB_DEV_NM AS WRKJOB_MGR_NM            -- 업무담당자명
+			 , E.WRKJOB_DEV_ID AS WRKJOB_MGR_ID            -- 업무담당자ID
+			 , E.WRKJOB_NM AS WRKJOB_MGR_WRKJOB_NM               -- 업무명
+			 , TO_CHAR(B.TUNING_COMPLETE_DT,'YYYY/MM/DD') TUNING_COMPLETE_DT
+			 , B.IMPRB_ELAP_TIME
+			 , B.IMPRB_BUFFER_CNT
+			 , B.IMPRA_ELAP_TIME
+			 , B.IMPRA_BUFFER_CNT
+			 , B.ELAP_TIME_IMPR_RATIO
+			 , B.BUFFER_IMPR_RATIO
+			 , TO_CHAR(B.TUNING_APPLY_DT,'YYYY/MM/DD') TUNING_APPLY_DT
+			 , C.PROJECT_NM
+			 , C.TUNING_PRGRS_STEP_NM
+			 , B.CONTROVERSIALIST         -- 문제점
+			 , B.IMPR_SBST                -- 개선내용
+
+			 -- HIDDEN
+			 , A.DBID 
+			 , A.CHOICE_DIV_CD
+			 , PERFR_ID
+			 , TUNING_STATUS_CD
+		  FROM TUNING_TARGET_SQL A
+			 , SQL_TUNING B
+			 , USERS U
+			 , USERS U2
+			 , USERS U3
+			 , DATABASE D
+			 , CD CD1
+			 , CD CD2
+			 , CD CD3
+			 , CD CD4
+			 , (SELECT A.PROJECT_ID
+					 , A.PROJECT_NM
+					 , B.TUNING_PRGRS_STEP_SEQ
+					 , B.TUNING_PRGRS_STEP_NM
+				  FROM PROJECT A
+					 , PROJECT_TUNING_PRGRS_STEP B
+				 WHERE A.PROJECT_ID = B.PROJECT_ID
+			   ) C
+			 , DBIO_DEVELOPER E
+		 WHERE A.TUNING_NO = B.TUNING_NO(+)
+		   AND A.TUNING_NO IN (SELECT TUNING_NO FROM SQL_TUNING WHERE NVL(ALL_TUNING_END_YN, 'N') <![CDATA[<>]]> 'Y')
+		   AND A.PERFR_ID = U.USER_ID(+)
+		   AND A.TUNING_REQUESTER_ID = U2.USER_ID(+)
+		   AND A.WRKJOB_MGR_ID = U3.USER_ID(+)
+		   AND A.DBID = D.DBID
+		   AND A.CHOICE_DIV_CD = CD1.CD
+		   AND CD1.GRP_CD_ID = '1003'
+		   AND A.TUNING_STATUS_CD = CD2.CD
+		   AND CD2.GRP_CD_ID = '1004'
+		   AND B.TUNING_COMPLETE_WHY_CD = CD3.CD(+)
+		   AND CD3.GRP_CD_ID(+) = '1008'
+		   AND B.TUNING_END_WHY_CD = CD4.CD(+)
+		   AND CD4.GRP_CD_ID(+) = '1009'
+		   AND (A.TUNING_STATUS_CD = '6' OR (A.TUNING_STATUS_CD = '8' AND B.TUNING_COMPLETE_WHY_CD IS NOT NULL)) --6:적용대기 OR (8:튜닝종료 AND 튜닝완료사유코드 IS NOT NULL)
+		   AND A.PROJECT_ID = C.PROJECT_ID(+) 
+		   AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+) 
+		   AND A.DBIO = E.DBIO(+)
+		
+		   -- 튜닝대상선정이 G(DB변경성능영향도분석) 인경우 프로젝트/SQL_ID 별 최종건만 실적으로 조회(FOR 수협)
+		   -- 튜닝진행단계 선택시 프로젝트/튜닝진행단게/SQL_ID 별 최종건만 실적으로 조회(FOR 수협)
+		   AND ( (A.CHOICE_DIV_CD = 'G' AND A.TUNING_NO = (
+															SELECT MAX(TUNING_NO)
+															  FROM TUNING_TARGET_SQL TTS
+															 WHERE 1 = 1
+															   AND TTS.PROJECT_ID = A.PROJECT_ID
+															   AND TTS.SQL_ID = A.SQL_ID
+															   --6:적용대기 OR (8:튜닝종료 AND 튜닝완료사유코드 IS NOT NULL)
+															   AND TTS.TUNING_STATUS_CD IN ('6', '8')
+														  )
+				) OR (A.CHOICE_DIV_CD <![CDATA[<>]]> 'G')
+			   )
+		<choose>
+			<when test="(strGubun != null and (strGubun eq '01'.toString()))">
+		-- 튜닝요청일자
+		   AND A.TUNING_REQUEST_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '02'.toString()))">
+		-- 튜닝반려일자
+		   AND A.TUNING_RCESS_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt}|| ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '03'.toString()))"> 
+		-- 튜닝완료일자
+		   AND B.TUNING_COMPLETE_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt}|| ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '04'.toString()))"> 
+		-- 튜닝적용일자
+		   AND B.TUNING_APPLY_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt}|| ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '05'.toString()))"> 
+		-- 튜닝종료일자
+		   AND B.TUNING_END_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+		   AND TO_DATE(#{strEndDt}|| ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+		</choose>
+		
+		<if test="dbid != null and dbid != ''">
+		   AND A.DBID = #{dbid}
+		</if>
+		<if test="perfr_id != null and perfr_id != ''">
+		   AND A.PERFR_ID = #{perfr_id}
+		</if>
+		<choose>
+			<when test="(searchKey != null and (searchKey eq '01'.toString()))">
+		   AND A.PERFR_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+			<when test="(searchKey != null and (searchKey eq '02'.toString()))">
+		   AND A.TUNING_REQUESTER_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+			<when test="(searchKey != null and (searchKey eq '03'.toString()))">
+		   AND A.WRKJOB_MGR_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+		</choose>
+		<if test="tr_cd != null and tr_cd != ''">
+		   AND A.TR_CD LIKE #{tr_cd} || '%'
+		</if>
+		<if test="dbio != null and dbio != ''">
+		   AND A.DBIO LIKE #{dbio} || '%'
+		</if>
+		<if test="sql_id != null and sql_id != ''">
+		   AND A.SQL_ID = #{sql_id}
+		</if>
+		
+		<if test="project_id != null and project_id != ''">
+		-- 프로젝트가 선택되면
+		   AND A.PROJECT_ID = #{project_id}
+		</if>
+		<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+		-- 튜닝진행단계가 선택되면
+		   AND A.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}
+		</if>
+		<if test="tuning_complete_why_cd != null and tuning_complete_why_cd != ''">
+		-- 튜닝완료사유 선택되면
+		   AND B.TUNING_COMPLETE_WHY_CD = #{tuning_complete_why_cd}
+		</if>
+		-- AND B.ALL_TUNING_END_YN(+) <![CDATA[<>]]> 'N'      -- 일괄튜닝종료여부추가(20191015)
+		ORDER BY A.TUNING_NO DESC
+	</sql>
+	
+	<sql id="performanceImprovementOutputsListRefId_old">
+		SELECT A.TUNING_NO
+		     , A.DBID 
+		     , D.DB_NAME
+		     , A.CHOICE_DIV_CD
+		     , CD1.CD_NM AS CHOICE_DIV_CD_NM
+		     , SQL_ID
+		     , TR_CD
+		     , DBIO
+		     , MODULE
+		     , PERFR_ID
+		     , U.USER_NM AS PERFR_NM
+		     , TUNING_STATUS_CD
+		     , CD2.CD_NM AS TUNING_STATUS_NM
+		     , CASE
+		         WHEN A.TUNING_STATUS_CD = '6' THEN CD3.CD_NM
+		         WHEN A.TUNING_STATUS_CD = '8' THEN CD4.CD_NM
+		         ELSE ''
+		       END AS TUNING_WHY_NM
+		     , TO_CHAR(A.TUNING_REQUEST_DT,'YYYY/MM/DD HH24:MI:SS') TUNING_REQUEST_DT
+		     , U2.USER_NM AS TUNING_REQUESTER_NM
+             , U3.USER_NM AS WRKJOB_MGR_NM
+		     , TO_CHAR(B.TUNING_COMPLETE_DT,'YYYY/MM/DD HH24:MI:SS') TUNING_COMPLETE_DT
+		     , B.IMPRB_ELAP_TIME
+		     , B.IMPRB_BUFFER_CNT
+		     , B.IMPRA_ELAP_TIME
+		     , B.IMPRA_BUFFER_CNT
+		     , B.ELAP_TIME_IMPR_RATIO
+		     , B.BUFFER_IMPR_RATIO
+		     , TO_CHAR(B.TUNING_APPLY_DT,'YYYY/MM/DD HH24:MI:SS') TUNING_APPLY_DT
+            
+             , C.PROJECT_NM
+             , C.TUNING_PRGRS_STEP_NM
+             --HIDDEN
+             , C.PROJECT_ID
+             , C.TUNING_PRGRS_STEP_SEQ
+            		     
+		  FROM TUNING_TARGET_SQL A
+		     , SQL_TUNING B
+		     , USERS U
+		     , USERS U2
+             , USERS U3
+		     , DATABASE D
+		     , CD CD1
+		     , CD CD2
+		     , CD CD3
+		     , CD CD4
+             , (SELECT A.PROJECT_ID
+                   , A.PROJECT_NM
+                   , B.TUNING_PRGRS_STEP_SEQ
+                   , B.TUNING_PRGRS_STEP_NM
+                FROM PROJECT A
+                   , PROJECT_TUNING_PRGRS_STEP B
+               WHERE A.PROJECT_ID = B.PROJECT_ID
+             ) C                                
+		     
+		     
+		WHERE A.TUNING_NO = B.TUNING_NO(+)
+		AND A.PERFR_ID = U.USER_ID(+)
+		AND A.TUNING_REQUESTER_ID = U2.USER_ID(+)
+        AND A.WRKJOB_MGR_ID = U3.USER_ID(+)
+		AND A.DBID = D.DBID
+		AND A.CHOICE_DIV_CD = CD1.CD
+		AND CD1.GRP_CD_ID = '1003'
+		AND A.TUNING_STATUS_CD = CD2.CD
+		AND CD2.GRP_CD_ID = '1004'
+		AND B.TUNING_COMPLETE_WHY_CD = CD3.CD(+)
+		AND CD3.GRP_CD_ID(+) = '1008'
+		AND B.TUNING_END_WHY_CD = CD4.CD(+)
+		AND CD4.GRP_CD_ID(+) = '1009'
+		AND (A.TUNING_STATUS_CD = '6' OR (A.TUNING_STATUS_CD = '8' AND B.TUNING_COMPLETE_WHY_CD IS NOT NULL)) <!-- 튜닝완료(6) 이거나 튜닝종료(8)중  튜닝완료사유가 존재하는 경우 -->
+		AND A.PROJECT_ID = C.PROJECT_ID(+)       
+		AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+)
+		
+		<choose>
+			<when test="(strGubun != null and (strGubun eq '01'.toString()))"> <!-- 튜닝요청일자 -->
+				AND A.TUNING_REQUEST_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '02'.toString()))"> <!-- 튜닝반려일자 -->
+				AND A.TUNING_RCESS_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '03'.toString()))"> <!-- 튜닝완료일자 -->
+				AND B.TUNING_COMPLETE_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '04'.toString()))"> <!-- 튜닝적용일자 -->
+				AND B.TUNING_APPLY_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="(strGubun != null and (strGubun eq '05'.toString()))"> <!-- 튜닝종료일자 -->
+				AND B.TUNING_END_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+		</choose>		
+		<if test="dbid != null and dbid != ''">
+			AND A.DBID = #{dbid}
+		</if>
+		<if test="perfr_id != null and perfr_id != ''">
+			AND A.PERFR_ID = #{perfr_id}
+		</if>
+		<choose>
+			<when test="(searchKey != null and (searchKey eq '01'.toString()))">
+				AND A.PERFR_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+			<when test="(searchKey != null and (searchKey eq '02'.toString()))">
+				AND A.TUNING_REQUESTER_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+			<when test="(searchKey != null and (searchKey eq '03'.toString()))">
+				AND A.WRKJOB_MGR_ID IN (SELECT USER_ID FROM USERS WHERE USER_NM LIKE #{searchValue} || '%')
+			</when>
+		</choose>
+		<if test="tr_cd != null and tr_cd != ''">
+			AND A.TR_CD LIKE #{tr_cd} || '%'
+		</if>
+		<if test="dbio != null and dbio != ''">
+			AND A.DBIO LIKE #{dbio} || '%'
+		</if>
+		<if test="sql_id != null and sql_id != ''">
+			AND A.SQL_ID = #{sql_id}
+		</if>
+		
+		<if test="project_id != null and project_id != ''">
+			-- 프로젝트가 선택되면
+			AND A.PROJECT_ID = #{project_id}
+		</if>
+		<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+			-- 튜닝진행단계가 선택되면
+			AND A.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}
+		</if>
+		
+		ORDER BY A.TUNING_NO DESC
+	</sql>
+	
+	<select id="performanceImprovementOutputsList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* PerformanceImprovementOutputsDao.performanceImprovementOutputsList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, AA.*
+			FROM (
+				<include refid="performanceImprovementOutputsListRefId"/>
+			) AA
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>]]> ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="performanceImprovementOutputsList4Excel" parameterType="tuningTargetSql" resultType="java.util.LinkedHashMap">
+		/* PerformanceImprovementOutputsDao.performanceImprovementOutputsList4Excel */
+		<include refid="performanceImprovementOutputsListRefId"/>
+	</select>
+	
+	<select id="performanceImprovementOutputsListAll" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* PerformanceImprovementOutputsDao.performanceImprovementOutputsListAll */
+		<include refid="performanceImprovementOutputsListRefId"/>
+		
+	</select>
+	
+	<select id="performanceImprovementOutputsListAll_V2" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* PerformanceImprovementOutputsDao.performanceImprovementOutputsListAll_V2 */
+		<include refid="performanceImprovementOutputsListRefId_V2"/>
+		
+	</select>
+	
+	<select id="performanceImprovementOutputsList_V2" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* PerformanceImprovementOutputsDao.performanceImprovementOutputsList_V2 */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, AA.*
+			FROM (
+				<include refid="performanceImprovementOutputsListRefId_V2"/>
+			) AA
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>]]> ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="performanceImprovementOutputsList4Excel_V2" parameterType="tuningTargetSql" resultType="java.util.LinkedHashMap">
+		/* PerformanceImprovementOutputsDao.performanceImprovementOutputsList4Excel_V2 */
+		<include refid="performanceImprovementOutputsListRefId_V2"/>
+	</select>
+	
+	<!-- 성능개선실적 > 산출물 상세조회 -->
+	<select id="getPerformanceImprovementOutputsViewDetail" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		SELECT A.TUNING_NO                                                        -- 튜닝번호
+			 , U3.USER_NM AS TUNING_REQUESTER_NM                                  -- 요청자
+			 , U2.USER_NM AS PERFR_NM                                             -- 담당튜너
+			 , TO_CHAR(A.TUNING_REQUEST_DT,'YYYY-MM-DD') TUNING_REQUEST_DT        -- 요청일
+			 , TO_CHAR(B.TUNING_COMPLETE_DT,'YYYY-MM-DD') TUNING_COMPLETE_DT      -- 완료일
+			 , TO_CHAR(B.TUNING_END_DT,'YYYY-MM-DD') TUNING_END_DT                -- 적용일(수정 전)
+			 , TO_CHAR(B.TUNING_APPLY_DT,'YYYY-MM-DD') TUNING_APPLY_DT            -- 적용일(수정 후)
+			 , U1.USER_NM AS WRKJOB_MGR_NM                                        -- 업무담당자
+			 , W1.WRKJOB_CD_NM AS WRKJOB_MGR_WRKJOB_NM                            -- 담당업무
+			 , A.WRKJOB_MGR_TEL_NUM                                               -- 업무담당자연락처
+			 , CD1003.CD_NM AS CHOICE_DIV_CD_NM                                   -- 요청유형
+			 , A.WRKJOB_PECULIAR_POINT                                            -- 업무특이사항(VARCHAR 1000)
+			 , A.REQUEST_WHY                                                      -- 요청사유(VARCHAR 1000)
+			 
+			 , CD1005.CD_NM AS PROGRAM_TYPE_CD_NM                                 -- 프로그램유형(온라인/배치)
+			 , CD1006.CD_NM AS BATCH_WORK_DIV_CD_NM                               -- 배치작업주기(년/반기/분기/월/일/수)
+			 , CURRENT_ELAP_TIME                                                  -- 수행시간(초)
+			 , FORECAST_RESULT_CNT                                                -- 예상결과건수
+			 , GOAL_ELAP_TIME                                                     -- 목표수행시간
+
+			 , DB.DB_NAME                                                         -- DB
+			 , A.SQL_ID                                                           -- SQL_ID
+			 , A.PLAN_HASH_VALUE                                                  -- PLAN_HASH_VALUE
+			 , A.PARSING_SCHEMA_NAME                                              -- PARSING_SCHEMA_NAME
+			 , A.MODULE                                                           -- MODULE
+			 , A.TR_CD                                                            -- 소스파일명
+			 , A.DBIO                                                             -- SQL식별자
+			
+			 , NVL(FN_NUM_TO_CHAR_FORMAT(B.IMPRB_ELAP_TIME), '0') AS IMPRB_ELAP_TIME            -- 개선전수행시간
+			 , NVL(B.IMPRB_BUFFER_CNT,'0') IMPRB_BUFFER_CNT                                     -- 개선전블럭수
+			 , NVL(B.IMPRB_PGA_USAGE,'0') IMPRB_PGA_USAGE                                       -- 개선전PGA사용량(MB)
+			 , NVL(FN_NUM_TO_CHAR_FORMAT(B.IMPRA_ELAP_TIME), '0') AS IMPRA_ELAP_TIME            -- 개선후수행시간
+			 , NVL(B.IMPRA_BUFFER_CNT,'0') IMPRA_BUFFER_CNT                                     -- 개선후블럭수
+			 , NVL(B.IMPRA_PGA_USAGE,'0') IMPRA_PGA_USAGE                                       -- 개선후PGA사용량(MB)
+			 , NVL(FN_NUM_TO_CHAR_FORMAT(B.ELAP_TIME_IMPR_RATIO), '0') AS ELAP_TIME_IMPR_RATIO  -- 수행시간 개선율(%)
+			 , NVL(B.BUFFER_IMPR_RATIO,'0') BUFFER_IMPR_RATIO                                   -- 블럭 개선율(%)
+			 , NVL(B.PGA_IMPR_RATIO,'0') PGA_IMPR_RATIO                                         -- PGA 개선율(%)
+			
+			 , B.CONTROVERSIALIST                                                               -- 문제점
+			 , B.IMPR_SBST                                                                      -- 개선내용
+			 , A.SQL_TEXT                                                                       -- 원본 SQL(CLOB)
+			 , B.IMPR_SQL_TEXT                                                                  -- 개선 SQL(CLOB)
+			 , B.IMPRB_EXEC_PLAN                                                                -- 개선전 실행계획
+			 , B.IMPRA_EXEC_PLAN                                                                -- 개선후 실행계획
+
+		  FROM TUNING_TARGET_SQL A
+			 , SQL_TUNING B
+			 , DATABASE DB
+			 , PERF_GUIDE C
+			 , CD CD1003
+			 , CD CD1005
+			 , CD CD1006
+			 , CD CD1009
+			 , CD CD1008
+			 , USERS U1
+			 , USERS U2
+			 , USERS U3
+			 , WRKJOB_CD W1
+		 WHERE A.TUNING_NO = B.TUNING_NO(+)
+		   AND A.TUNING_NO = C.TUNING_NO(+)
+		   AND A.DBID = DB.DBID
+		   AND A.CHOICE_DIV_CD = CD1003.CD(+)
+		   AND CD1003.GRP_CD_ID(+) = '1003'
+		   AND A.PROGRAM_TYPE_CD = CD1005.CD(+)
+		   AND CD1005.GRP_CD_ID(+) = '1005'
+		   AND A.PROGRAM_TYPE_CD = CD1006.CD(+)
+		   AND CD1006.GRP_CD_ID(+) = '1006'
+		   AND B.TUNING_COMPLETE_WHY_CD = CD1008.CD(+)
+		   AND CD1008.GRP_CD_ID(+) = '1008'
+		   AND B.TUNING_END_WHY_CD = CD1009.CD(+)
+		   AND CD1009.GRP_CD_ID(+) = '1009'
+		   AND A.WRKJOB_MGR_WRKJOB_CD = W1.WRKJOB_CD(+)
+		   AND A.WRKJOB_MGR_ID = U1.USER_ID(+)
+		   AND A.PERFR_ID = U2.USER_ID(+)
+		   AND A.TUNING_REQUESTER_ID = U3.USER_ID(+)
+		   AND A.TUNING_NO = #{tuning_no}
+	</select>
+	
+</mapper>

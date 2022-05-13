@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<!-- <link rel="stylesheet" href="/resources/css/manual.css"/> -->
+<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>8. 품질 점검</h1>
+		<h2>8.2. SQL 성능 셀프 점검 </h2>
+	
+		<div>
+			<h4 class="titleStyle-none">개요</h4>
+			<p>
+				개발자가 작성한 SQL의 성능 품질을 일정 수준 확보하기 위하여 개발자 스스로 튜닝할 수 있는 환경을 제공한다.
+				튜닝 체크리스트, 인덱스 설계가이드, 셀프 테스트, SQL 상세성능정보, Explain Plan, Execution Plan, 인덱스 자동설계기능을 제공하며,
+				개발자 스스로 튜닝이 어려운 경우 튜닝 중인 SQL을 바로 튜닝 요청할 수 있도록 성능개선요청 화면으로 연동된다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/27-1.png">
+			</div>
+			
+			<h6>셀프 성능 점검 수행 Area</h6>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/27-2.png">
+			</div>
+			
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>업무</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									로그인 사용자가 담당하는 업무
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>DB</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									해당 업무에서 사용하는DB
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Parsing Schema Name</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									SQL을 실행하는 DB User
+								</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			
+			<div>
+				<ol class="listStyle-number">
+					<li>업무 &#62; DB &#62; Parsing Schema Name을 선택한다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-3.png">
+						</div>
+					</li>
+					
+					<li>셀프 성능 점검을 수행할 SQL Text를 입력한다.
+						<div class="imageBox" style="width: 800px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-4.png">
+						</div>
+					</li>
+				</ol>
+				<div class="noteBox">
+					<p class="noteTitle">NOTE</p>
+					<p>
+						화면에서 입력되는 조건에 대해 <span class="text-bold">반드시 바인드 변수</span> 형태로 입력되어야 한다 .<br>
+						예) WHERE CUST_NO = :cust_no
+					<p>
+				</div>
+				
+				<ol class="listStyle-number" start="3">
+					<li>[변수추출] 버튼을 클릭하면, 우측에 바인드 변수값이 자동 추출된다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-5.png">
+						</div>
+					</li>
+					<li>[변수타입] 선택 &#62; 변수값을 입력 후 [성능 점검 수행] 버튼을 클릭한다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-6.png">
+						</div>
+						
+						메시지 창이 뜨고 [확인] 버튼을 클릭한다.
+						<div class="imageBox" style="width: 335px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-7.png">
+						</div>
+						
+						하단의 탭들에 성능 점검 결과가 조회된다.
+						<div class="imageBox" style="width: 800px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-8.png">
+						</div>
+					</li>
+				</ol>
+				<h6>셀프 성능 점검 점검 결과 Area</h6>
+				<p>
+					[성능 점검 &#62; 결과] 탭에서 적합/부적합 결과를 확인하고,
+					부적합 점검 지표에 대해서는 [성능 점검 &#62; Execution Plan] 탭에서 원인을 분석하여 조치한다.<br>
+					<br>
+					화면은 다음과 같은 탭으로 구성되어 있다. 
+				</p>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>Tab 명</th>
+							<th>Tab 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>성능 점검 &#62; 결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능점검지표 기반의 성능점검 결과 정보를 제공한다. 
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 점검 &#62; Execution Plan</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										실제 실행계획 정보를 제공한다. 
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 점검 &#62; Display Cursor</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Oracle 10g 부터 지원되는 DBMS_XPLAN.DISPALY_CURSOR 정보를 제공한다. 
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Explain Plan</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										예측 실행계획 정보를 제공한다. [Explain Plan] 버튼 클릭 시 조회된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				
+				<p class="title-h7">[성능 점검 &#62; 결과] 탭</p>
+				<p>
+					성능점검지표 기반의 성능점검 결과 정보를 제공한다.
+					성능 점검 결과 부적합인 지표에 대해서는 조치가 필요하며,
+					[성능 점검 수행] 버튼 시 결과가 조회된다.
+				</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-8.png">
+				</div>
+				
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>점검 지표</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 점검 지표명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 점검 결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능점검지표 기반의 성능점검 결과값으로,
+										부적합 건에 대해서는 조치가 필요하다. 
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										적합 판단을 하는 기준값. 기준값 이하일 경우 적합
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>부적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										부적합 판단을 하는 기준값. 기준값을 초과할 경우 부적합
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 점검 결과값</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										실제 수행된 결과값
+									</li>
+								</ul>
+							</td>
+						</tr>
+						
+					</tbody>
+				</table>
+				
+				<p>
+					점검 지표 옆 
+					<img class="text-image" src="/resources/images/menual/bgimg_renewal/27-iconQuestionMark.png">
+					 아이콘에 마우스를 위치하면 지표설명, 개선가이드에 대한 툴팁을 제공한다.
+				</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-9.png">
+				</div>
+				
+				<div class="noteBox">
+					<p class="noteTitle">NOTE</p>
+					<p>
+						성능 점검 결과 ‘부적합’ 건에 대해서는 [성능 점검 &#62; Execution Plan] 탭을 참조하여 원인을 분석한다.
+					<p>
+				</div>
+				
+				<p class="title-h7">[성능 점검 &#62; Execution Plan] 탭</p>
+				<p>
+					실제 실행계획 정보를 제공한다. [성능 점검 수행] 버튼 시 결과가 조회된다.
+				</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-10.png">
+				</div>
+				
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>수행시간(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										실행 단계별 수행된 시간의 비율.
+										누적값이며 해당 라인에서의 수행시간(%)를 알고 싶다면 이전 단계의 수행시간(%) 값을 빼면 된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>블럭수(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										실행 단계별 수행된 블럭수의 비율.
+										누적값이며 해당 라인에서의 블럭수(%)를 알고 싶다면 이전 단계의 블럭수(%) 값을 빼면 된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										플랜에 순서대로 부여되는 번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Operation</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										실행 Operation명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Name</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										사용되는 오브젝트명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Starts</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										실행 횟수.
+										일반적으로 NESTED LOOP JOIN이나 SORT MERGE JOIN에서 선행 데이터 건수가 해당 값이 된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>A-Rows</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										실행 단계별 실제 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>A-Time</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										실행 단계별 걸린 시간.
+										누적 값이며 해당 라인에서의 수행 시간을 알고 싶다면 이전 단계의 A-Time 값을 빼면 된다.
+									</li>
+								</ul>
+							</td>
+						</tr><tr>
+							<td>Buffers</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										읽은 블럭수.
+										누적 값이며 해당 라인에서의 수행 블럭수를 알고 싶다면 이전 단계의 Buffers 값을 빼면 된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Reads</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										I/O(DISK에서 읽어 들임) 통계이다.
+										누적값이며 일반적으로 튜닝할 때 중요한 값은 Buffers 항목이다.
+										Buffers는 결국 Reads도 포함하며 대부분 튜닝이 이 Buffers 값을 얼마나 크게 줄일 수 있는가에 대한 부분이기 때문이다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Memory(Max)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										커서를 마지막으로 실행하는 동안 이 작업 영역에서 사용한 메모리 크기
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Temp(Max)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										생성된 최대 임시 세그먼트 크기
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				
+				<div class="noteBox">
+					<p class="noteTitle">NOTE</p>
+					<p>
+						일반적으로 온라인 SQL의 경우 블럭수(%)가 높은 지점에 대해서,
+						배치 SQL의 경우 수행시간(%)이 높은 지점에 대해서 튜닝을 진행한다.
+						플랜 정보에서 블럭수(%), 수행시간(%)이 가장 높은 지점은 <span class="text-bold">빨강색 그라데이션</span>으로 표현한다.
+						해당 지점부터 SQL의 튜닝이 필요하다.
+					<p>
+					<img src="/resources/images/menual/bgimg_renewal/27-11.png">
+				</div>
+				
+				<p class="title-h7">[성능 점검 &#62; Display Cursor] 탭</p>
+				<p>
+					Oracle 10g 부터 지원되는 DBMS_XPLAN.DISPALY_CURSOR 정보를 제공한다.
+					실제 실행계획, Query Block, Predicate Information, Column Projection Information 정보가 제공되며,
+					[성능 점검 수행] 버튼 클릭 시 결과가 조회된다.
+				</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-12.png">
+				</div>
+				<p>
+					Predicate Information은 각 실행 단계에서 수행된 것이 ACCESS 처리되었는지, FILTER 처리되었는지 보여준다.
+				</p>
+				
+				<ul class="listStyle-dot">
+					<li>인덱스 Access Predicate : 인덱스를 통해 스캔의 범위를 결정하는데 영향을 미치는 조건절</li>
+					<li>인덱스 Filter Predicate : 인덱스를 통했으나 스캔의 범위를 결정하는 영향을 미치지 못하는 조건절</li>
+					<li>테이블 Access Predicate : NL 조인을 제외한 조인에서 발생하며 결과 값의 범위를 결정하는데 영향을 미치는 조건절</li>
+					<li>테이블 Filter Predicate : 테이블 스캔 후 최종 결과 집합 포함 여부를 결정하는데 영향을 미치는 조건절</li>
+				</ul>
+				
+				<p class="title-h7">[Explain Plan] 탭</p>
+				<p>
+					예측 실행계획 정보를 제공한다. [Explain Plan] 버튼 클릭 시 조회된다.
+				</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-13.png">
+				</div>
+				
+				<h6>인덱스 자동 설계</h6>
+				<p>
+					Open-POP Index Advisor가 해당 SQL에 필요한 인덱스를 추천한다.
+				</p>
+				
+				<ol class="listStyle-number">
+					<li>[인덱스 자동설계] 버튼을 클릭한다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-14.png">
+						</div>
+					</li>
+					<li>화면이 팝업되고, Selectivity 계산 또는 Data Sampling 기반 중 선택 &#62; [인덱스 자동설계] 버튼을 클릭하면 자동설계 결과가 조회된다.
+						<div class="imageBox" style="width: 800px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-15.png">
+						</div>
+					</li>
+				</ol>
+				
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>Statistics 기반</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										통계 정보 기반 선택도(selectivity) 계산
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Data Sampling 기반</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										데이터 샘플링 기반으로 선택도(selectivity) 계산 
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>NO</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										순번(우선 순위 아님)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>테이블명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										테이블명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>추천 유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										ADD: 신규 인덱스 추가
+									</li>
+									<li>
+										MODIFY: 기존 인덱스 변경
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>인덱스 컬럼</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										추천하는 인덱스 컬럼
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				
+				<div class="noteBox">
+					<p class="noteTitle">NOTE</p>
+					<p>
+						테이블 데이터 건수가 적은 경우, 검색 조건의 변별력이 좋지 않은 경우 인덱스를 추천하지 않는다.
+					<p>
+				</div>
+				
+				<h6>튜닝 요청</h6>
+				<p>
+					튜닝 담당자의 튜닝 필요시 튜닝 요청을 진행한다.
+				</p>
+				
+				<ol class="listStyle-number">
+					<li>[튜닝요청] 버튼을 클릭한다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-16.png">
+						</div>
+					</li>
+					<li>튜닝 요청 탭이 호출되고 SQL 성능 셀프 점검 시 입력 한 SQL TEXT, BIND 값이 자동 입력된다.
+						추가적인 정보를 입력하고 [튜닝요청] 버튼을 클릭한다. 튜닝 진행 상황은 ‘성능 개선 관리’ 메뉴에서 확인이 가능하다.
+						<div class="imageBox" style="width: 800px;">
+							<img src="/resources/images/menual/bgimg_renewal/27-17.png">
+						</div>
+					</li>
+				</ol>
+				
+				<h6>가이드/체크 리스트</h6>
+				<p class="title-h7">인덱스 가이드</p>
+				<p>
+					[인덱스 가이드] 버튼 클릭 시 인덱스 생성/변경/삭제 가이드 및 체크 리스트를 보여준다.
+				</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-18.png">
+				</div>
+				
+				<p class="title-h7">튜닝체크 리스트</p>
+				<p>[튜닝체크 리스트] 버튼 클릭 시 실행계획, SQL구조, 조인 방법, 인덱스효율성 측면의 튜닝 체크리스트를 보여준다.</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-19.png">
+				</div>
+				
+				<h6>SQL Advisor</h6>
+				<p>
+					Oracle에서 제공하는 SQL Tuning Advisor, SQL Access Advisor를 실행하여 정보를 제공한다.
+					해당 버튼은 사용자가 권한이 있을 경우에만 보여준다.
+				</p>
+				
+				<div class="noteBox">
+					<p class="noteTitle">NOTE</p>
+					<p>
+						SQL Tuning Advisor, SQL Access Advisor는 오라클 튜닝팩을 구매했을 경우에만 사용이 가능하다.
+						튜닝팩을 구매하지 않았을 경우 사용할 수 없다.
+					<p>
+				</div>
+				
+				<p class="title-h7">SQL Tuning Advisor</p>
+				<p>
+					[SQL Tuning Advisor] 버튼 클릭 시 실행된다.
+				</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-20.png">
+				</div>
+				
+				<p class="title-h7">SQL Access Advisor</p>
+				<p>
+					[SQL Access Advisor] 버튼 클릭 시 실행된다.
+				</p>
+				<div class="imageBox" style="width: 800px;">
+					<img src="/resources/images/menual/bgimg_renewal/27-21.png">
+				</div>
+				
+				
+			</div><!-- End of div -->
+			
+		</div><!-- End of content-wrapper -->
+	</div><!-- End of content-body -->
+</div>
+</body>
+</html>

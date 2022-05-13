@@ -1,0 +1,747 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.14	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.PerformanceImprovementReportDao">	
+
+	<select id="performanceImprovementReportList" parameterType="perfList" resultType="perfList">
+		/* PerformanceImprovementReportDao.performanceImprovementReportList */
+	    WITH PERF_LIST AS
+      (
+         SELECT A.DBID
+            ,(CASE WHEN TO_CHAR(A.TUNING_REQUEST_DT, 'YYYY-MM-DD') = #{strEndDt} THEN 'Y' ELSE 'N' END) AS TODAY_YN -- 당일여부
+            ,(CASE WHEN A.CHOICE_DIV_CD IN ('1', '2') THEN 'SELECTION' ELSE 'REQUEST' END) AS SEL_GUBUN --1:자동선정, 2:수동선정
+            ,(CASE 
+               WHEN A.TUNING_STATUS_CD IN ('1', '2', '3', '5') THEN '01'  --1:선정, 2:요청, 3:튜닝대기, 5:튜닝중
+               WHEN A.TUNING_STATUS_CD IN ('6') THEN '02' --6:적용대기
+               WHEN A.TUNING_STATUS_CD IN ('4') THEN '03' --4:튜닝반려
+               WHEN A.TUNING_STATUS_CD IN ('8') THEN '04' --8:튜닝종료
+               WHEN A.TUNING_STATUS_CD IN ('7') THEN '05' --7:적용반려
+            END) AS PROCESS_GUBUN
+            ,(CASE
+               WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD IN ('1', '4') THEN '01'  --1:튜닝완료, 4:부분튜닝
+               WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD = '2' THEN '02' --2:개선점없음
+               WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD = '3' THEN '03' --3:오류
+            END) AS COMPLETE_GUBUN
+         FROM TUNING_TARGET_SQL A, SQL_TUNING B --> GEUM 20200128
+            , (SELECT A.PROJECT_ID
+                    , A.PROJECT_NM
+                    , B.TUNING_PRGRS_STEP_SEQ
+                    , B.TUNING_PRGRS_STEP_NM
+                 FROM PROJECT A
+                    , PROJECT_TUNING_PRGRS_STEP B
+                WHERE A.PROJECT_ID = B.PROJECT_ID
+              ) C                     
+         WHERE A.TUNING_STATUS_CD NOT IN ('A')  -- NOT IN 추가 (20190918)
+         AND A.TUNING_NO IN (SELECT TUNING_NO FROM SQL_TUNING WHERE NVL(ALL_TUNING_END_YN, 'N') <![CDATA[<>]]> 'Y') --> GEUM 2020028
+         
+         AND A.TUNING_NO = B.TUNING_NO(+)
+         AND A.TUNING_REQUEST_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+                                     AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+         AND A.PROJECT_ID = C.PROJECT_ID(+)       
+         AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+)
+         
+           		<if test="project_id != null and project_id != ''">
+		         -- 프로젝트가 선택되면
+		         AND A.PROJECT_ID = #{project_id}
+		        </if>
+          		<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+		         -- 튜닝진행단계가 선택되면
+		         AND A.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}              
+		        </if>
+      )
+      SELECT DB.DB_NAME, DB.DB_ABBR_NM
+         ,SUM(CASE WHEN SEL_GUBUN = 'REQUEST' AND TODAY_YN = 'N' THEN 1 ELSE 0 END) AS REQ_BEFORE --(요청-전일누적)
+         ,SUM(CASE WHEN SEL_GUBUN = 'REQUEST' AND TODAY_YN = 'Y' THEN 1 ELSE 0 END) AS REQ_TODAY --(요청-당일추가)
+         ,SUM(CASE WHEN SEL_GUBUN = 'SELECTION' AND TODAY_YN = 'N' THEN 1 ELSE 0 END) AS SEL_BEFORE --(선정-전일누적)1:자동선정, 2:수동선정
+         ,SUM(CASE WHEN SEL_GUBUN = 'SELECTION' AND TODAY_YN = 'Y' THEN 1 ELSE 0 END) AS SEL_TODAY  --(선정-당일추가)1:자동선정, 2:수동선정
+         ,COUNT(*) AS IMPROVE_TOT --(총계)
+         ,SUM(CASE WHEN PROCESS_GUBUN = '01' THEN 1 ELSE 0 END) AS MNG_ANALYZING   --(성능관리팀-처리중)1:선정, 2:요청, 3:튜닝대기, 5:튜닝중
+         ,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '01' THEN 1 ELSE 0 END) AS MNG_COMPLETE  --(성능관리팀-개선완료)6:적용대기 , 1:튜닝완료, 4:부분튜닝
+         ,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '02' THEN 1 ELSE 0 END) AS MNG_NOT_IMPROVE --(성능관리팀-개선사항없음)6:적용대기 , 2:개선점없음
+         ,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '03' THEN 1 ELSE 0 END) AS MNG_ERROR  -- (성능관리팀-오류)6:적용대기 , 3:오류
+         ,SUM(CASE WHEN PROCESS_GUBUN = '02' THEN 1 ELSE 0 END) AS DEV_ANALYZING --(업무개발팀-처리중)6:적용대기
+         ,SUM(CASE WHEN PROCESS_GUBUN = '03' THEN 1 ELSE 0 END) AS DEV_CANCEL    --(업무개발팀-튜닝반려)4:튜닝반려
+         ,SUM(CASE WHEN PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS DEV_COMPLETE  --(업무개발팀-적용완료)8:튜닝종료
+         ,SUM(CASE WHEN PROCESS_GUBUN = '05' THEN 1 ELSE 0 END) AS DEV_APPLY_CANCEL --(업무개발팀-적용반려)7:적용반려
+      FROM PERF_LIST A, DATABASE DB
+      WHERE A.DBID = DB.DBID
+      GROUP BY DB.DB_NAME, DB.DB_ABBR_NM
+	</select>
+	
+	<select id="getPerformanceImprovementReportByExcelDown" parameterType="perfList" resultType="java.util.LinkedHashMap">
+		/* PerformanceImprovementReportDao.getPerformanceImprovementReportByExcelDown */
+	    WITH PERF_LIST AS
+      (
+         SELECT A.DBID
+            ,(CASE WHEN TO_CHAR(A.TUNING_REQUEST_DT, 'YYYY-MM-DD') = #{strEndDt} THEN 'Y' ELSE 'N' END) AS TODAY_YN -- 당일여부
+            ,(CASE WHEN A.CHOICE_DIV_CD IN ('1', '2') THEN 'SELECTION' ELSE 'REQUEST' END) AS SEL_GUBUN --1:자동선정, 2:수동선정
+            ,(CASE 
+               WHEN A.TUNING_STATUS_CD IN ('1', '2', '3', '5') THEN '01'  --1:선정, 2:요청, 3:튜닝대기, 5:튜닝중
+               WHEN A.TUNING_STATUS_CD IN ('6') THEN '02' --6:적용대기
+               WHEN A.TUNING_STATUS_CD IN ('4') THEN '03' --4:튜닝반려
+               WHEN A.TUNING_STATUS_CD IN ('8') THEN '04' --8:튜닝종료
+               WHEN A.TUNING_STATUS_CD IN ('7') THEN '05' --7:적용반려
+            END) AS PROCESS_GUBUN
+            ,(CASE
+               WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD IN ('1', '4') THEN '01'  --1:튜닝완료, 4:부분튜닝
+               WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD = '2' THEN '02' --2:개선점없음
+               WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD = '3' THEN '03' --3:오류
+            END) AS COMPLETE_GUBUN
+         FROM TUNING_TARGET_SQL A, SQL_TUNING B --> GEUM 20200128
+            , (SELECT A.PROJECT_ID
+                    , A.PROJECT_NM
+                    , B.TUNING_PRGRS_STEP_SEQ
+                    , B.TUNING_PRGRS_STEP_NM
+                 FROM PROJECT A
+                    , PROJECT_TUNING_PRGRS_STEP B
+                WHERE A.PROJECT_ID = B.PROJECT_ID
+              ) C                     
+         WHERE A.TUNING_STATUS_CD NOT IN ('A')  -- NOT IN 추가 (20190918)
+         AND A.TUNING_NO IN (SELECT TUNING_NO FROM SQL_TUNING WHERE NVL(ALL_TUNING_END_YN, 'N') <![CDATA[<>]]> 'Y') --> GEUM 2020028
+         
+         AND A.TUNING_NO = B.TUNING_NO(+)
+         AND A.TUNING_REQUEST_DT BETWEEN TO_DATE(#{strStartDt},'YYYY-MM-DD') 
+                                     AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+         AND A.PROJECT_ID = C.PROJECT_ID(+)       
+         AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+)
+         
+           		<if test="project_id != null and project_id != ''">
+		         -- 프로젝트가 선택되면
+		         AND A.PROJECT_ID = #{project_id}
+		        </if>
+          		<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+		         -- 튜닝진행단계가 선택되면
+		         AND A.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}              
+		        </if>
+      )
+      SELECT DB.DB_NAME, DB.DB_ABBR_NM
+         ,SUM(CASE WHEN SEL_GUBUN = 'REQUEST' AND TODAY_YN = 'N' THEN 1 ELSE 0 END) AS REQ_BEFORE --(요청-전일누적)
+         ,SUM(CASE WHEN SEL_GUBUN = 'REQUEST' AND TODAY_YN = 'Y' THEN 1 ELSE 0 END) AS REQ_TODAY --(요청-당일추가)
+         ,SUM(CASE WHEN SEL_GUBUN = 'SELECTION' AND TODAY_YN = 'N' THEN 1 ELSE 0 END) AS SEL_BEFORE --(선정-전일누적)1:자동선정, 2:수동선정
+         ,SUM(CASE WHEN SEL_GUBUN = 'SELECTION' AND TODAY_YN = 'Y' THEN 1 ELSE 0 END) AS SEL_TODAY  --(선정-당일추가)1:자동선정, 2:수동선정
+         ,COUNT(*) AS IMPROVE_TOT --(총계)
+         ,SUM(CASE WHEN PROCESS_GUBUN = '01' THEN 1 ELSE 0 END) AS MNG_ANALYZING   --(성능관리팀-처리중)1:선정, 2:요청, 3:튜닝대기, 5:튜닝중
+         ,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '01' THEN 1 ELSE 0 END) AS MNG_COMPLETE  --(성능관리팀-개선완료)6:적용대기 , 1:튜닝완료, 4:부분튜닝
+         ,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '02' THEN 1 ELSE 0 END) AS MNG_NOT_IMPROVE --(성능관리팀-개선사항없음)6:적용대기 , 2:개선점없음
+         ,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '03' THEN 1 ELSE 0 END) AS MNG_ERROR  -- (성능관리팀-오류)6:적용대기 , 3:오류
+         ,SUM(CASE WHEN PROCESS_GUBUN = '02' THEN 1 ELSE 0 END) AS DEV_ANALYZING --(업무개발팀-처리중)6:적용대기
+         ,SUM(CASE WHEN PROCESS_GUBUN = '03' THEN 1 ELSE 0 END) AS DEV_CANCEL    --(업무개발팀-튜닝반려)4:튜닝반려
+         ,SUM(CASE WHEN PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS DEV_COMPLETE  --(업무개발팀-적용완료)8:튜닝종료
+         ,SUM(CASE WHEN PROCESS_GUBUN = '05' THEN 1 ELSE 0 END) AS DEV_APPLY_CANCEL --(업무개발팀-적용반려)7:적용반려
+      FROM PERF_LIST A, DATABASE DB
+      WHERE A.DBID = DB.DBID
+      GROUP BY DB.DB_NAME, DB.DB_ABBR_NM
+	</select>
+	
+	<select id="performanceImprovementReportList_old" parameterType="perfList" resultType="perfList">
+		/* PerformanceImprovementReportDao.performanceImprovementReportList */
+		WITH PERF_LIST AS
+		(
+			SELECT A.DBID
+				,(CASE WHEN TO_CHAR(A.TUNING_REQUEST_DT, 'YYYY-MM-DD') = #{strEndDt} THEN 'Y' ELSE 'N' END) AS TODAY_YN
+				,(CASE WHEN A.CHOICE_DIV_CD IN ('1', '2') THEN 'SELECTION' ELSE 'REQUEST' END) AS SEL_GUBUN
+				,(CASE 
+					WHEN A.TUNING_STATUS_CD IN ('1', '2', '3', '5') THEN '01'
+					WHEN A.TUNING_STATUS_CD IN ('6') THEN '02'
+					WHEN A.TUNING_STATUS_CD IN ('4') THEN '03'
+					WHEN A.TUNING_STATUS_CD IN ('8') THEN '04'
+					WHEN A.TUNING_STATUS_CD IN ('7') THEN '05'
+				END) AS PROCESS_GUBUN
+				,(CASE
+					WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD IN ('1', '2') THEN '01'
+					WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD = '3' THEN '02'
+					WHEN A.TUNING_STATUS_CD IN ('6') AND B.TUNING_COMPLETE_WHY_CD = '4' THEN '03'
+				END) AS COMPLETE_GUBUN
+			FROM TUNING_TARGET_SQL A, SQL_TUNING B
+            , (SELECT A.PROJECT_ID
+                    , A.PROJECT_NM
+                    , B.TUNING_PRGRS_STEP_SEQ
+                    , B.TUNING_PRGRS_STEP_NM
+                 FROM PROJECT A
+                    , PROJECT_TUNING_PRGRS_STEP B
+                WHERE A.PROJECT_ID = B.PROJECT_ID
+              ) C                     
+			
+			WHERE A.TUNING_STATUS_CD NOT IN ('A')  -- NOT IN 추가 (20190918)
+			AND A.TUNING_NO = B.TUNING_NO(+)
+			AND A.TUNING_REQUEST_DT >= TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+			AND A.TUNING_REQUEST_DT <![CDATA[<=]]> TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		         AND A.PROJECT_ID = C.PROJECT_ID(+)       
+		         AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+)
+          		<if test="project_id != null and project_id != ''">
+		         -- 프로젝트가 선택되면
+		         AND A.PROJECT_ID = #{project_id}
+		        </if>
+          		<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+		         -- 튜닝진행단계가 선택되면
+		         AND A.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}              
+		        </if>
+					
+		)
+		SELECT DB.DB_NAME, DB.DB_ABBR_NM
+			,SUM(CASE WHEN SEL_GUBUN = 'REQUEST' AND TODAY_YN = 'N' THEN 1 ELSE 0 END) AS REQ_BEFORE
+			,SUM(CASE WHEN SEL_GUBUN = 'REQUEST' AND TODAY_YN = 'Y' THEN 1 ELSE 0 END) AS REQ_TODAY
+			,SUM(CASE WHEN SEL_GUBUN = 'SELECTION' AND TODAY_YN = 'N' THEN 1 ELSE 0 END) AS SEL_BEFORE
+			,SUM(CASE WHEN SEL_GUBUN = 'SELECTION' AND TODAY_YN = 'Y' THEN 1 ELSE 0 END) AS SEL_TODAY
+			,COUNT(*) AS IMPROVE_TOT
+			,SUM(CASE WHEN PROCESS_GUBUN = '01' THEN 1 ELSE 0 END) AS MNG_ANALYZING
+			,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '01' THEN 1 ELSE 0 END) AS MNG_COMPLETE
+			,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '02' THEN 1 ELSE 0 END) AS MNG_NOT_IMPROVE
+			,SUM(CASE WHEN PROCESS_GUBUN = '02' AND COMPLETE_GUBUN = '03' THEN 1 ELSE 0 END) AS MNG_ERROR
+			,SUM(CASE WHEN PROCESS_GUBUN = '02' THEN 1 ELSE 0 END) AS DEV_ANALYZING
+			,SUM(CASE WHEN PROCESS_GUBUN = '03' THEN 1 ELSE 0 END) AS DEV_CANCEL
+			,SUM(CASE WHEN PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS DEV_COMPLETE
+			,SUM(CASE WHEN PROCESS_GUBUN = '05' THEN 1 ELSE 0 END) AS DEV_APPLY_CANCEL
+		FROM PERF_LIST A, DATABASE DB
+		WHERE A.DBID = DB.DBID
+		GROUP BY DB.DB_NAME, DB.DB_ABBR_NM
+	</select>
+	
+	
+	<sql id="getByProgramTypeReportRefId">
+		/* PerformanceCheckIndexDao.getByProgramTypeReportRefId */
+			SELECT 
+
+		<choose>
+			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+		       -- 요청일시 선택
+		       NVL(TO_CHAR(TUNING_REQUEST_DT, 'YYYY-MM-DD'), '합계') AS  BASE_DAY                             -- 검색기준일
+			</when>
+			<when test="searchKey == '02'.toString() and search_startDate != '' and search_endDate != ''">
+		       -- 완료일시 선택   
+		       NVL(TO_CHAR(TUNING_COMPLETE_DT, 'YYYY-MM-DD'), '합계') AS BASE_DAY                             -- 검색기준일
+			</when>
+			<when test="searchKey == '03'.toString() and search_startDate != '' and search_endDate != ''">
+		       -- 요청완료일시 선택       
+		       NVL(TO_CHAR(NVL(TUNING_COMPLETE_DT, TUNING_REQUEST_DT), 'YYYY-MM-DD'), '합계') AS BASE_DAY     -- 검색기준일
+			</when>
+		</choose>
+			     , SUM(CASE WHEN PROGRAM_TYPE_CD = '1' THEN 1 ELSE 0 END) ONLINE_CNT -- 온라인
+			     , SUM(CASE WHEN PROGRAM_TYPE_CD = '2' THEN 1 ELSE 0 END) BATCH_CNT  -- 배치
+			     , SUM(CASE WHEN PROGRAM_TYPE_CD IS NULL THEN 1 ELSE 0 END) ETC_CNT  -- 기타
+			     , COUNT(*) ALL_CNT                                                  -- 전체
+			FROM (
+			      SELECT T1.TUNING_NO
+			           , T1.TUNING_REQUEST_DT
+			           , T1.TUNING_STATUS_CD
+			           , T1.TUNING_REQUESTER_ID
+			           , T1.PROGRAM_TYPE_CD
+			           , T2.TUNING_COMPLETE_WHY_CD
+			           , T2.TUNING_COMPLETE_DT 
+			        FROM TUNING_TARGET_SQL T1
+                       , SQL_TUNING T2    -- GEUM 20200128
+			           
+                    , (SELECT A.PROJECT_ID
+                            , A.PROJECT_NM
+                            , B.TUNING_PRGRS_STEP_SEQ
+                            , B.TUNING_PRGRS_STEP_NM
+                         FROM PROJECT A
+                            , PROJECT_TUNING_PRGRS_STEP B
+                        WHERE A.PROJECT_ID = B.PROJECT_ID
+                     ) T3                        
+			           
+			       WHERE T1.TUNING_NO = T2. TUNING_NO(+)
+                   AND T1.TUNING_NO IN (SELECT TUNING_NO FROM SQL_TUNING WHERE NVL(ALL_TUNING_END_YN, 'N') <![CDATA[<>]]> 'Y') -- GEUM 20200128
+			        
+			<choose>
+	       		<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+		         -- 요청일시 선택 
+  					AND T1.TUNING_REQUEST_DT 
+						BETWEEN TO_DATE(#{search_startDate}, 'YYYY-MM-DD') 
+                    		AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+	  			</when>
+		         
+	       		<when test="searchKey == '02'.toString() and search_startDate != '' and search_endDate != ''">
+		         -- 완료일시 선택  
+		         AND T2.TUNING_COMPLETE_DT 
+						BETWEEN TO_DATE(#{search_startDate}, 'YYYY-MM-DD') 
+                    		AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+	  			</when>
+		         
+	       		<when test="searchKey == '03'.toString() and search_startDate != '' and search_endDate != ''">
+		         -- 요청완료일시 선택 
+		         AND NVL (T2.TUNING_COMPLETE_DT, T1.TUNING_REQUEST_DT) 
+						BETWEEN TO_DATE(#{search_startDate}, 'YYYY-MM-DD') 
+                    		AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+	  			</when>
+	        </choose>
+       		<if test="chk_except != null and chk_except != '' and chk_except == 'Y'.toString()">
+	         -- 튜닝반려제외 선택
+	         AND T1.TUNING_STATUS_CD != '4'
+  			</if>
+       		<if test="chk_dbAuth != null and chk_dbAuth != '' and chk_dbAuth == 'Y'.toString()">
+	         -- 적용반려제외 선택 
+	         AND T1.TUNING_STATUS_CD != '7'
+  			</if>
+  			
+	         AND T1.TUNING_STATUS_CD NOT IN ('A')    -- 요청취소제외(20190918 추가)
+			 -- AND T2.ALL_TUNING_END_YN(+) <![CDATA[<>]]>  'N'      -- 일괄튜닝종료여부추가(20191015)
+	         
+             AND T1.PROJECT_ID = T3.PROJECT_ID(+)       
+             AND T1.TUNING_PRGRS_STEP_SEQ = T3.TUNING_PRGRS_STEP_SEQ(+)
+             AND TUNING_COMPLETE_DT IS NOT NULL
+                  
+			<if test="project_id != null and project_id != ''">
+                  -- 프로젝트가 선택되면
+                  AND T1.PROJECT_ID = #{project_id}
+            </if>
+			<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+                  -- 튜닝진행단계가 선택되면
+                  AND T1.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}                                   
+            </if>
+	         
+	         
+	     ) A
+	     
+   		<choose>
+			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+	        	-- 요청일시 선택
+				GROUP BY ROLLUP(TO_CHAR(TUNING_REQUEST_DT, 'YYYY-MM-DD'))
+			</when>
+			<when test="searchKey == '02'.toString() and search_startDate != '' and search_endDate != ''">
+		       	-- 완료일시 선택   
+	     		GROUP BY ROLLUP(TO_CHAR(TUNING_COMPLETE_DT, 'YYYY-MM-DD'))
+	     	</when>
+			<when test="searchKey == '03'.toString() and search_startDate != '' and search_endDate != ''">
+		       	-- 요청완료일시 선택       
+	     		GROUP BY ROLLUP(TO_CHAR(NVL(TUNING_COMPLETE_DT, TUNING_REQUEST_DT), 'YYYY-MM-DD'))
+	     	</when>
+	     </choose>
+		ORDER BY 1, 3
+	</sql>
+	
+	<sql id="getByProgramTypeReportRefId_old">
+			SELECT 
+
+		<choose>
+			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+		       -- 요청일시 선택
+		       NVL(TO_CHAR(TUNING_REQUEST_DT, 'YYYY-MM-DD'), '합계') AS  BASE_DAY                             -- 검색기준일
+			</when>
+			<when test="searchKey == '02'.toString() and search_startDate != '' and search_endDate != ''">
+		       -- 완료일시 선택   
+		       NVL(TO_CHAR(TUNING_COMPLETE_DT, 'YYYY-MM-DD'), '합계') AS BASE_DAY                             -- 검색기준일
+			</when>
+			<when test="searchKey == '03'.toString() and search_startDate != '' and search_endDate != ''">
+		       -- 요청완료일시 선택       
+		       NVL(TO_CHAR(NVL(TUNING_COMPLETE_DT, TUNING_REQUEST_DT), 'YYYY-MM-DD'), '합계') AS BASE_DAY     -- 검색기준일
+			</when>
+		</choose>
+			     , SUM(CASE WHEN PROGRAM_TYPE_CD = '1' THEN 1 ELSE 0 END) ONLINE_CNT -- 온라인
+			     , SUM(CASE WHEN PROGRAM_TYPE_CD = '2' THEN 1 ELSE 0 END) BATCH_CNT  -- 배치
+			     , SUM(CASE WHEN PROGRAM_TYPE_CD IS NULL THEN 1 ELSE 0 END) ETC_CNT  -- 기타
+			     , COUNT(*) ALL_CNT                                                  -- 전체
+			FROM (
+			      SELECT T1.TUNING_NO
+			           , T1.TUNING_REQUEST_DT
+			           , T1.TUNING_STATUS_CD
+			           , T1.TUNING_REQUESTER_ID
+			           , T1.PROGRAM_TYPE_CD
+			           , T2.TUNING_COMPLETE_WHY_CD
+			           , T2.TUNING_COMPLETE_DT 
+			        FROM TUNING_TARGET_SQL T1
+			           , SQL_TUNING T2
+			           
+                    , (SELECT A.PROJECT_ID
+                            , A.PROJECT_NM
+                            , B.TUNING_PRGRS_STEP_SEQ
+                            , B.TUNING_PRGRS_STEP_NM
+                         FROM PROJECT A
+                            , PROJECT_TUNING_PRGRS_STEP B
+                        WHERE A.PROJECT_ID = B.PROJECT_ID
+                     ) T3                        
+			           
+			           
+			       WHERE T1.TUNING_NO = T2. TUNING_NO(+) 
+			<choose>
+	       		<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+		         -- 요청일시 선택 
+		         AND T1.TUNING_REQUEST_DT BETWEEN TO_DATE(#{search_startDate}, 'YYYY-MM-DD') AND TO_DATE(#{search_endDate}, 'YYYY-MM-DD')+1
+	  			</when>
+		         
+	       		<when test="searchKey == '02'.toString() and search_startDate != '' and search_endDate != ''">
+		         -- 완료일시 선택  
+		         AND T2.TUNING_COMPLETE_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') AND TO_DATE(#{search_endDate}, 'YYYY-MM-DD')+1
+	  			</when>
+		         
+	       		<when test="searchKey == '03'.toString() and search_startDate != '' and search_endDate != ''">
+		         -- 요청완료일시 선택 
+		         AND NVL (T2.TUNING_COMPLETE_DT, T1.TUNING_REQUEST_DT) BETWEEN TO_DATE(#{search_startDate}, 'YYYY-MM-DD') AND TO_DATE(#{search_endDate}, 'YYYY-MM-DD')+1
+	  			</when>
+	        </choose>
+       		<if test="chk_except != null and chk_except != '' and chk_except == 'Y'.toString()">
+	         -- 튜닝반려제외 선택
+	         AND T1.TUNING_STATUS_CD != '4'
+  			</if>
+       		<if test="chk_dbAuth != null and chk_dbAuth != '' and chk_dbAuth == 'Y'.toString()">
+	         -- 적용반려제외 선택 
+	         AND T1.TUNING_STATUS_CD != '7'
+  			</if>
+  			 -- 요청취소제외(20190918 추가)
+	         AND T1.TUNING_STATUS_CD NOT IN ('A')
+	         
+             AND T1.PROJECT_ID = T3.PROJECT_ID(+)       
+             AND T1.TUNING_PRGRS_STEP_SEQ = T3.TUNING_PRGRS_STEP_SEQ(+)
+                  
+			<if test="project_id != null and project_id != ''">
+                  -- 프로젝트가 선택되면
+                  AND T1.PROJECT_ID = #{project_id}
+            </if>
+			<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+                  -- 튜닝진행단계가 선택되면
+                  AND T1.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}                                   
+            </if>
+	         
+	         
+	     ) A
+	     
+   		<choose>
+			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+	        	-- 요청일시 선택
+				GROUP BY ROLLUP(TO_CHAR(TUNING_REQUEST_DT, 'YYYY-MM-DD'))
+			</when>
+			<when test="searchKey == '02'.toString() and search_startDate != '' and search_endDate != ''">
+		       	-- 완료일시 선택   
+	     		GROUP BY ROLLUP(TO_CHAR(TUNING_COMPLETE_DT, 'YYYY-MM-DD'))
+	     	</when>
+			<when test="searchKey == '03'.toString() and search_startDate != '' and search_endDate != ''">
+		       	-- 요청완료일시 선택       
+	     		GROUP BY ROLLUP(TO_CHAR(NVL(TUNING_COMPLETE_DT, TUNING_REQUEST_DT), 'YYYY-MM-DD'))
+	     	</when>
+	     </choose>
+		ORDER BY 1, 3
+	</sql>
+	
+	<select id="getByProgramTypeReport" parameterType="perfList"	resultType="perfList">
+		/* PerformanceCheckIndexDao.getByProgramTypeReport */
+		<include refid="getByProgramTypeReportRefId"/>
+	</select>
+	
+	<select id="getByProgramTypeReportByExcelDown" parameterType="perfList"	resultType="java.util.LinkedHashMap">
+		/* PerformanceCheckIndexDao.getByProgramTypeReportByExcelDown */
+		<include refid="getByProgramTypeReportRefId"/>
+	</select>
+
+	
+
+	<sql id="getByRequestTypeReportRefId">
+		/* PerformanceCheckIndexDao.getByRequestTypeReportRefId */
+	SELECT COUNT(WC1.WRKJOB_CD_NM) OVER(PARTITION BY WC1.WRKJOB_CD_NM) AS WRKJOB_COUNT  -- 각 업무 수 
+     ,   WC1.WRKJOB_CD_NM AS WRKJOB_CD_NM  -- 업무
+      , CHOICE_DIV_NM                     -- 요청유형
+      , SUM(A.CNT) CNT                    -- 건수
+      , WC1.WRKJOB_CD
+      , CHOICE_DIV_CD 
+      , A.ORDERED
+ FROM (
+       SELECT CD1.CD AS CHOICE_DIV_CD
+            , CD1.CD_NM AS CHOICE_DIV_NM
+            , CD1.ORDERED
+            , NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD) WRKJOB_CD
+            , COUNT(T1.TUNING_NO) CNT
+         FROM (SELECT * FROM CD WHERE GRP_CD_ID = '1003') CD1
+         LEFT OUTER JOIN 
+              (SELECT T1.TUNING_NO, T1.WRKJOB_MGR_WRKJOB_CD, T1.TUNING_REQUESTER_WRKJOB_CD, T1.CHOICE_DIV_CD, T1.TUNING_REQUEST_DT
+                    , T1.PROJECT_ID, T1.TUNING_PRGRS_STEP_SEQ, T2.TUNING_COMPLETE_DT
+                 FROM TUNING_TARGET_SQL T1
+                   , SQL_TUNING T2 					 																          -- GEUM 20200128
+                WHERE T1.TUNING_NO = T2.TUNING_NO(+)
+                  AND T1.TUNING_STATUS_CD NOT IN ('A')   																	  -- 요청취소 추가 (20190918)
+                  AND T1.TUNING_NO IN (SELECT TUNING_NO FROM SQL_TUNING WHERE NVL(ALL_TUNING_END_YN, 'N') <![CDATA[<>]]> 'Y') -- GEUM 20200128
+              ) T1 PARTITION BY (WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD)
+           ON T1.CHOICE_DIV_CD = CD1.CD
+           
+			<choose>
+      			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+		         /* 요청일시 선택 */
+					AND T1.TUNING_REQUEST_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') 
+                                        AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		         </when>
+	      			<when test="searchKey == '02'.toString() and search_startDate != '' and search_endDate != ''">
+		         /* 완료일시 선택 */       
+					AND T1.TUNING_COMPLETE_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') 
+                                        AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		         </when>
+      			<when test="searchKey == '03'.toString() and search_startDate != '' and search_endDate != ''">
+		         /* 요청완료일시 선택 */  
+					AND NVL (T1.TUNING_COMPLETE_DT, T1.TUNING_REQUEST_DT)	BETWEEN TO_DATE(#{search_startDate}, 'YYYY-MM-DD') 
+                    										   					AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		         </when>
+		    </choose>  
+				    
+   			<if test="project_id != null and project_id != ''">
+                  -- 프로젝트가 선택되면
+                  AND T1.PROJECT_ID = #{project_id}
+            </if>
+			<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+                  -- 튜닝진행단계가 선택되면
+                  AND T1.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}                                   
+            </if>
+            
+           WHERE NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD) IN ( SELECT WRKJOB_CD
+                                  FROM WRKJOB_CD
+                                 START WITH WRKJOB_CD = #{search_wrkjob_cd}
+                                 
+                               CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)
+       GROUP BY NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD), CD1.CD, CD1.CD_NM, CD1.ORDERED
+       ORDER BY WRKJOB_CD, CHOICE_DIV_CD
+      ) A
+     , (SELECT WRKJOB_CD, SYS_CONNECT_BY_PATH(WRKJOB_CD_NM, '/') WRKJOB_CD_NM   
+          FROM (SELECT WRKJOB_CD
+                     , UPPER_WRKJOB_CD
+                     , REPLACE(WRKJOB_CD_NM, '/', ',') WRKJOB_CD_NM 
+                  FROM WRKJOB_CD)
+         START WITH UPPER_WRKJOB_CD IS NULL
+       CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD) WC1
+ WHERE A.WRKJOB_CD = WC1.WRKJOB_CD(+)     
+ GROUP BY WC1.WRKJOB_CD, WC1.WRKJOB_CD_NM, A.CHOICE_DIV_CD, A.CHOICE_DIV_NM, A.ORDERED
+ ORDER BY WC1.WRKJOB_CD, A.ORDERED
+	</sql>
+	
+	<sql id="getByRequestTypeReportRefId_old">
+		 SELECT COUNT(WC1.WRKJOB_CD_NM) OVER(PARTITION BY WC1.WRKJOB_CD_NM) AS WRKJOB_COUNT  -- 각 업무 수 
+             ,   WC1.WRKJOB_CD_NM AS WRKJOB_CD_NM  -- 업무
+              , CHOICE_DIV_NM                     -- 요청유형
+              , SUM(A.CNT) CNT                    -- 건수
+              , WC1.WRKJOB_CD
+              , CHOICE_DIV_CD 
+              , A.ORDERED
+         FROM (
+               SELECT CD1.CD AS CHOICE_DIV_CD
+                    , CD1.CD_NM AS CHOICE_DIV_NM
+                    , CD1.ORDERED
+                    , NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD) WRKJOB_CD
+                    , COUNT(T1.TUNING_NO) CNT
+                 FROM (SELECT * FROM CD WHERE GRP_CD_ID = '1003') CD1
+                 LEFT OUTER JOIN TUNING_TARGET_SQL T1 PARTITION BY (WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD)
+                   ON T1.CHOICE_DIV_CD = CD1.CD
+			         
+				<choose>
+        			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+			         /* 요청일시 선택 */
+						AND T1.TUNING_REQUEST_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') AND TO_DATE(#{search_endDate}, 'YYYY-MM-DD')+1
+			         </when>
+        			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+			         /* 완료일시 선택 */       
+						AND T2.TUNING_COMPLETE_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') AND TO_DATE(#{search_endDate}, 'YYYY-MM-DD')+1
+			         </when>
+			    </choose>   
+			    
+	   			<if test="project_id != null and project_id != ''">
+	                  -- 프로젝트가 선택되면
+	                  AND T1.PROJECT_ID = #{project_id}
+	            </if>
+				<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+	                  -- 튜닝진행단계가 선택되면
+	                  AND T1.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}                                   
+	            </if>
+			    
+			       AND T1.TUNING_STATUS_CD NOT IN ('A')   -- 요청취소 추가 (20190918)
+			       WHERE NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD) IN ( SELECT WRKJOB_CD
+                                          FROM WRKJOB_CD
+                                         START WITH WRKJOB_CD = #{search_wrkjob_cd}
+                                         
+                                       CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)
+               GROUP BY NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD), CD1.CD, CD1.CD_NM, CD1.ORDERED
+               ORDER BY WRKJOB_CD, CHOICE_DIV_CD
+              ) A
+             , (SELECT WRKJOB_CD, SYS_CONNECT_BY_PATH(WRKJOB_CD_NM, '/') WRKJOB_CD_NM   
+                  FROM (SELECT WRKJOB_CD
+		                     , UPPER_WRKJOB_CD
+		                     , REPLACE(WRKJOB_CD_NM, '/', ',') WRKJOB_CD_NM 
+		                  FROM WRKJOB_CD)
+                 START WITH UPPER_WRKJOB_CD IS NULL
+               CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD) WC1
+         WHERE A.WRKJOB_CD = WC1.WRKJOB_CD(+)     
+         GROUP BY WC1.WRKJOB_CD, WC1.WRKJOB_CD_NM, A.CHOICE_DIV_CD, A.CHOICE_DIV_NM, A.ORDERED
+         ORDER BY WC1.WRKJOB_CD, A.ORDERED
+	</sql>
+	
+	<select id="makeColumnsValues" parameterType="perfList"	resultType="perfList">
+		/* PerformanceCheckIndexDao.getCoulmnCnt */
+		SELECT CD_NM AS WRKJOB_CD_NM FROM CD WHERE GRP_CD_ID = #{grp_cd_id} AND USE_YN = 'Y' ORDER BY ORDERED
+	</select>
+
+	<select id="getByRequestTypeReport" parameterType="perfList"	resultType="perfList">
+		/* PerformanceCheckIndexDao.getByRequestTypeReport */
+		<include refid="getByRequestTypeReportRefId"/>
+	</select>
+
+	<select id="getByRequestTypeReportByExcelDown" parameterType="perfList"	resultType="java.util.LinkedHashMap">
+		/* PerformanceCheckIndexDao.getByRequestTypeReportByExcelDown */
+		<include refid="getByRequestTypeReportRefId"/>
+	</select>
+
+	<sql id="getByImprovementTypeReportRefId_old">
+		/* PerformanceCheckIndexDao.getByImprovementTypeReportRefId */
+      SELECT  COUNT(WC1.WRKJOB_CD_NM) OVER(PARTITION BY WC1.WRKJOB_CD_NM) AS WRKJOB_COUNT  --각 업무 수 
+           , WC1.WRKJOB_CD_NM AS WRKJOB_CD_NM -- 업무
+           , IMPR_TYPE_NM                     -- 개선유형
+           , SUM(A.CNT) CNT                   -- 건수
+           , WC1.WRKJOB_CD
+           , IMPR_TYPE_CD 
+           , A.ORDERED
+      FROM (
+            SELECT CD1.CD AS IMPR_TYPE_CD
+                 , CD1.CD_NM AS IMPR_TYPE_NM
+                 , CD1.ORDERED
+                 , NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD) WRKJOB_CD
+                 , COUNT(T1.TUNING_NO) CNT
+              FROM (SELECT * FROM CD WHERE GRP_CD_ID = '1036' AND USE_YN = 'Y') CD1
+              LEFT OUTER JOIN 
+                   (SELECT T1.TUNING_NO, T2.IMPR_TYPE_CD, T1.WRKJOB_MGR_WRKJOB_CD, T1.TUNING_REQUESTER_WRKJOB_CD
+                          ,T1.TUNING_REQUEST_DT
+	                      ,T1.PROJECT_ID
+	                      ,T1.TUNING_PRGRS_STEP_SEQ
+                          
+                      FROM TUNING_TARGET_SQL T1
+                         , SQL_IMPROVEMENT_TYPE T2
+                     WHERE T1.TUNING_NO = T2.TUNING_NO AND TUNING_STATUS_CD NOT IN ('A')    -- NOT IN 추가 (20190918) 
+                   ) T1 PARTITION BY (WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD)
+                ON T1.IMPR_TYPE_CD = CD1.CD
+					<choose>
+	        			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+				         /* 요청일시 선택 */
+							AND T1.TUNING_REQUEST_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') AND TO_DATE(#{search_endDate}, 'YYYY-MM-DD')+1
+				         </when>
+	        			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+				         /* 완료일시 선택 */       
+							AND T2.TUNING_COMPLETE_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') AND TO_DATE(#{search_endDate}, 'YYYY-MM-DD')+1
+				         </when>
+				    </choose> 
+
+	   			<if test="project_id != null and project_id != ''">
+	                  -- 프로젝트가 선택되면
+	                  AND T1.PROJECT_ID = #{project_id}
+	            </if>
+				<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+	                  -- 튜닝진행단계가 선택되면
+	                  AND T1.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}                                   
+	            </if>
+             WHERE NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD) IN ( SELECT WRKJOB_CD
+                                       FROM WRKJOB_CD
+                                      START WITH WRKJOB_CD = #{search_wrkjob_cd}
+                                    CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)
+            GROUP BY NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD), CD1.CD, CD1.CD_NM, CD1.ORDERED
+            ORDER BY WRKJOB_CD, IMPR_TYPE_CD
+           ) A
+          , (SELECT WRKJOB_CD, SYS_CONNECT_BY_PATH(WRKJOB_CD_NM, '/') WRKJOB_CD_NM 
+                  FROM (SELECT WRKJOB_CD
+                     , UPPER_WRKJOB_CD
+                     , REPLACE(WRKJOB_CD_NM, '/', ',') WRKJOB_CD_NM 
+                  FROM WRKJOB_CD)
+                 START WITH WRKJOB_CD = #{search_wrkjob_cd}
+               CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD) WC1
+      WHERE A.WRKJOB_CD = WC1.WRKJOB_CD(+)     
+      GROUP BY WC1.WRKJOB_CD, WC1.WRKJOB_CD_NM, A.IMPR_TYPE_CD, A.IMPR_TYPE_NM, A.ORDERED
+      ORDER BY WC1.WRKJOB_CD, A.ORDERED
+	</sql>
+	
+	<sql id="getByImprovementTypeReportRefId">
+		/* PerformanceCheckIndexDao.getByImprovementTypeReportRefId */
+     /*
+		1. 선정 - 자동선정 또는 수동선정으로 성능담당자가 지정되지 않은 단계 
+		2. 요청 - 요청상태
+		3. 튜닝대기 - 튜닝담당자 지정된 단계
+		4. 튜닝반려 - 성능담당자가 튜닝을 진행하지 않고 반려한 단계
+		5. 튜닝중 - 성능담당자 튜닝중인 단계
+		6. 튜닝완료 - 성능담당자가 튜닝을 완료한 단계로 업무담당자가 적용하기를 대기하고 있는 단계
+		7. 적용반려 - 업무담당자가 적용반려한 단계
+		8. 튜닝종료 - 업무담당자가 적용완료하였거나, 성능관리자(담당자)가 종료사유에 의하여 튜닝을 종료한 상태.
+		9 : DBA검토완료 :
+		A : 요청취소 : 튜닝요청자가 요청을 취소한 상태
+	*/
+	  SELECT  COUNT(WC1.WRKJOB_CD_NM) OVER(PARTITION BY WC1.WRKJOB_CD_NM) AS WRKJOB_COUNT  --각 업무 수 
+	       , WC1.WRKJOB_CD_NM AS WRKJOB_CD_NM -- 업무
+	       , IMPR_TYPE_NM                     -- 개선유형
+	       , NVL(SUM(A.CNT), 0) CNT           -- 건수
+	       , WC1.WRKJOB_CD
+	       , IMPR_TYPE_CD 
+	       , A.ORDERED
+	  FROM (SELECT WRKJOB_CD, SYS_CONNECT_BY_PATH(WRKJOB_CD_NM, '/') WRKJOB_CD_NM 
+             FROM (SELECT WRKJOB_CD
+                     , UPPER_WRKJOB_CD
+                     , REPLACE(WRKJOB_CD_NM, '/', ',') WRKJOB_CD_NM 
+                  FROM WRKJOB_CD)
+             START WITH WRKJOB_CD = #{search_wrkjob_cd}
+           CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD) WC1
+      LEFT OUTER JOIN
+           (
+	        SELECT CD1.CD AS IMPR_TYPE_CD
+	             , CD1.CD_NM AS IMPR_TYPE_NM
+	             , CD1.ORDERED
+	             , NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD) WRKJOB_CD
+	             , COUNT(T1.TUNING_NO) CNT
+	          FROM (SELECT * FROM CD WHERE GRP_CD_ID = '1036' AND USE_YN = 'Y') CD1
+	          LEFT OUTER JOIN 
+	               (SELECT T1.TUNING_NO, T2.IMPR_TYPE_CD, T1.WRKJOB_MGR_WRKJOB_CD, T1.TUNING_REQUESTER_WRKJOB_CD
+	                      ,T1.TUNING_REQUEST_DT
+	                      ,T1.PROJECT_ID
+	                      ,T1.TUNING_PRGRS_STEP_SEQ
+	                      ,T3.TUNING_COMPLETE_DT
+	                  FROM TUNING_TARGET_SQL T1
+	                     , SQL_IMPROVEMENT_TYPE T2
+                         , SQL_TUNING T3  														  -- GEUM 20200128
+	                 WHERE T1.TUNING_NO = T2.TUNING_NO 
+	                   AND T1.TUNING_NO = T3.TUNING_NO(+)
+	                   AND T1.TUNING_STATUS_CD NOT IN ('A')   						  			  -- NOT IN 추가 (20190918)
+                       AND T1.TUNING_NO IN (SELECT TUNING_NO FROM SQL_TUNING WHERE NVL(ALL_TUNING_END_YN, 'N') <![CDATA[<>]]> 'Y') -- GEUM 20200128
+	
+	               ) T1 PARTITION BY (WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD)
+	            ON T1.IMPR_TYPE_CD = CD1.CD
+	           
+	           
+	           		<choose>
+	        			<when test="searchKey == '01'.toString() and search_startDate != '' and search_endDate != ''">
+				         /* 요청일시 선택 */
+							AND T1.TUNING_REQUEST_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') 
+	                                         AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+				         </when>
+	        			<when test="searchKey == '02'.toString() and search_startDate != '' and search_endDate != ''">
+				         /* 완료일시 선택 */       
+							AND T1.TUNING_COMPLETE_DT BETWEEN TO_DATE(#{search_startDate},'YYYY-MM-DD') 
+	                                         AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+				         </when>
+	        			<when test="searchKey == '03'.toString() and search_startDate != '' and search_endDate != ''">
+				         /* 요청완료일시 선택 */       
+    	     		         AND NVL (T1.TUNING_COMPLETE_DT, T1.TUNING_REQUEST_DT)	BETWEEN TO_DATE(#{search_startDate}, 'YYYY-MM-DD') 
+                    																    AND TO_DATE(#{search_endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+				         </when>
+				    </choose> 
+				    
+	
+	   			<if test="project_id != null and project_id != ''">
+	                  -- 프로젝트가 선택되면
+	                  AND T1.PROJECT_ID = #{project_id}
+	            </if>
+				<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+	                  -- 튜닝진행단계가 선택되면
+	                  AND T1.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}                                   
+	            </if>         
+	                       
+	         WHERE NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD) IN ( SELECT WRKJOB_CD
+	                                   FROM WRKJOB_CD
+	                                  START WITH WRKJOB_CD = #{search_wrkjob_cd}
+	                                CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)
+	        GROUP BY NVL(WRKJOB_MGR_WRKJOB_CD, TUNING_REQUESTER_WRKJOB_CD), CD1.CD, CD1.CD_NM, CD1.ORDERED
+	        ORDER BY WRKJOB_CD, IMPR_TYPE_CD
+	       ) A PARTITION BY (IMPR_TYPE_NM, IMPR_TYPE_CD, ORDERED)
+        ON (WC1.WRKJOB_CD = A.WRKJOB_CD)
+	  GROUP BY WC1.WRKJOB_CD, WC1.WRKJOB_CD_NM, A.IMPR_TYPE_CD, A.IMPR_TYPE_NM, A.ORDERED
+	  ORDER BY WC1.WRKJOB_CD, A.ORDERED
+	</sql>
+	
+	<select id="getByImprovementTypeReport" parameterType="perfList"	resultType="perfList">
+		/* PerformanceCheckIndexDao.getByImprovementTypeReport */
+		<include refid="getByImprovementTypeReportRefId"/>
+	</select>
+
+	<select id="getByImprovementTypeReportByExcelDown" parameterType="perfList"	resultType="java.util.LinkedHashMap">
+		/* PerformanceCheckIndexDao.getByImprovementTypeReportByExcelDown */
+		<include refid="getByImprovementTypeReportRefId"/>
+	</select>
+	
+	
+</mapper>

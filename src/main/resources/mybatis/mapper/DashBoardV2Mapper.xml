@@ -1,0 +1,1852 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="omc.spop.dao.DashBoardV2Dao">
+
+	<select id="totalCntGrade" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.totalCntGrade */
+		/* DB점검결과(등급별 전체 개수) */
+		 WITH DB_PRIV AS
+		(
+			SELECT UDP.DBID, D.DB_NAME, D.ORDERING, E.RGB_COLOR_VALUE
+			FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D, RGB_COLOR E
+			WHERE UDP.USER_ID = U.USER_ID
+			AND UDP.DBID = D.DBID
+			AND D.USE_YN = 'Y'
+			AND D.RGB_COLOR_ID = E.RGB_COLOR_ID(+)
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+			AND U.USER_ID = #{user_id}          /****************** PARAMETER : 사용자 ***********************/
+			AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+										FROM SPOP_PREFERENCES 
+										WHERE PREF_ID = '22001')
+		)
+		,CHECK_ACT_DAY AS
+		(
+			SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+			FROM (
+				SELECT A.DBID, A.CHECK_DAY, A.CHECK_SEQ, A.CHECK_DT,
+				MAX(A.CHECK_SEQ) OVER(PARTITION BY A.DBID, A.CHECK_DAY) MAX_CHECK_SEQ
+				FROM DB_CHECK_EXEC A, DB_PRIV B
+				WHERE A.DBID = B.DBID
+				AND A.AUTO_MANUAL_CHECK_DIV_CD = 'A'
+				AND A.CHECK_DAY = (SELECT MAX(CHECK_DAY) FROM DB_CHECK_EXEC)
+				)
+			WHERE CHECK_SEQ = MAX_CHECK_SEQ
+		)
+		SELECT 
+			CHECK_GRADE_CD AS GRADE,
+			NVL(SUM(CHECK_VALUE1), 0) AS CNT
+		FROM (
+			SELECT A.DBID, A.DB_NAME, A.ORDERING, A.RGB_COLOR_VALUE, B.CHECK_PREF_ID, B.CHECK_GRADE_CD, B.CHECK_VALUE1, B.CHECK_DAY
+			FROM DB_PRIV A LEFT OUTER JOIN (
+											SELECT C.*, A.CHECK_GRADE_CD
+											FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B, DB_CHECK_SUMMARY C, CHECK_ACT_DAY D
+											WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+											AND A.CHECK_PREF_ID = C.CHECK_PREF_ID
+											AND A.CHECK_ENABLE_YN = 'Y'
+											AND B.CHECK_ENABLE_YN(+) = 'Y'
+											AND C.CHECK_DAY = D.CHECK_DAY
+											AND C.CHECK_SEQ = D.CHECK_SEQ
+											AND C.DBID = D.DBID
+											AND A.CHECK_GRADE_CD IN ( '0', '1', '2', '3') -->전위원 문의
+											) B
+			PARTITION BY(B.CHECK_PREF_ID) ON A.DBID = B.DBID
+		) 
+		WHERE CHECK_GRADE_CD IS NOT NULL
+		GROUP BY CHECK_GRADE_CD
+		ORDER BY CHECK_GRADE_CD
+	</select>
+	
+	<select id="cntGradePerDb" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.cntGradePerDb */
+		/* DB점검결과(DB당 등급별  개수) */
+		WITH DB_PRIV AS
+		(
+			SELECT UDP.DBID, D.DB_NAME, D.ORDERING, E.RGB_COLOR_VALUE
+			FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D, RGB_COLOR E
+			WHERE UDP.USER_ID = U.USER_ID
+			AND UDP.DBID = D.DBID
+			AND D.USE_YN = 'Y'
+			AND D.RGB_COLOR_ID = E.RGB_COLOR_ID(+)
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+			AND U.USER_ID = #{user_id}         /****************** PARAMETER -> 사용자 ***********************/
+			AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+										FROM SPOP_PREFERENCES 
+										WHERE PREF_ID = '22001')
+		)
+		,CHECK_ACT_DAY AS
+		(
+			SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+			FROM (
+				SELECT A.DBID, A.CHECK_DAY, A.CHECK_SEQ, A.CHECK_DT,
+					MAX(A.CHECK_SEQ) OVER(PARTITION BY A.DBID, A.CHECK_DAY) MAX_CHECK_SEQ
+				FROM DB_CHECK_EXEC A, DB_PRIV B
+				WHERE A.DBID = B.DBID
+				AND A.AUTO_MANUAL_CHECK_DIV_CD = 'A'
+				AND A.CHECK_DAY = (SELECT MAX(CHECK_DAY) FROM DB_CHECK_EXEC)
+			)
+			WHERE CHECK_SEQ = MAX_CHECK_SEQ
+		)
+		SELECT 
+			MIN(DB_NAME) AS DB_NAME,    --DB
+			MIN(RGB_COLOR_VALUE) AS RGB_COLOR_VALUE, --RGB값
+			NVL(SUM(CHECK_VALUE1), 0) AS TOTAL_CNT,    --계  
+			SUM(CASE WHEN CHECK_GRADE_CD = '3' THEN CHECK_VALUE1 ELSE 0 END) AS FATAL_CNT,   --Fatal
+			SUM(CASE WHEN CHECK_GRADE_CD = '2' THEN CHECK_VALUE1 ELSE 0 END) AS CRITICAL_CNT,--Critical 
+			SUM(CASE WHEN CHECK_GRADE_CD = '1' THEN CHECK_VALUE1 ELSE 0 END) AS WARNING_CNT, --Warning
+			SUM(CASE WHEN CHECK_GRADE_CD = '0' THEN CHECK_VALUE1 ELSE 0 END) AS INFO_CNT,    --Info
+			-- HIDDEN
+			DBID,
+			MIN(CHECK_DAY) AS CHECK_DAY,
+			MIN(ORDERING) AS ORDERING
+		FROM (
+			SELECT A.DBID, A.DB_NAME, A.ORDERING, A.RGB_COLOR_VALUE, B.CHECK_PREF_ID, B.CHECK_GRADE_CD, B.CHECK_VALUE1, B.CHECK_DAY
+			FROM DB_PRIV A LEFT OUTER JOIN (
+				SELECT C.*, A.CHECK_GRADE_CD
+				FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B, DB_CHECK_SUMMARY C, CHECK_ACT_DAY D
+				WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+				AND A.CHECK_PREF_ID = C.CHECK_PREF_ID
+				AND A.CHECK_ENABLE_YN = 'Y'
+				AND B.CHECK_ENABLE_YN(+) = 'Y'
+				AND C.CHECK_DAY = D.CHECK_DAY
+				AND C.CHECK_SEQ = D.CHECK_SEQ
+				AND C.DBID = D.DBID
+				AND A.CHECK_GRADE_CD IN ( '0', '1', '2', '3') -->전위원 문의
+			) B
+			PARTITION BY(B.CHECK_PREF_ID) ON A.DBID = B.DBID
+		) 
+		GROUP BY DBID
+		ORDER BY ORDERING
+	</select>
+	
+	<select id="reloadDbCheckResultGrid01" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.reloadDbCheckResultGrid01 */
+		/* DB점검결과(DB당 등급별  개수) */
+		WITH DB_PRIV AS
+		(
+			SELECT UDP.DBID, D.DB_NAME, D.ORDERING, E.RGB_COLOR_VALUE
+			FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D, RGB_COLOR E
+			WHERE UDP.USER_ID = U.USER_ID
+			AND UDP.DBID = D.DBID
+			AND D.USE_YN = 'Y'
+			AND D.RGB_COLOR_ID = E.RGB_COLOR_ID(+)
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+			AND U.USER_ID = #{user_id}         /****************** PARAMETER -> 사용자 ***********************/
+			AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+										FROM SPOP_PREFERENCES 
+										WHERE PREF_ID = '22001')
+		)
+		,CHECK_ACT_DAY AS
+		(
+			SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+			FROM (
+				SELECT A.DBID, A.CHECK_DAY, A.CHECK_SEQ, A.CHECK_DT,
+				MAX(A.CHECK_SEQ) OVER(PARTITION BY A.DBID, A.CHECK_DAY) MAX_CHECK_SEQ
+				FROM DB_CHECK_EXEC A, DB_PRIV B
+				WHERE A.DBID = B.DBID
+				AND A.AUTO_MANUAL_CHECK_DIV_CD = 'A'
+				AND A.CHECK_DAY = (SELECT MAX(CHECK_DAY) FROM DB_CHECK_EXEC)
+			)
+			WHERE CHECK_SEQ = MAX_CHECK_SEQ
+		)
+		SELECT 
+			MIN(DB_NAME) AS DB_NAME,    --DB
+			MIN(RGB_COLOR_VALUE) AS RGB_COLOR_VALUE, --RGB값
+			NVL(SUM(CHECK_VALUE1), 0) AS TOTAL_CNT,    --계  
+			SUM(CASE WHEN CHECK_GRADE_CD = '3' THEN CHECK_VALUE1 ELSE 0 END) AS FATAL_CNT,   --Fatal
+			SUM(CASE WHEN CHECK_GRADE_CD = '2' THEN CHECK_VALUE1 ELSE 0 END) AS CRITICAL_CNT,--Critical 
+			SUM(CASE WHEN CHECK_GRADE_CD = '1' THEN CHECK_VALUE1 ELSE 0 END) AS WARNING_CNT, --Warning
+			SUM(CASE WHEN CHECK_GRADE_CD = '0' THEN CHECK_VALUE1 ELSE 0 END) AS INFO_CNT,    --Info
+			-- HIDDEN
+			DBID,
+			MIN(CHECK_DAY) AS CHECK_DAY,
+			MIN(ORDERING) AS ORDERING
+		FROM (
+			SELECT A.DBID, A.DB_NAME, A.ORDERING, A.RGB_COLOR_VALUE, B.CHECK_PREF_ID, B.CHECK_GRADE_CD, B.CHECK_VALUE1, B.CHECK_DAY
+			FROM DB_PRIV A LEFT OUTER JOIN (
+				SELECT C.*, A.CHECK_GRADE_CD
+				FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B, DB_CHECK_SUMMARY C, CHECK_ACT_DAY D
+				WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+				AND A.CHECK_PREF_ID = C.CHECK_PREF_ID
+				AND A.CHECK_ENABLE_YN = 'Y'
+				AND B.CHECK_ENABLE_YN(+) = 'Y'
+				AND C.CHECK_DAY = D.CHECK_DAY
+				AND C.CHECK_SEQ = D.CHECK_SEQ
+				AND C.DBID = D.DBID
+				AND A.CHECK_GRADE_CD IN ( '0', '1', '2', '3') -->전위원 문의
+			) B
+			PARTITION BY(B.CHECK_PREF_ID) ON A.DBID = B.DBID
+		) 
+		GROUP BY DBID
+		
+		/* FATAL CHECK_GRADE_CD = '3' */
+		/* CRITICAL CHECK_GRADE_CD = '2' */
+		/* WARNING CHECK_GRADE_CD = '1' */
+		/* INFO CHECK_GRADE_CD = '0' */
+		HAVING SUM(CASE WHEN CHECK_GRADE_CD = #{check_grade_cd} THEN CHECK_VALUE1 ELSE 0 END) > 0    /***** PARAMETER *****/
+		
+		ORDER BY ORDERING
+	</select>
+	
+	<select id="listGradeForDb" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.listGradeForDb */
+		/* DB점검결과(DB의 등급 정보 리스트) */
+		WITH DB_PRIV AS
+		(
+			SELECT UDP.DBID, D.DB_NAME, D.ORDERING, E.RGB_COLOR_VALUE
+			FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D, RGB_COLOR E
+			WHERE UDP.USER_ID = U.USER_ID
+			AND UDP.DBID = D.DBID
+			AND D.USE_YN = 'Y'
+			AND D.RGB_COLOR_ID = E.RGB_COLOR_ID(+)
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+			AND U.USER_ID = #{user_id}          /****************** PARAMETER -> 사용자 ***********************/
+			AND D.DBID = #{dbid}                /****************** PARAMETER -> DBID ***********************/
+			AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+										FROM SPOP_PREFERENCES 
+										WHERE PREF_ID = '22001')
+		)
+		,CHECK_ACT_DAY AS
+		(
+			SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+			FROM (
+				SELECT A.DBID, A.CHECK_DAY, A.CHECK_SEQ, A.CHECK_DT,
+					MAX(A.CHECK_SEQ) OVER(PARTITION BY A.DBID, A.CHECK_DAY) MAX_CHECK_SEQ
+				FROM DB_CHECK_EXEC A, DB_PRIV B
+				WHERE A.DBID = B.DBID
+				AND A.AUTO_MANUAL_CHECK_DIV_CD = 'A'
+				AND A.CHECK_DAY = (SELECT MAX(CHECK_DAY) FROM DB_CHECK_EXEC)
+			)
+			WHERE CHECK_SEQ = MAX_CHECK_SEQ
+		)
+		SELECT 
+			CD1.CD_NM AS GRADE,     --등급
+			A.CHECK_PREF_NM,        --점검항목
+			A.CHECK_VALUE1,         --대상
+			--HIDDEN
+			A.DBID,
+			A.CHECK_GRADE_CD,
+			TO_CHAR(TO_DATE(A.CHECK_DAY || '000000','YYYY-MM-DD HH24:MI:SS'),'YYYY-MM-DD') AS CHECK_DAY,
+			-- A.CHECK_DAY,
+			A.CHECK_SEQ,
+			A.CHECK_PREF_ID
+		FROM (
+			SELECT A.DBID, A.DB_NAME, A.ORDERING, A.RGB_COLOR_VALUE, B.CHECK_PREF_NM, B.CHECK_SEQ
+				, B.CHECK_PREF_ID, B.CHECK_GRADE_CD, B.CHECK_VALUE1, B.CHECK_DAY, B.CHECK_CLASS_DIV_CD
+			FROM DB_PRIV A LEFT OUTER JOIN (
+					SELECT C.*, A.CHECK_GRADE_CD, A.CHECK_PREF_NM, A.CHECK_CLASS_DIV_CD
+					FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B, DB_CHECK_SUMMARY C, CHECK_ACT_DAY D
+					WHERE A.CHECK_PREF_ID = C.CHECK_PREF_ID
+					AND A.CHECK_ENABLE_YN = 'Y'
+					AND B.CHECK_ENABLE_YN(+) = 'Y'
+					AND B.CHECK_PREF_ID(+) = C.CHECK_PREF_ID
+                    AND B.DBID(+) = C.DBID      
+					AND C.CHECK_DAY = D.CHECK_DAY
+					AND C.CHECK_SEQ = D.CHECK_SEQ
+					AND C.DBID = D.DBID
+					AND A.CHECK_GRADE_CD IN ( '0', '1', '2', '3') 
+			) B
+			PARTITION BY(B.CHECK_PREF_ID) ON A.DBID = B.DBID
+		) A, CD CD1
+		WHERE A.CHECK_VALUE1 > 0
+		AND A.CHECK_GRADE_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1043'   
+		ORDER BY CHECK_GRADE_CD DESC, CHECK_CLASS_DIV_CD ASC, CHECK_PREF_ID ASC
+	</select>
+	
+	<select id="listSqlAppCheckDb" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.listSqlAppCheckDb */
+		/* 1. SQL/APP진단 DB목록 */
+		WITH DB_PRIV AS
+		(
+			SELECT /*+ MATERIALIZE */
+				UDP.DBID, D.DB_NAME, D.ORDERING
+			FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+			WHERE UDP.USER_ID = U.USER_ID
+			AND UDP.DBID = D.DBID
+			AND D.USE_YN = 'Y'
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+			AND U.USER_ID = #{user_id}                                                                                /**** PARAMETER ****/
+			AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+										FROM SPOP_PREFERENCES 
+										WHERE PREF_ID = '22001')
+		)
+		,WRKJOB_LIST AS
+		(
+			SELECT B.WRKJOB_CD, 
+				-1 AS PARENT_WRKJOB_CD, 
+				B.WRKJOB_CD_NM AS WRKJOB_NM,
+				A.DBID, DB_NAME
+			FROM DB_PRIV A, WRKJOB_CD B, WRKJOB_DB DB
+			WHERE B.WRKJOB_CD = DB.WRKJOB_CD
+			AND A.DBID = DB.DBID
+		)
+		,APP_PERF AS
+		(
+			SELECT A.DBID, A.DB_NAME, B.TR_PERF_INDC_TYPE_CD, COUNT(B.TR_CD) CNT
+			FROM WRKJOB_LIST A, TRCD_PERF_SUM B
+			WHERE A.WRKJOB_CD = B.WRKJOB_CD(+)
+			AND B.BASE_DAY(+) = TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD'), 'YYYYMMDD')                      /**** PARAMETER ****/
+			GROUP BY A.DBID, A.DB_NAME, B.TR_PERF_INDC_TYPE_CD
+			-- HAVING COUNT(*) > 0
+		)
+		,SQL_PERF AS
+		(
+			SELECT A.DBID, A.DB_NAME, SUM(B.DIAG_CNT) CNT
+			FROM DB_PRIV A, SQL_DIAG_SUMMARY B
+			WHERE  A.DBID = B.DBID 
+			AND B.GATHER_DAY = TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD'), 'YYYYMMDD')                   /**** PARAMETER ****/
+			GROUP BY A.DBID, A.DB_NAME
+			-- HAVING SUM(B.DIAG_CNT) > 0
+		)
+		SELECT DB_NAME
+			, SUM(CNT) CNT
+			, DBID
+		FROM 
+		(
+			SELECT DBID, DB_NAME, CNT
+			FROM APP_PERF
+			UNION ALL
+			SELECT DBID, DB_NAME, CNT
+			FROM SQL_PERF
+		)
+		GROUP BY DB_NAME, DBID
+		ORDER BY CNT DESC, DB_NAME
+	</select>
+	
+	<select id="chartSqlAppCheckDb" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.chartSqlAppCheckDb */
+		/* 3. APP/SQL 현황 챠트 */
+		WITH WRKJOB_LIST AS
+		(
+			SELECT B.WRKJOB_CD, 
+				-1 AS PARENT_WRKJOB_CD, 
+				B.WRKJOB_CD_NM AS WRKJOB_NM,
+				A.DBID, A.DB_NAME
+			FROM DATABASE A, WRKJOB_CD B, WRKJOB_DB DB
+			WHERE A.DBID = DB.DBID 
+			AND B.WRKJOB_CD = DB.WRKJOB_CD
+			AND DB.DBID = #{dbid}                                                                                        /**** PARAMETER ****/
+		)
+		,APP_PERF AS
+		(
+			SELECT /*+ LEADING(A) USE_NL(B) */
+				A.DBID, 
+				A.DB_NAME,
+				A.BASE_DAY,
+				CD1.CD AS TR_PERF_INDC_TYPE_CD,
+				CD1.CD_NM AS TR_PERF_INDC_TYPE_NM,
+				CD1.GRP_CD_ID AS GRP_CD_ID,
+				NVL(A.CNT, 0) AS CNT
+			FROM (SELECT CD, CD_NM, GRP_CD_ID FROM CD WHERE GRP_CD_ID = '1034') CD1
+			LEFT OUTER JOIN (
+				SELECT A.DBID, A.DB_NAME, B.BASE_DAY, B.TR_PERF_INDC_TYPE_CD, COUNT(*) CNT
+				FROM WRKJOB_LIST A, TRCD_PERF_SUM B
+				WHERE A.WRKJOB_CD = B.WRKJOB_CD
+				AND B.BASE_DAY <![CDATA[>=]]> TO_CHAR(ADD_MONTHS(TO_DATE(#{gather_day_dash}, 'YYYYMMDD'), -1), 'YYYYMMDD')      /**** PARAMETER ****/
+				AND B.BASE_DAY <![CDATA[<=]]> TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD'), 'YYYYMMDD')                      /**** PARAMETER ****/
+				GROUP BY A.DBID, A.DB_NAME, B.BASE_DAY, B.TR_PERF_INDC_TYPE_CD
+			) A
+			-- PARTITION BY (A.DBID, A.DB_NAME, A.BASE_DAY, A.TR_PERF_INDC_TYPE_CD) -- 중복 발생으로 주석처리
+			ON A.TR_PERF_INDC_TYPE_CD = CD1.CD
+		)
+		,SQL_PERF AS
+		(
+			SELECT /*+ LEADING(A) USE_NL(B) */
+				A.DBID, A.DB_NAME, 
+				A.GATHER_DAY, 
+				CD1.CD AS SQL_DIAG_TYPE_CD,
+				CD1.CD_NM AS SQL_DIAG_TYPE_CD_NM,
+				CD1.GRP_CD_ID AS GRP_CD_ID,
+				NVL(DIAG_CNT, 0) AS CNT
+			FROM (SELECT CD, CD_NM, GRP_CD_ID FROM CD WHERE GRP_CD_ID = '1042') CD1
+			LEFT OUTER JOIN (
+				SELECT A.DBID, A.DB_NAME, B.GATHER_DAY, B.SQL_DIAG_TYPE_CD, DIAG_CNT
+				FROM DATABASE A, SQL_DIAG_SUMMARY B
+				WHERE A.DBID = B.DBID 
+				AND B.DBID = #{dbid}                          /**** PARAMETER ****/
+				AND B.GATHER_DAY <![CDATA[>=]]> TO_CHAR(ADD_MONTHS(TO_DATE(#{gather_day_dash}, 'YYYYMMDD'), -1), 'YYYYMMDD')   /**** PARAMETER ****/
+				AND B.GATHER_DAY <![CDATA[<=]]> TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD'), 'YYYYMMDD')                   /**** PARAMETER ****/
+			) A
+			ON A.SQL_DIAG_TYPE_CD = CD1.CD
+		)
+		SELECT DIAG_TYPE_NM
+			, BASE_DAY
+			, CNT
+			, DBID
+			, DB_NAME
+			, DIAG_TYPE_CD
+			, GRP_CD_ID
+		FROM (
+			SELECT DBID, DB_NAME, BASE_DAY, TR_PERF_INDC_TYPE_CD DIAG_TYPE_CD, TR_PERF_INDC_TYPE_NM DIAG_TYPE_NM, GRP_CD_ID, CNT
+			FROM APP_PERF
+			WHERE BASE_DAY IS NOT NULL
+			UNION ALL
+			SELECT DBID, DB_NAME, GATHER_DAY, SQL_DIAG_TYPE_CD TYPE, SQL_DIAG_TYPE_CD_NM TYPE_NM, GRP_CD_ID, CNT
+			FROM SQL_PERF
+			WHERE GATHER_DAY IS NOT NULL
+		)
+		ORDER BY GRP_CD_ID DESC, DIAG_TYPE_NM, BASE_DAY
+	</select>
+	
+	<select id="chartLegendSqlAppCheckDb" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		SELECT CD AS DIAG_TYPE_CD, CD_NM AS DIAG_TYPE_NM
+		FROM CD 
+		WHERE GRP_CD_ID IN ('1034', '1042')
+		ORDER BY GRP_CD_ID DESC, CD ASC
+	</select>
+	
+	<select id="listSqlAppDiagStatus" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.listSqlAppDiagStatus */
+		/* 2. SQL/APP 진단현황 */
+		WITH WRKJOB_LIST AS
+		(
+			SELECT B.WRKJOB_CD, 
+				B.WRKJOB_CD_NM AS WRKJOB_NM,
+				PARENT_WRKJOB_CD,
+				A.DBID, A.DB_NAME
+			FROM DATABASE A
+			, (SELECT WRKJOB_CD, WRKJOB_CD_NM, CONNECT_BY_ROOT WRKJOB_CD PARENT_WRKJOB_CD
+				FROM WRKJOB_CD
+				CONNECT BY UPPER_WRKJOB_CD = PRIOR WRKJOB_CD
+				START WITH UPPER_WRKJOB_CD IS NULL) B
+			, WRKJOB_DB DB
+			WHERE A.DBID = DB.DBID 
+			AND B.WRKJOB_CD = DB.WRKJOB_CD
+			AND DB.DBID = #{dbid}                                                                                  ----> PARAMETER
+		)
+		,APP_PERF AS
+		(
+			SELECT /*+ LEADING(A) USE_NL(B) */
+				A.PARENT_WRKJOB_CD,
+				A.BASE_DAY,
+				CD1.CD AS TR_PERF_INDC_TYPE_CD,
+				CD1.CD_NM AS TR_PERF_INDC_TYPE_NM,
+				CD1.GRP_CD_ID AS GRP_CD_ID,
+				NVL(A.CNT, 0) AS CNT
+			FROM (SELECT CD, CD_NM, GRP_CD_ID FROM CD WHERE GRP_CD_ID = '1034') CD1
+			LEFT OUTER JOIN
+			(
+				SELECT MIN(A.PARENT_WRKJOB_CD) AS PARENT_WRKJOB_CD, B.BASE_DAY, B.TR_PERF_INDC_TYPE_CD, COUNT(B.TR_CD) CNT
+				FROM WRKJOB_LIST A
+				, TRCD_PERF_SUM B
+				WHERE A.WRKJOB_CD = B.WRKJOB_CD(+)
+				AND B.BASE_DAY(+) <![CDATA[>=]]> TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD') - 6, 'YYYYMMDD')                  ----> PARAMETER
+				AND B.BASE_DAY(+) <![CDATA[<=]]> TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD'), 'YYYYMMDD')                      ----> PARAMETER
+				GROUP BY B.BASE_DAY, B.TR_PERF_INDC_TYPE_CD
+			) A
+			PARTITION BY (A.PARENT_WRKJOB_CD)
+			ON A.TR_PERF_INDC_TYPE_CD = CD1.CD
+		)
+		,SQL_PERF AS
+		(
+			SELECT /*+ LEADING(A) USE_NL(B) */
+				A.DBID, A.DB_NAME, 
+				A.GATHER_DAY, 
+				CD1.CD AS SQL_DIAG_TYPE_CD,
+				CD1.CD_NM AS SQL_DIAG_TYPE_CD_NM,
+				CD1.GRP_CD_ID AS GRP_CD_ID,
+				NVL(DIAG_CNT, 0) AS CNT
+				FROM (SELECT CD, CD_NM, GRP_CD_ID FROM CD WHERE GRP_CD_ID = '1042') CD1
+				INNER JOIN (
+					SELECT A.DBID, A.DB_NAME, B.GATHER_DAY, B.SQL_DIAG_TYPE_CD, DIAG_CNT
+					FROM DATABASE A, SQL_DIAG_SUMMARY B
+					WHERE A.DBID = B.DBID 
+					AND B.DBID = #{dbid}                                                                                    ----> PARAMETER
+					AND B.GATHER_DAY <![CDATA[>=]]> TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD') - 6, 'YYYYMMDD')               ----> PARAMETER
+					AND B.GATHER_DAY <![CDATA[<=]]> TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD'), 'YYYYMMDD')                   ----> PARAMETER
+				) A
+				ON A.SQL_DIAG_TYPE_CD = CD1.CD
+		)
+		SELECT 
+			DIAG_TYPE_NM AS DEFAULTTEXT,
+			CASE WHEN LENGTH(DIAG_TYPE_NM) > 11 THEN CONCAT(SUBSTR(DIAG_TYPE_NM, 0, 11), ' ...' )
+				ELSE DIAG_TYPE_NM
+			END DIAG_TYPE_NM
+			, NVL(SUM(CASE WHEN BASE_DAY = #{gather_day_dash} THEN CNT END), 0) "D_1"  -- 전일                              ----> PARAMETER
+			, NVL(SUM(CASE WHEN BASE_DAY = #{gather_day_dash} THEN CNT END), 0) - SUM(CASE WHEN BASE_DAY = TO_CHAR(TO_DATE(#{base_day}, 'YYYYMMDD')-1, 'YYYYMMDD')  THEN CNT END) "INCREASE" -- 증가  ----> PARAMETER
+			, NVL(SUM(CASE WHEN BASE_DAY = TO_CHAR(TO_DATE(#{gather_day_dash}, 'YYYYMMDD')-1, 'YYYYMMDD')  THEN CNT END), 0) "D_2"  -- 전전일  ----> PARAMETER
+			, SUM(CNT) "LAST_WEEK"  -- 최근1주일
+			, DBID
+			, WRKJOB_CD
+			, DIAG_TYPE_CD
+			, GRP_CD_ID
+			, #{base_day} AS BASE_DAY
+		FROM (
+			SELECT NULL DBID, PARENT_WRKJOB_CD WRKJOB_CD, BASE_DAY, TR_PERF_INDC_TYPE_CD DIAG_TYPE_CD, TR_PERF_INDC_TYPE_NM DIAG_TYPE_NM, GRP_CD_ID, CNT
+			FROM APP_PERF
+			UNION ALL
+			SELECT DBID,  NULL WRKJOB_CD,  GATHER_DAY, SQL_DIAG_TYPE_CD TYPE, SQL_DIAG_TYPE_CD_NM TYPE_NM, GRP_CD_ID, CNT
+			FROM SQL_PERF
+		)
+		GROUP BY DIAG_TYPE_NM, DBID, WRKJOB_CD, DIAG_TYPE_CD, GRP_CD_ID
+		ORDER BY GRP_CD_ID DESC, DIAG_TYPE_CD
+	</select>
+	
+	<select id="listTopSqlPerDb" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.listTopSqlPerDb */
+		/* 1. TOPSQL DB목록 */
+		WITH DB_PRIV AS
+		(
+			SELECT /*+ MATERIALIZE */
+				UDP.DBID, D.DB_NAME, D.ORDERING, D.RGB_COLOR_ID
+			FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+			WHERE UDP.USER_ID = U.USER_ID
+			AND UDP.DBID = D.DBID
+			AND D.USE_YN = 'Y'
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+			AND U.USER_ID = #{user_id}                                                                          ----> PARAMETER
+			AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+					FROM SPOP_PREFERENCES 
+					WHERE PREF_ID = '22001')
+		)
+        SELECT DB_NAME,CNT,DBID,RGB_COLOR_ID,RGB_COLOR_VALUE
+        FROM
+        (		
+			SELECT A.DB_NAME      -- DB
+				, NVL(SUM(CASE WHEN B.GATHER_DAY = #{check_date_topsql_diag_summary} THEN B.TOPSQL_CNT END), 0) AS CNT             -- 대상  ----> PARAMETER
+				, A.DBID
+				, A.RGB_COLOR_ID
+				, R.RGB_COLOR_VALUE
+			FROM DB_PRIV A
+			LEFT OUTER JOIN TOPSQL_DIAG_SUMMARY B
+			ON A.DBID = B.DBID
+            AND B.TOPSQL_TYPE_CD = '1'   --- 20191014 추가
+			AND B.GATHER_DAY <![CDATA[>=]]> TO_CHAR(ADD_MONTHS(TO_DATE(#{check_date_topsql_diag_summary}, 'YYYYMMDD'), -3), 'YYYYMMDD')   ----> PARAMETER
+			AND B.GATHER_DAY <![CDATA[<=]]> TO_CHAR(TO_DATE(#{check_date_topsql_diag_summary}, 'YYYYMMDD'), 'YYYYMMDD')                   ----> PARAMETER
+			LEFT JOIN RGB_COLOR R
+			ON A.RGB_COLOR_ID = R.RGB_COLOR_ID
+			GROUP BY A.DBID, A.DB_NAME, A.ORDERING, A.RGB_COLOR_ID, R.RGB_COLOR_VALUE
+			ORDER BY A.ORDERING
+		)
+		--WHERE CNT > 0
+	</select>
+	
+	<select id="listTopSql" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.listTopSql */
+		/* 2. TOPSQL 목록 */
+		SELECT #{dbid} AS DBID 
+			,  #{base_day} AS GATHER_DAY	
+			, (CASE WHEN A.RNUM <![CDATA[<=]]> 10 THEN SQL_ID ELSE '......' END) AS SQL_ID                  -- SQL_ID
+			, (CASE WHEN A.RNUM <![CDATA[<=]]> 10 THEN ELAPSED_TIME ELSE NULL END) AS ELAPSED_TIME           -- E.T
+			, (CASE WHEN A.RNUM <![CDATA[<=]]> 10 THEN BUFFER_GETS ELSE NULL END) AS BUFFER_GETS             -- B.G
+			, (CASE WHEN A.RNUM <![CDATA[<=]]> 10 THEN EXECUTIONS ELSE NULL END) AS EXECUTIONS               -- Exec
+			, (CASE WHEN A.RNUM <![CDATA[<=]]> 10 THEN RATIO_BUFFER_GETS ELSE NULL END) AS RATIO_BUFFER_GETS -- Activity
+		FROM (
+			SELECT SQL_ID, ELAPSED_TIME, BUFFER_GETS, ROWS_PROCESSED
+				, DECODE(EXECUTIONS, 0, 1, EXECUTIONS) EXECUTIONS
+				, ROUND(RATIO_BUFFER_GETS, 2) RATIO_BUFFER_GETS
+				, COUNT(*) OVER() TOT_CNT
+				, ROW_NUMBER() OVER(ORDER BY RATIO_BUFFER_GETS DESC) RNUM
+			FROM TOPSQL
+			WHERE DBID = #{dbid}               ----> PARAMETER
+			AND GATHER_DAY = #{check_date_topsql_diag_summary}       ----> PARAMETER
+            AND TOPSQL_TYPE_CD = '1'    -- 20191014 추가
+			ORDER BY BUFFER_GETS DESC
+		) A
+		, (SELECT LEVEL RNUM FROM DUAL CONNECT BY LEVEL <![CDATA[<=]]> 11) B
+		WHERE A.RNUM = B.RNUM
+		ORDER BY BUFFER_GETS DESC NULLS LAST
+	</select>
+	
+	<select id="chartTopSql" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.chartTopSql */
+		/* 3. TOPSQL 챠트 */
+		WITH DB_PRIV AS
+		(
+			SELECT /*+ MATERIALIZE */
+				UDP.DBID, D.DB_NAME, D.ORDERING
+			FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+			WHERE UDP.USER_ID = U.USER_ID
+			AND UDP.DBID = D.DBID
+			AND D.USE_YN = 'Y'
+			AND D.DBID = #{dbid}                                                                                 ----> PARAMETER
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+			AND U.USER_ID = #{user_id}                                                                           ----> PARAMETER
+			AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+					FROM SPOP_PREFERENCES 
+					WHERE PREF_ID = '22001')
+		)
+		SELECT A.DB_NAME                 -- DB
+			, B.GATHER_DAY AS BASE_DAY
+			, B.TOPSQL_CNT AS CNT 
+			, A.DBID
+			, B.START_SNAP_ID
+			, B.END_SNAP_ID
+			, B.ELAPSED_TIME_THRESHOLD 
+			, B.BUFFER_GETS_THRESHOLD
+			, B.EXECUTIONS_THRESHOLD 
+			, B.TOPSQL_CNT 
+		FROM DB_PRIV A, TOPSQL_DIAG_SUMMARY B
+		WHERE A.DBID = B.DBID
+        AND B.TOPSQL_TYPE_CD = '1'   -- 20191014 추가
+		AND B.GATHER_DAY <![CDATA[>=]]> TO_CHAR(ADD_MONTHS(TO_DATE(#{check_date_topsql_diag_summary}, 'YYYYMMDD'), -3), 'YYYYMMDD')   ----> PARAMETER
+		AND B.GATHER_DAY <![CDATA[<=]]> TO_CHAR(TO_DATE(#{check_date_topsql_diag_summary}, 'YYYYMMDD'), 'YYYYMMDD')                   ----> PARAMETER
+		ORDER BY A.DB_NAME, BASE_DAY
+	</select>
+	
+	<select id="chartTopSql2" parameterType="dashboardV2Left" resultType="dashboardV2Left">
+		/* DashBoardV2Dao.chartTopSql2 */
+		/* 3. TOPSQL 챠트2 */
+			      SELECT *
+		  FROM (
+		        SELECT #{dbid} AS DBID 
+		             , SQL_ID
+		             , MAX(PLAN_HASH_VALUE) OVER(PARTITION BY SQL_ID ORDER BY MAX(BUFFER_GETS) DESC ) PLAN_HASH_VALUE
+		             , COUNT(*) CNT
+		             , ROW_NUMBER() OVER(ORDER BY COUNT(*) DESC) RANK
+		          FROM TOPSQL
+		         WHERE DBID = #{dbid}
+                   AND TOPSQL_TYPE_CD = '1' -- 20191014 추가
+		           AND GATHER_DAY  >=  TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		         GROUP BY SQL_ID, PLAN_HASH_VALUE
+		       ) A
+		 WHERE RANK <![CDATA[<=]]> 10 
+		 ORDER BY RANK DESC
+	</select>
+	
+	
+	
+<!--right-->
+
+
+	<select id="getResourceLimitPointPredictionList" parameterType="resourceLimitPrediction" resultType="resourceLimitPrediction">
+	/* DashBoardV2Dao.getResourceLimitPointPredictionList */
+		/* 자원한계점예측 */
+      WITH DB_PRIV AS
+      (
+         SELECT /*+ MATERIALIZE */
+            UDP.DBID, DB.DB_NAME, DB.ORDERING, I.INST_ID, I.INST_NM, R.RGB_COLOR_VALUE
+         FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB, INSTANCE I, RGB_COLOR R
+         WHERE UDP.USER_ID = U.USER_ID
+         AND I.RGB_COLOR_ID = R.RGB_COLOR_ID
+         AND UDP.DBID = DB.DBID
+         AND DB.DBID = I.DBID
+         AND DB.USE_YN = 'Y'
+         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+         AND U.USER_ID = #{user_id} -- 로그인ID  /****************** PARAMETER ***********************/
+         AND DB.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE
+                                        FROM SPOP_PREFERENCES
+                                       WHERE PREF_ID = '22001')
+      ), DB_PREF AS
+      (
+      SELECT A.DBID
+            ,MIN(A.DB_NAME) AS DB_NAME
+            ,MAX(CASE WHEN A.PREF_ID = 21003 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS CPU_THRESHOLD    -- CPU 예측 임계값
+            ,MAX(CASE WHEN A.PREF_ID = 21014 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS MEM_THRESHOLD    -- CPU 예측 임계값
+      FROM (
+            SELECT A.DBID, A.DB_NAME, B.PREF_ID, B.DEFAULT_PREF_VALUE
+              FROM DB_PRIV A
+                 , SPOP_PREFERENCES B
+            WHERE B.PREF_ID IN (21003, 21014)
+           ) A
+         , (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+              FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                         , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                      FROM DB_PREFERENCES
+                     WHERE PREF_ID IN (21003, 21014)
+                   )
+             WHERE PREF_SEQ = MAX_PREF_SEQ         
+           ) B
+      WHERE A.DBID = B.DBID(+)
+      AND A.PREF_ID = B.PREF_ID(+)
+      GROUP BY A.DBID
+      )
+      , CPU_PRED AS (
+         SELECT
+            DB.INST_NM,                    --인스턴스
+            DPR.VALUE AS CPU_CORE_CNT,     --CORE수
+            CURRENT_CPU_USAGE,             --현재
+            (AFTER_3_MONTH_CPU_USAGE - CURRENT_CPU_USAGE) AS CPU_INCREASE_RATIO, --증가
+            --HIDDEN 그래프
+            BEFORE_3_MONTH_CPU_USAGE,
+            BEFORE_2_MONTH_CPU_USAGE,
+            BEFORE_1_MONTH_CPU_USAGE,
+            CURRENT_CPU_USAGE AS CURRENT_CPU_USAGE_B,
+            AFTER_1_MONTH_CPU_USAGE,
+            AFTER_2_MONTH_CPU_USAGE,
+            AFTER_3_MONTH_CPU_USAGE,
+            --HIDDEN
+            B.DBID,
+            B.INST_ID,
+            TO_CHAR(B.PREDICTION_DT, 'YYYY/MM/DD HH24:MI:SS') AS PREDICTION_DT
+         FROM
+             (
+              SELECT DBID, INST_ID, MAX(PREDICTION_DT) PREDICTION_DT
+                FROM CPU_LIMIT_PREDICTION
+              GROUP BY DBID, INST_ID
+             ) A
+           , CPU_LIMIT_PREDICTION B
+           , DB_PREF DP
+           , DB_PRIV DB
+           , DB_PARAMETER_HISTORY DPR
+         WHERE A.DBID = B.DBID
+         AND A.INST_ID = B.INST_ID
+         AND A.PREDICTION_DT = B.PREDICTION_DT
+         AND A.DBID = DP.DBID
+         AND B.DBID = DB.DBID
+         AND B.INST_ID = DB.INST_ID
+         AND AFTER_3_MONTH_CPU_USAGE >= DP.CPU_THRESHOLD
+         AND DB.DBID = DPR.DBID
+         AND DB.INST_ID = DPR.INSTANCE_NUMBER
+         AND DPR.PARAMETER_HASH = 1095434542
+         AND DPR.PARAMETER_CHG_DT = (SELECT MAX(PARAMETER_CHG_DT)
+                                       FROM DB_PARAMETER_HISTORY
+                                      WHERE DBID = DB.DBID
+                                        AND INSTANCE_NUMBER = DB.INST_ID
+                                        AND PARAMETER_HASH = 1095434542  -- cpu_count
+                                     )
+      )
+      , MEM_PRED AS (
+        SELECT
+            DB.INST_NM,                  --인스턴스
+            PHYSICAL_MEMORY_SIZE,        --메모리
+            CURRENT_MEM_USAGE,           --현재
+            (AFTER_3_MONTH_MEM_USAGE - CURRENT_MEM_USAGE) AS MEM_INCREASE_USAGE, --증가
+            --HIDDEN 그래프
+            BEFORE_3_MONTH_MEM_USAGE,
+            BEFORE_2_MONTH_MEM_USAGE,
+            BEFORE_1_MONTH_MEM_USAGE,
+            CURRENT_MEM_USAGE AS CURRENT_MEM_USAGE_B,
+            AFTER_1_MONTH_MEM_USAGE,
+            AFTER_2_MONTH_MEM_USAGE,
+            AFTER_3_MONTH_MEM_USAGE,
+            --HIDDEN
+            B.DBID,
+            B.INST_ID,
+            TO_CHAR(B.PREDICTION_DT, 'YYYY/MM/DD HH24:MI:SS') AS PREDICTION_DT
+         FROM
+             (
+              SELECT DBID, INST_ID, MAX(PREDICTION_DT) PREDICTION_DT
+                FROM MEMORY_LIMIT_PREDICTION
+              GROUP BY DBID, INST_ID
+             ) A
+           , MEMORY_LIMIT_PREDICTION B
+           , DB_PREF DP
+           , DB_PRIV DB
+         WHERE A.DBID = B.DBID
+         AND A.INST_ID = B.INST_ID
+         AND A.PREDICTION_DT = B.PREDICTION_DT
+         AND A.DBID = DP.DBID
+         AND B.DBID = DB.DBID
+         AND B.INST_ID = DB.INST_ID
+         AND AFTER_3_MONTH_MEM_USAGE >= (B.PHYSICAL_MEMORY_SIZE * DP.MEM_THRESHOLD) / 100
+      )
+      SELECT
+         	DB.DB_NAME,
+            DB.INST_ID,                    --인스턴스
+            DB.INST_NM,                    --인스턴스
+            DB.RGB_COLOR_VALUE,            --RGB_COLOR_VALUE
+            NVL(CP.CPU_CORE_CNT,0) CPU_CORE_CNT,               --CPU-CORE수
+            NVL(CP.CURRENT_CPU_USAGE,0) CURRENT_CPU_USAGE,          --CPU-현재
+            NVL(CP.CPU_INCREASE_RATIO,0) CPU_INCREASE_RATIO,         --CPU-증가
+            NVL(ME.PHYSICAL_MEMORY_SIZE,0) PHYSICAL_MEMORY_SIZE,       --MEMORY-메모리
+            NVL(ME.CURRENT_MEM_USAGE,0) CURRENT_MEM_USAGE,          --MEMORY-현재
+            NVL(ME.MEM_INCREASE_USAGE,0) MEM_INCREASE_USAGE,         --MEMORY-증가
+            --HIDDEN 그래프: CPU
+            CP.BEFORE_3_MONTH_CPU_USAGE,   --CPU-3개월전
+            CP.BEFORE_2_MONTH_CPU_USAGE,   --CPU-2개월전
+            CP.BEFORE_1_MONTH_CPU_USAGE,   --CPU-1개월전
+            CP.CURRENT_CPU_USAGE_B,        --CPU-현재
+            CP.AFTER_1_MONTH_CPU_USAGE,    --CPU-1개월후
+            CP.AFTER_2_MONTH_CPU_USAGE,    --CPU-2개월후
+            CP.AFTER_3_MONTH_CPU_USAGE,    --CPU-3개월후
+            --HIDDEN 그래프: MEM
+            ME.BEFORE_3_MONTH_MEM_USAGE,   --MEMORY-3개월전
+            ME.BEFORE_2_MONTH_MEM_USAGE,   --MEMORY-2개월전
+            ME.BEFORE_1_MONTH_MEM_USAGE,   --MEMORY-1개월전
+            ME.CURRENT_MEM_USAGE_B,        --MEMORY-현재
+            ME.AFTER_1_MONTH_MEM_USAGE,    --MEMORY-1개월후
+            ME.AFTER_2_MONTH_MEM_USAGE,    --MEMORY-2개월후
+            ME.AFTER_3_MONTH_MEM_USAGE,    --MEMORY-3개월
+            --HIDDEN
+            DB.DBID,
+            DB.INST_ID,
+            CP.PREDICTION_DT AS CPU_PREDICTION_DT, --CPU-예측일시
+            ME.PREDICTION_DT AS MEM_PREDICTION_DT  --MEMORY-예측일시
+        FROM DB_PRIV DB
+           , CPU_PRED CP
+           , MEM_PRED ME
+       WHERE DB.DBID = CP.DBID(+)
+         AND DB.INST_ID = CP.INST_ID(+)
+         AND DB.DBID = ME.DBID(+)
+         AND DB.INST_ID = ME.INST_ID(+)
+         AND NVL(CP.CPU_CORE_CNT, 0) + NVL(ME.PHYSICAL_MEMORY_SIZE, 0) > 0
+		ORDER BY DB.ORDERING, DB.INST_ID
+	</select>
+
+	<select id="getTablespacePresentConditionDBList" parameterType="tablespaceLimitPoint" resultType="tablespaceLimitPoint">
+	/* DashBoardV2Dao.getTablespacePresentConditionDBList */
+    WITH DB_PRIV AS  --로그인한 DBA가 담당하는 DB목록
+    (
+        SELECT /*+ MATERIALIZE */
+               UDP.DBID, DB.DB_NAME, DB.ORDERING
+        FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB
+        WHERE UDP.USER_ID = U.USER_ID
+        AND UDP.DBID = DB.DBID
+        AND DB.USE_YN = 'Y'
+        AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+        AND U.USER_ID = #{user_id} -- 로그인ID  /****************** PARAMETER ***********************/
+            AND DB.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001') 
+    )
+    ,DB_PREF AS /* SEQUENCE자원 한계값 기준정보 */
+    (
+        SELECT /*+ MATERIALIZE */
+               A.DBID,
+               TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS TABLESPACE_THRESHOLD
+        FROM (SELECT /*+ LEADING(DB) */
+                     DB.DBID, SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+              FROM SPOP_PREFERENCES SP, DB_PRIV DB
+              WHERE PREF_ID IN (21005)) A,
+             (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                           , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                        FROM DB_PREFERENCES B
+                       WHERE PREF_ID IN (21005)
+                      ) 
+               WHERE PREF_SEQ = MAX_PREF_SEQ       
+              ) B        
+         WHERE A.DBID = B.DBID(+)
+           AND A.PREF_ID = B.PREF_ID(+)
+    )
+    SELECT DB.DB_NAME,             --DB
+           COUNT(*) CNT,           --대상
+               --HIDDEN
+               B.DBID
+      FROM (SELECT DBID, MAX(PREDICTION_DT) PREDICTION_DT
+            FROM TS_LIMIT_PREDICTION
+            GROUP BY DBID) A,
+           TS_LIMIT_PREDICTION B,
+           DB_PREF DP,
+           DB_PRIV DB
+    WHERE A.DBID = B.DBID
+    AND A.PREDICTION_DT = B.PREDICTION_DT
+    AND A.DBID = DP.DBID
+    AND B.DBID = DB.DBID
+    AND AFTER_3_MONTH_TS_USED_PERCENT >= DP.TABLESPACE_THRESHOLD
+    GROUP BY DB.DB_NAME, B.DBID, DB.ORDERING
+    ORDER BY DB.ORDERING
+	</select>
+	
+	<select id="getTablespacePresentConditionChartLegendList" parameterType="tablespaceLimitPoint" resultType="tablespaceLimitPoint">
+		/* SpaceAnalysisDao.getTablespacePresentConditionChartLegendList */
+	    WITH DB_PREF AS /* TABLESPACE 자원 한계값 기준정보 */
+	    (
+	        SELECT /*+ MATERIALIZE */
+	               TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS TABLESPACE_THRESHOLD
+	        FROM (SELECT /*+ LEADING(DB) */
+	                     SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+	              FROM SPOP_PREFERENCES SP
+	              WHERE PREF_ID IN (21005)) A,
+	             (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+	                FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+	                           , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+	                        FROM DB_PREFERENCES
+	                       WHERE DBID = #{dbid}              /****************** PARAMETER ***********************/
+	                         AND PREF_ID IN (21005)
+	                     )
+	               WHERE PREF_SEQ = MAX_PREF_SEQ          
+	             ) B
+	         WHERE A.PREF_ID = B.PREF_ID(+)
+	    )
+        SELECT *
+        FROM (
+		    SELECT 
+		           DISTINCT B.TABLESPACE_NAME,'BEFORE_3_MONTH_TS_USED_PERCENT' PERIOD,AFTER_3_MONTH_TS_USED_PERCENT
+		      FROM (SELECT MAX(PREDICTION_DT) PREDICTION_DT
+		            FROM TS_LIMIT_PREDICTION
+		            WHERE DBID = #{dbid}) A,    /****************** PARAMETER ***********************/
+		           TS_LIMIT_PREDICTION B,
+		           TS_LIMIT_PREDICTION_DETAIL C,
+		           DB_PREF DP
+		    WHERE B.DBID = #{dbid} /****************** PARAMETER ***********************/
+		    AND A.PREDICTION_DT = B.PREDICTION_DT
+		    AND B.PREDICTION_DT = C.PREDICTION_DT
+		    AND B.DBID = C.DBID
+		    AND B.TABLESPACE_NAME = C.TABLESPACE_NAME
+		    AND C.BASE_DAY = (SELECT MAX(BASE_DAY) FROM TS_LIMIT_PREDICTION_DETAIL WHERE PREDICTION_DT = C.PREDICTION_DT AND DBID = C.DBID AND TABLESPACE_NAME = C.TABLESPACE_NAME)
+		    AND AFTER_3_MONTH_TS_USED_PERCENT >= DP.TABLESPACE_THRESHOLD
+		    ORDER BY AFTER_3_MONTH_TS_USED_PERCENT DESC)
+		WHERE ROWNUM <![CDATA[<=]]> 10
+	</select>
+		
+	<select id="getTablespacePresentConditionList" parameterType="tablespaceLimitPoint" resultType="tablespaceLimitPoint">
+		/* DashBoardV2Dao.getTablespacePresentConditionList*/
+		WITH DB_PREF AS /* TABLESPACE 자원 한계값 기준정보 */
+		(
+			SELECT /*+ MATERIALIZE */
+				   TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS TABLESPACE_THRESHOLD
+			FROM (SELECT /*+ LEADING(DB) */
+						 SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+				  FROM SPOP_PREFERENCES SP
+				  WHERE PREF_ID IN (21005)) A,
+				 (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+				    FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+				               , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+					          FROM DB_PREFERENCES B
+				           WHERE DBID = #{dbid}              /****************** PARAMETER ***********************/
+				             AND PREF_ID IN (21005)
+				          )
+				   WHERE PREF_SEQ = MAX_PREF_SEQ           
+				 ) B
+			 WHERE A.PREF_ID = B.PREF_ID(+)
+		)
+		SELECT (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.TABLESPACE_NAME ELSE '......' END) AS TABLESPACE_NAME,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.TABLESPACE_SIZE ELSE NULL END) AS TABLESPACE_SIZE,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.CURRENT_TS_USED_SPACE ELSE NULL END) AS CURRENT_TS_USED_SPACE,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.CURRENT_TS_USED_PERCENT ELSE NULL END) AS CURRENT_TS_USED_PERCENT,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.BEFORE_3_MONTH_TS_USED_PERCENT ELSE NULL END) AS BEFORE_3_MONTH_TS_USED_PERCENT,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.BEFORE_2_MONTH_TS_USED_PERCENT ELSE NULL END) AS BEFORE_2_MONTH_TS_USED_PERCENT,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.BEFORE_1_MONTH_TS_USED_PERCENT ELSE NULL END) AS BEFORE_1_MONTH_TS_USED_PERCENT,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.CURRENT_TS_USED_PERCENT_B ELSE NULL END) AS CURRENT_TS_USED_PERCENT_B,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.AFTER_1_MONTH_TS_USED_PERCENT ELSE NULL END) AS AFTER_1_MONTH_TS_USED_PERCENT,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.AFTER_2_MONTH_TS_USED_PERCENT ELSE NULL END) AS AFTER_2_MONTH_TS_USED_PERCENT,
+               (CASE WHEN A.RNUM  <![CDATA[<=]]>  10 THEN A.AFTER_3_MONTH_TS_USED_PERCENT ELSE NULL END) AS AFTER_3_MONTH_TS_USED_PERCENT,
+               PREDICTION_DATE,
+               DBID
+		FROM (
+			SELECT 
+				   B.TABLESPACE_NAME,        --TABLESPACE
+				   ROUND(C.TABLESPACE_SIZE/1024/1024/1024, 2) AS TABLESPACE_SIZE,   --할당량(GB)
+	           		ROUND(B.CURRENT_TS_USED_SPACE/1024/1024/1024, 2) AS CURRENT_TS_USED_SPACE,   --사용량(GB)
+					   B.CURRENT_TS_USED_PERCENT,  --사용률                          
+					   --> hidden: Graph 시작
+				   B.BEFORE_3_MONTH_TS_USED_PERCENT,              --3개월전
+				   B.BEFORE_2_MONTH_TS_USED_PERCENT,              --2개월전   
+				   B.BEFORE_1_MONTH_TS_USED_PERCENT,              --1개월전
+				   B.CURRENT_TS_USED_PERCENT AS CURRENT_TS_USED_PERCENT_B,     --현재
+				   B.AFTER_1_MONTH_TS_USED_PERCENT,               --1개월후
+				   B.AFTER_2_MONTH_TS_USED_PERCENT,               --2개월후 
+				   B.AFTER_3_MONTH_TS_USED_PERCENT,               --3개월후
+					   --> hidden: Graph 종료
+				   TO_CHAR(B.PREDICTION_DT,'YYYY/MM/DD HH24:MI:SS') PREDICTION_DATE, 
+				   B.DBID,
+                   ROW_NUMBER() OVER(ORDER BY AFTER_3_MONTH_TS_USED_PERCENT DESC) RNUM
+			  FROM (SELECT MAX(PREDICTION_DT) PREDICTION_DT
+					FROM TS_LIMIT_PREDICTION
+					WHERE DBID = #{dbid}) A,    /****************** PARAMETER ***********************/
+				   TS_LIMIT_PREDICTION B,
+				   TS_LIMIT_PREDICTION_DETAIL C,
+				   DB_PREF DP
+			WHERE B.DBID = #{dbid} /****************** PARAMETER ***********************/
+			AND A.PREDICTION_DT = B.PREDICTION_DT
+			AND B.PREDICTION_DT = C.PREDICTION_DT
+			AND B.DBID = C.DBID
+			AND B.TABLESPACE_NAME = C.TABLESPACE_NAME
+			AND C.BASE_DAY = (SELECT MAX(BASE_DAY) FROM TS_LIMIT_PREDICTION_DETAIL WHERE PREDICTION_DT = C.PREDICTION_DT AND DBID = C.DBID AND TABLESPACE_NAME = C.TABLESPACE_NAME)
+				AND AFTER_3_MONTH_TS_USED_PERCENT >= DP.TABLESPACE_THRESHOLD
+			ORDER BY AFTER_3_MONTH_TS_USED_PERCENT DESC) A
+         , (SELECT LEVEL RNUM FROM DUAL CONNECT BY LEVEL  <![CDATA[<=]]>  11) B
+		WHERE A.RNUM = B.RNUM
+          AND ROWNUM <![CDATA[<=]]> 11
+	</select>
+
+	<select id="getTablespacePresentConditionChart" parameterType="tablespaceLimitPoint" resultType="tablespaceLimitPoint">
+		/* DashBoardV2Dao.getTablespacePresentConditionChart */
+	    WITH DB_PREF AS /* TABLESPACE 자원 한계값 기준정보 */
+	    (
+	        SELECT /*+ MATERIALIZE */
+	               TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS TABLESPACE_THRESHOLD
+	        FROM (SELECT /*+ LEADING(DB) */
+	                     SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+	              FROM SPOP_PREFERENCES SP
+	              WHERE PREF_ID IN (21005)) A,
+	             (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+	                FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+	                           , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+	                        FROM DB_PREFERENCES
+	                       WHERE DBID = #{dbid}              /****************** PARAMETER ***********************/
+	                         AND PREF_ID IN (21005)
+	                     )
+	               WHERE PREF_SEQ = MAX_PREF_SEQ          
+	             ) B
+	         WHERE A.PREF_ID = B.PREF_ID(+)
+	    )
+		SELECT TABLESPACE_NAME
+		,DECODE(LV
+			,1,'3개월전'
+			,2,'2개월전'
+			,3,'1개월전'
+			,4,'현재'
+			,5,'1개월후'
+			,6,'2개월후'
+			,7,'3개월후'
+		) PERIOD
+		,DECODE(LV
+			,1,BEFORE_3_MONTH_TS_USED_PERCENT
+			,2,BEFORE_2_MONTH_TS_USED_PERCENT
+			,3,BEFORE_1_MONTH_TS_USED_PERCENT
+			,4,CURRENT_TS_USED_PERCENT_B
+			,5,AFTER_1_MONTH_TS_USED_PERCENT
+			,6,AFTER_2_MONTH_TS_USED_PERCENT
+			,7,AFTER_3_MONTH_TS_USED_PERCENT
+		) MONTH_TS_USED_PERCENT
+		FROM(    
+	        SELECT *
+	        FROM (
+			    SELECT 
+			           B.TABLESPACE_NAME,        --TABLESPACE
+			           ROUND(C.TABLESPACE_SIZE/1024/1024/1024, 2) AS TABLESPACE_SIZE,   --할당량(GB)
+	           			ROUND(B.CURRENT_TS_USED_SPACE/1024/1024/1024, 2) AS CURRENT_TS_USED_SPACE,   --사용량(GB)
+			               B.CURRENT_TS_USED_PERCENT,  --사용률                          
+			               --> hidden: Graph 시작
+			           B.BEFORE_3_MONTH_TS_USED_PERCENT,              --3개월전
+			           B.BEFORE_2_MONTH_TS_USED_PERCENT,              --2개월전   
+			           B.BEFORE_1_MONTH_TS_USED_PERCENT,              --1개월전
+			           B.CURRENT_TS_USED_PERCENT AS CURRENT_TS_USED_PERCENT_B,     --현재
+			           B.AFTER_1_MONTH_TS_USED_PERCENT,               --1개월후
+			           B.AFTER_2_MONTH_TS_USED_PERCENT,               --2개월후 
+			           B.AFTER_3_MONTH_TS_USED_PERCENT,               --3개월후
+			               --> hidden: Graph 종료
+			           TO_CHAR(B.PREDICTION_DT,'YYYY/MM/DD HH24:MI:SS') PREDICTION_DATE, 
+			           B.DBID
+			      FROM (SELECT MAX(PREDICTION_DT) PREDICTION_DT
+			            FROM TS_LIMIT_PREDICTION
+			            WHERE DBID = #{dbid}) A,    /****************** PARAMETER ***********************/
+			           TS_LIMIT_PREDICTION B,
+			           TS_LIMIT_PREDICTION_DETAIL C,
+			           DB_PREF DP
+			    WHERE B.DBID = #{dbid} /****************** PARAMETER ***********************/
+			    AND A.PREDICTION_DT = B.PREDICTION_DT
+			    AND B.PREDICTION_DT = C.PREDICTION_DT
+			    AND B.DBID = C.DBID
+			    AND B.TABLESPACE_NAME = C.TABLESPACE_NAME
+			    AND C.BASE_DAY = (SELECT MAX(BASE_DAY) FROM TS_LIMIT_PREDICTION_DETAIL WHERE PREDICTION_DT = C.PREDICTION_DT AND DBID = C.DBID AND TABLESPACE_NAME = C.TABLESPACE_NAME)
+			    AND AFTER_3_MONTH_TS_USED_PERCENT >= DP.TABLESPACE_THRESHOLD
+	            ORDER BY AFTER_3_MONTH_TS_USED_PERCENT DESC
+	            )
+	        WHERE ROWNUM <![CDATA[<=]]> 10
+		),
+		(SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL <![CDATA[<=]]> 7)
+        ORDER BY TABLESPACE_NAME, LV
+	</select>
+	
+	<select id="getSequencePresentConditionDBList" parameterType="sequenceLimitPoint" resultType="sequenceLimitPoint">
+	/* DashBoardV2Dao.getSequencePresentConditionDBList */
+    WITH DB_PRIV AS  --로그인한 DBA가 담당하는 DB목록
+    (
+        SELECT /*+ MATERIALIZE */
+               UDP.DBID, DB.DB_NAME, DB.ORDERING
+        FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB
+        WHERE UDP.USER_ID = U.USER_ID
+        AND UDP.DBID = DB.DBID
+        AND DB.USE_YN = 'Y'
+        AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+        AND U.USER_ID = #{user_id} -- 로그인ID
+            AND DB.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001') 
+    )
+    ,DB_PREF AS /* SEQUENCE자원 한계값 기준정보 */
+    (
+        SELECT /*+ MATERIALIZE */
+               A.DBID,
+               TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS SEQUENCE_THRESHOLD
+        FROM (SELECT /*+ LEADING(DB) */
+                     DB.DBID, SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+              FROM SPOP_PREFERENCES SP, DB_PRIV DB
+              WHERE PREF_ID IN (21004)) A,
+             (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                           , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                        FROM DB_PREFERENCES 
+                       WHERE PREF_ID IN (21004)
+                     )
+               WHERE PREF_SEQ = MAX_PREF_SEQ        
+             ) B
+         WHERE A.DBID = B.DBID(+)
+           AND A.PREF_ID = B.PREF_ID(+)
+    )
+    SELECT DB.DB_NAME,               --DB
+           COUNT(*) CNT,             --대상  
+           --HIDDEN
+           B.DBID
+      FROM (SELECT DBID, MAX(PREDICTION_DT) PREDICTION_DT
+            FROM SEQ_LIMIT_PREDICTION
+            GROUP BY DBID) A,
+           SEQ_LIMIT_PREDICTION B,
+           DB_PREF DP,
+           DB_PRIV DB
+    WHERE A.DBID = B.DBID
+    AND A.PREDICTION_DT = B.PREDICTION_DT
+    AND A.DBID = DP.DBID
+    AND B.DBID = DB.DBID
+    AND AFTER_3_MONTH_SEQUENCE_RATIO >= DP.SEQUENCE_THRESHOLD
+    GROUP BY DB.DB_NAME, B.DBID, DB.ORDERING
+    ORDER BY DB.ORDERING
+	</select>
+	<select id="getSequencePresentConditionList" parameterType="sequenceLimitPoint" resultType="sequenceLimitPoint">
+	/* DashBoardV2Dao.getSequencePresentConditionList */
+    WITH DB_PREF AS /* SEQUENCE자원 한계값 기준정보 */
+    (
+        SELECT /*+ MATERIALIZE */
+               TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS SEQUENCE_THRESHOLD
+        FROM (SELECT /*+ LEADING(DB) */
+                     SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+              FROM SPOP_PREFERENCES SP
+              WHERE PREF_ID IN (21004)) A,
+             (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                           , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                        FROM DB_PREFERENCES 
+                       WHERE DBID = #{dbid}  /****************** PARAMETER ***********************/
+                         AND PREF_ID IN (21004)
+                     )
+               WHERE PREF_SEQ = MAX_PREF_SEQ           
+             ) B
+         WHERE A.PREF_ID = B.PREF_ID(+)
+    )
+    SELECT 
+           B.SEQUENCE_NAME,                 --SEQUENCE
+           B.CURRENT_SEQUENCE_VALUE ,       --CUR VALUE
+           C.SEQUENCE_MAX_VALUE,            --MAX VALUE
+           ROUND(B.CURRENT_SEQUENCE_RATIO,4) CURRENT_SEQUENCE_RATIO,        --사용률
+              --> hidden: Graph 시작
+           B.BEFORE_3_MONTH_SEQUENCE_RATIO, /*"3개월전 SEQ사용율(%)"*/
+           B.BEFORE_2_MONTH_SEQUENCE_RATIO, /*"2개월전 SEQ사용율(%)"*/
+           B.BEFORE_1_MONTH_SEQUENCE_RATIO, /*"1개월전 SEQ사용율(%)"*/
+           B.CURRENT_SEQUENCE_RATIO AS CURRENT_SEQUENCE_RATIO_B, /*"현재 SEQ사용율(%)"*/
+           B.AFTER_1_MONTH_SEQUENCE_RATIO, /*"1개월후 SEQ사용율(%)"*/
+           B.AFTER_2_MONTH_SEQUENCE_RATIO, /*"2개월후 SEQ사용율(%)"*/
+           B.AFTER_3_MONTH_SEQUENCE_RATIO, /*"3개월후 SEQ사용율(%)"*/
+              --> hidden: Graph 종료
+               B.SEQUENCE_OWNER,
+           B.PREDICTION_DT, 
+           B.DBID
+      FROM (SELECT MAX(PREDICTION_DT) PREDICTION_DT
+            FROM SEQ_LIMIT_PREDICTION
+            WHERE DBID = #{dbid}) A,       /****************** PARAMETER ***********************/
+           SEQ_LIMIT_PREDICTION B,
+           SEQ_LIMIT_PREDICTION_DETAIL C,
+           DB_PREF DP
+    WHERE B.DBID = #{dbid}                /****************** PARAMETER ***********************/
+    AND A.PREDICTION_DT = B.PREDICTION_DT
+    AND B.PREDICTION_DT = C.PREDICTION_DT
+    AND B.DBID = C.DBID
+    AND B.SEQUENCE_OWNER = C.SEQUENCE_OWNER
+    AND B.SEQUENCE_NAME = C.SEQUENCE_NAME
+    AND C.BASE_DAY = (SELECT MAX(BASE_DAY) FROM SEQ_LIMIT_PREDICTION_DETAIL WHERE PREDICTION_DT = C.PREDICTION_DT AND DBID = C.DBID AND SEQUENCE_OWNER = C.SEQUENCE_OWNER AND SEQUENCE_NAME = C.SEQUENCE_NAME)
+      AND AFTER_3_MONTH_SEQUENCE_RATIO >= DP.SEQUENCE_THRESHOLD
+        ORDER BY AFTER_3_MONTH_SEQUENCE_RATIO DESC
+	</select>
+
+	<select id="getNewSQLTimeoutPredictionList" parameterType="newSQLTimeoutPrediction" resultType="newSQLTimeoutPrediction">
+	/* DashBoardV2Dao.getNewSQLTimeoutPredictionList */
+      WITH DB_PRIV AS
+      (
+          SELECT UDP.DBID, D.DB_NAME, D.ORDERING, D.RGB_COLOR_ID, E.RGB_COLOR_VALUE
+          FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D, RGB_COLOR E
+          WHERE UDP.USER_ID = U.USER_ID
+          AND UDP.DBID = D.DBID
+          AND D.USE_YN = 'Y'
+          AND D.RGB_COLOR_ID = E.RGB_COLOR_ID(+)
+          AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+          AND U.USER_ID = #{user_id}  --> 사용자 /****************** PARAMETER ***********************/
+          AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001')           
+      )
+    ,PREF AS
+    (
+      SELECT A.DBID
+            ,MIN(A.DB_NAME) AS DB_NAME 
+            ,MIN(A.RGB_COLOR_VALUE) AS RGB_COLOR_VALUE
+            ,MIN(A.ORDERING) AS ORDERING
+            ,MAX(CASE WHEN A.PREF_ID = 21010 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS APP_TIMEOUT_TIME    -- 애플리케이션 타임아웃 예측 임계값
+            ,MAX(CASE WHEN A.PREF_ID = 21011 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS PREDICTION_BASE_DAY -- 신규 애플리케이션 타임아웃 예측 대상 선정 기준일
+            ,MAX(CASE WHEN A.PREF_ID = 21012 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS EXEC_MIN_DAY        -- 신규 애플리케이션 타임아웃 예측 대상 선정 최소 발생일 수
+      FROM (
+            SELECT A.DBID, A.DB_NAME, A.RGB_COLOR_ID, A.ORDERING, B.PREF_ID, B.DEFAULT_PREF_VALUE, C.RGB_COLOR_VALUE
+              FROM DB_PRIV A
+                 , SPOP_PREFERENCES B
+                 , RGB_COLOR C
+            WHERE B.PREF_ID IN (21010, 21011, 21012)
+              AND A.RGB_COLOR_ID = C.RGB_COLOR_ID(+)
+           ) A 
+         , (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+              FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                         , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                      FROM DB_PREFERENCES B
+                     WHERE PREF_ID IN (21010, 21011, 21012)
+                   )
+             WHERE PREF_SEQ = MAX_PREF_SEQ        
+           ) B
+      WHERE A.DBID = B.DBID(+)
+      AND A.PREF_ID = B.PREF_ID(+)
+      GROUP BY A.DBID
+    )
+    SELECT         
+        MIN(B.DB_NAME) AS DB_NAME,          --DB
+        MIN(B.RGB_COLOR_VALUE) AS RGB_COLOR_VALUE,           
+        COUNT(*) AS TOTAL_CNT,   
+        NVL(SUM(
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1
+                     WHEN A.AFTER_1_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 
+                     WHEN A.AFTER_2_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 
+                     WHEN A.AFTER_3_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1
+                     ELSE 0 END), 0) AS ALL_TIMEOUT_CNT,
+<!-- 		5 TOTAL_CNT, -->
+                        --대상
+        NVL(SUM(
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_1_WEEK_ELAPSED_TIME,  --1주후
+        NVL(SUM(        
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_1_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_1_MONTH_ELAPSED_TIME, --1개월후
+        NVL(SUM(                                      
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_1_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_2_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_2_MONTH_ELAPSED_TIME, --2개월후
+        NVL(SUM(                                                 
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_1_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_2_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_3_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_3_MONTH_ELAPSED_TIME, --3개월후
+        -- HIDDEN                  
+        A.DBID,
+        MIN(B.ORDERING) AS ORDERING
+    FROM NEW_SQL_TO_PREDICTION A, PREF B
+    WHERE A.DBID = B.DBID
+    AND A.PERF_PREDICTION_TARGET_YN = 'Y'
+    AND A.EXCEPT_YN = 'N'                                               --> 조건추가
+    AND FIRST_EXEC_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD')  --> 조건추가(최근3개월)    
+    GROUP BY A.DBID
+    ORDER BY ORDERING
+	</select>
+
+	<select id="getNewAppTimeoutPredictList" parameterType="newAppTimeoutPrediction" resultType="newAppTimeoutPrediction">
+	/* DashBoardV2Dao.getNewAppTimeoutPredictList */
+    WITH WRKJOB_PREF AS 
+    (
+      SELECT A.WRKJOB_CD
+           , MIN(WRKJOB_CD_NM) AS WRKJOB_CD_NM
+           , MAX(CASE WHEN A.PREF_ID = 21006 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS APP_TIMEOUT_TIME    
+           , MAX(CASE WHEN A.PREF_ID = 21007 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS PREDICTION_BASE_DAY 
+           , MAX(CASE WHEN A.PREF_ID = 21008 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS EXEC_MIN_DAY        
+      FROM (SELECT A.WRKJOB_CD, WRKJOB_CD_NM, B.PREF_ID, B.DEFAULT_PREF_VALUE
+          FROM WRKJOB_CD A, SPOP_PREFERENCES B
+          WHERE B.PREF_ID IN (21006, 21007, 21008)) A 
+        ,(SELECT WRKJOB_CD,  PREF_ID, PREF_SEQ, PREF_VALUE, MAX(PREF_SEQ) OVER(PARTITION BY WRKJOB_CD, PREF_ID) MAX_PREF_SEQ
+          FROM WRKJOB_PREFERENCES B
+          WHERE PREF_ID IN (21006, 21007, 21008)) B
+      WHERE A.WRKJOB_CD = B.WRKJOB_CD(+)
+      AND A.PREF_ID = B.PREF_ID(+)
+      AND B.PREF_SEQ(+) = B.MAX_PREF_SEQ(+)
+      GROUP BY A.WRKJOB_CD
+    )
+    SELECT  
+           MIN(B.WRKJOB_CD_NM) AS WRKJOB_CD_NM,               --업무
+           COUNT(*) TOTAL_CNT,
+           NVL(SUM(
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1
+                        WHEN A.AFTER_1_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 
+                        WHEN A.AFTER_2_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 
+                        WHEN A.AFTER_3_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1
+                        ELSE 0 END), 0) AS ALL_TIMEOUT_CNT,         --계            
+           NVL(SUM(
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_1_WEEK_ELAPSED_TIME,  --1주일후
+           NVL(SUM(        
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_1_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_1_MONTH_ELAPSED_TIME, --1개월후
+           NVL(SUM(                                      
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_1_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_2_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_2_MONTH_ELAPSED_TIME, --2개월후
+           NVL(SUM(                                                 
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_1_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_2_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_3_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_3_MONTH_ELAPSED_TIME, --3개월후
+           -- HIDDEN                  
+           A.WRKJOB_CD                              
+    FROM NEW_APP_TO_PREDICTION A, WRKJOB_PREF B
+    WHERE A.WRKJOB_CD = B.WRKJOB_CD
+    AND A.PERF_PREDICTION_TARGET_YN = 'Y'
+    AND A.EXCEPT_YN = 'N'                                               --> 조건추가
+    AND FIRST_EXEC_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD')  --> 조건추가(최근3개월)
+    GROUP BY A.WRKJOB_CD
+    ORDER BY A.WRKJOB_CD
+	</select>
+
+	<select id="getResourceLimitPointPredictionChartLegendList" parameterType="resourceLimitPrediction" resultType="resourceLimitPrediction">
+	/* DashBoardV2Dao.getResourceLimitPointPredictionChartLegendList */
+      WITH DB_PRIV AS
+      (
+         SELECT /*+ MATERIALIZE */
+            UDP.DBID, DB.DB_NAME, DB.ORDERING, I.INST_ID, I.INST_NM, R.RGB_COLOR_VALUE
+         FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB, INSTANCE I, RGB_COLOR R
+         WHERE UDP.USER_ID = U.USER_ID
+         AND I.RGB_COLOR_ID = R.RGB_COLOR_ID
+         AND UDP.DBID = DB.DBID
+         AND DB.DBID = I.DBID
+         AND DB.USE_YN = 'Y'
+         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+         AND U.USER_ID = #{user_id} -- 로그인ID  /****************** PARAMETER ***********************/
+         AND DB.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE
+                                        FROM SPOP_PREFERENCES
+                                       WHERE PREF_ID = '22001')
+      ), DB_PREF AS
+      (
+      SELECT A.DBID
+            ,MIN(A.DB_NAME) AS DB_NAME
+            ,MAX(CASE WHEN A.PREF_ID = 21003 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS CPU_THRESHOLD    -- CPU 예측 임계값
+            ,MAX(CASE WHEN A.PREF_ID = 21014 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS MEM_THRESHOLD    -- CPU 예측 임계값
+      FROM (
+            SELECT A.DBID, A.DB_NAME, B.PREF_ID, B.DEFAULT_PREF_VALUE
+              FROM DB_PRIV A
+                 , SPOP_PREFERENCES B
+            WHERE B.PREF_ID IN (21003, 21014)
+           ) A
+         , (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+              FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                         , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                      FROM DB_PREFERENCES B
+                     WHERE PREF_ID IN (21003, 21014)
+                   )
+             WHERE PREF_SEQ = MAX_PREF_SEQ        
+           ) B
+      WHERE A.DBID = B.DBID(+)
+      AND A.PREF_ID = B.PREF_ID(+)
+      GROUP BY A.DBID
+      )
+      , CPU_PRED AS (
+         SELECT
+            DB.INST_NM,                    --인스턴스
+            DPR.VALUE AS CPU_CORE_CNT,     --CORE수
+            CURRENT_CPU_USAGE,             --현재
+            (AFTER_3_MONTH_CPU_USAGE - CURRENT_CPU_USAGE) AS CPU_INCREASE_RATIO, --증가
+            --HIDDEN 그래프
+            BEFORE_3_MONTH_CPU_USAGE,
+            BEFORE_2_MONTH_CPU_USAGE,
+            BEFORE_1_MONTH_CPU_USAGE,
+            CURRENT_CPU_USAGE AS CURRENT_CPU_USAGE_B,
+            AFTER_1_MONTH_CPU_USAGE,
+            AFTER_2_MONTH_CPU_USAGE,
+            AFTER_3_MONTH_CPU_USAGE,
+            --HIDDEN
+            B.DBID,
+            B.INST_ID,
+            TO_CHAR(B.PREDICTION_DT, 'YYYY/MM/DD HH24:MI:SS') AS PREDICTION_DT
+         FROM
+             (
+              SELECT DBID, INST_ID, MAX(PREDICTION_DT) PREDICTION_DT
+                FROM CPU_LIMIT_PREDICTION
+              GROUP BY DBID, INST_ID
+             ) A
+           , CPU_LIMIT_PREDICTION B
+           , DB_PREF DP
+           , DB_PRIV DB
+           , DB_PARAMETER_HISTORY DPR
+         WHERE A.DBID = B.DBID
+         AND A.INST_ID = B.INST_ID
+         AND A.PREDICTION_DT = B.PREDICTION_DT
+         AND A.DBID = DP.DBID
+         AND B.DBID = DB.DBID
+         AND B.INST_ID = DB.INST_ID
+         AND AFTER_3_MONTH_CPU_USAGE >= DP.CPU_THRESHOLD
+         AND DB.DBID = DPR.DBID
+         AND DB.INST_ID = DPR.INSTANCE_NUMBER
+         AND DPR.PARAMETER_HASH = 1095434542
+         AND DPR.PARAMETER_CHG_DT = (SELECT MAX(PARAMETER_CHG_DT)
+                                       FROM DB_PARAMETER_HISTORY
+                                      WHERE DBID = DB.DBID
+                                        AND INSTANCE_NUMBER = DB.INST_ID
+                                        AND PARAMETER_HASH = 1095434542  -- cpu_count
+                                     )
+      )
+      , MEM_PRED AS (
+        SELECT
+            DB.INST_NM,                  --인스턴스
+            PHYSICAL_MEMORY_SIZE,        --메모리
+            CURRENT_MEM_USAGE,           --현재
+            (AFTER_3_MONTH_MEM_USAGE - CURRENT_MEM_USAGE) AS MEM_INCREASE_USAGE, --증가
+            --HIDDEN 그래프
+            BEFORE_3_MONTH_MEM_USAGE,
+            BEFORE_2_MONTH_MEM_USAGE,
+            BEFORE_1_MONTH_MEM_USAGE,
+            CURRENT_MEM_USAGE AS CURRENT_MEM_USAGE_B,
+            AFTER_1_MONTH_MEM_USAGE,
+            AFTER_2_MONTH_MEM_USAGE,
+            AFTER_3_MONTH_MEM_USAGE,
+            --HIDDEN
+            B.DBID,
+            B.INST_ID,
+            TO_CHAR(B.PREDICTION_DT, 'YYYY/MM/DD HH24:MI:SS') AS PREDICTION_DT
+         FROM
+             (
+              SELECT DBID, INST_ID, MAX(PREDICTION_DT) PREDICTION_DT
+                FROM MEMORY_LIMIT_PREDICTION
+              GROUP BY DBID, INST_ID
+             ) A
+           , MEMORY_LIMIT_PREDICTION B
+           , DB_PREF DP
+           , DB_PRIV DB
+         WHERE A.DBID = B.DBID
+         AND A.INST_ID = B.INST_ID
+         AND A.PREDICTION_DT = B.PREDICTION_DT
+         AND A.DBID = DP.DBID
+         AND B.DBID = DB.DBID
+         AND B.INST_ID = DB.INST_ID
+         AND AFTER_3_MONTH_MEM_USAGE >= (B.PHYSICAL_MEMORY_SIZE * DP.MEM_THRESHOLD) / 100
+      )
+      SELECT
+           DISTINCT DB.INST_NM,'BEFORE_3_MONTH_TS_USED_PERCENT' PERIOD,DB.ORDERING
+        FROM DB_PRIV DB
+           , CPU_PRED CP
+           , MEM_PRED ME
+       WHERE DB.DBID = CP.DBID(+)
+         AND DB.INST_ID = CP.INST_ID(+)
+         AND DB.DBID = ME.DBID(+)
+         AND DB.INST_ID = ME.INST_ID(+)
+         AND NVL(CP.CPU_CORE_CNT, 0) + NVL(ME.PHYSICAL_MEMORY_SIZE, 0) > 0
+     ORDER BY DB.ORDERING
+	</select>
+	
+	<select id="getResourceLimitPointPredictionChart" parameterType="resourceLimitPrediction" resultType="resourceLimitPrediction">
+	/* DashBoardV2Dao.getResourceLimitPointPredictionChart */
+      WITH DB_PRIV AS
+      (
+         SELECT /*+ MATERIALIZE */
+            UDP.DBID, DB.DB_NAME, DB.ORDERING, I.INST_ID, I.INST_NM, R.RGB_COLOR_VALUE
+         FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB, INSTANCE I, RGB_COLOR R
+         WHERE UDP.USER_ID = U.USER_ID
+         AND I.RGB_COLOR_ID = R.RGB_COLOR_ID
+         AND UDP.DBID = DB.DBID
+         AND DB.DBID = I.DBID
+         AND DB.USE_YN = 'Y'
+         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+         AND U.USER_ID = #{user_id} -- 로그인ID  /****************** PARAMETER ***********************/
+         AND DB.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE
+                                        FROM SPOP_PREFERENCES
+                                       WHERE PREF_ID = '22001')
+      ), DB_PREF AS
+      (
+      SELECT A.DBID
+            ,MIN(A.DB_NAME) AS DB_NAME
+            ,MAX(CASE WHEN A.PREF_ID = 21003 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS CPU_THRESHOLD    -- CPU 예측 임계값
+            ,MAX(CASE WHEN A.PREF_ID = 21014 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS MEM_THRESHOLD    -- CPU 예측 임계값
+      FROM (
+            SELECT A.DBID, A.DB_NAME, B.PREF_ID, B.DEFAULT_PREF_VALUE
+              FROM DB_PRIV A
+                 , SPOP_PREFERENCES B
+            WHERE B.PREF_ID IN (21003, 21014)
+           ) A
+         , (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+              FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                         , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                      FROM DB_PREFERENCES B
+                     WHERE PREF_ID IN (21003, 21014)
+                   )  
+             WHERE PREF_SEQ = MAX_PREF_SEQ      
+           ) B
+      WHERE A.DBID = B.DBID(+)
+      AND A.PREF_ID = B.PREF_ID(+)
+      GROUP BY A.DBID
+      )
+      , CPU_PRED AS (
+         SELECT
+            DB.INST_NM,                    --인스턴스
+            DPR.VALUE AS CPU_CORE_CNT,     --CORE수
+            CURRENT_CPU_USAGE,             --현재
+            (AFTER_3_MONTH_CPU_USAGE - CURRENT_CPU_USAGE) AS CPU_INCREASE_RATIO, --증가
+            --HIDDEN 그래프
+            BEFORE_3_MONTH_CPU_USAGE,
+            BEFORE_2_MONTH_CPU_USAGE,
+            BEFORE_1_MONTH_CPU_USAGE,
+            CURRENT_CPU_USAGE AS CURRENT_CPU_USAGE_B,
+            AFTER_1_MONTH_CPU_USAGE,
+            AFTER_2_MONTH_CPU_USAGE,
+            AFTER_3_MONTH_CPU_USAGE,
+            --HIDDEN
+            B.DBID,
+            B.INST_ID,
+            TO_CHAR(B.PREDICTION_DT, 'YYYY/MM/DD HH24:MI:SS') AS PREDICTION_DT
+         FROM
+             (
+              SELECT DBID, INST_ID, MAX(PREDICTION_DT) PREDICTION_DT
+                FROM CPU_LIMIT_PREDICTION
+              GROUP BY DBID, INST_ID
+             ) A
+           , CPU_LIMIT_PREDICTION B
+           , DB_PREF DP
+           , DB_PRIV DB
+           , DB_PARAMETER_HISTORY DPR
+         WHERE A.DBID = B.DBID
+         AND A.INST_ID = B.INST_ID
+         AND A.PREDICTION_DT = B.PREDICTION_DT
+         AND A.DBID = DP.DBID
+         AND B.DBID = DB.DBID
+         AND B.INST_ID = DB.INST_ID
+         AND AFTER_3_MONTH_CPU_USAGE >= DP.CPU_THRESHOLD
+         AND DB.DBID = DPR.DBID
+         AND DB.INST_ID = DPR.INSTANCE_NUMBER
+         AND DPR.PARAMETER_HASH = 1095434542
+         AND DPR.PARAMETER_CHG_DT = (SELECT MAX(PARAMETER_CHG_DT)
+                                       FROM DB_PARAMETER_HISTORY
+                                      WHERE DBID = DB.DBID
+                                        AND INSTANCE_NUMBER = DB.INST_ID
+                                        AND PARAMETER_HASH = 1095434542  -- cpu_count
+                                     )
+      )
+      , MEM_PRED AS (
+        SELECT
+            DB.INST_NM,                  --인스턴스
+            PHYSICAL_MEMORY_SIZE,        --메모리
+            CURRENT_MEM_USAGE,           --현재
+            (AFTER_3_MONTH_MEM_USAGE - CURRENT_MEM_USAGE) AS MEM_INCREASE_USAGE, --증가
+            --HIDDEN 그래프
+            BEFORE_3_MONTH_MEM_USAGE,
+            BEFORE_2_MONTH_MEM_USAGE,
+            BEFORE_1_MONTH_MEM_USAGE,
+            CURRENT_MEM_USAGE AS CURRENT_MEM_USAGE_B,
+            AFTER_1_MONTH_MEM_USAGE,
+            AFTER_2_MONTH_MEM_USAGE,
+            AFTER_3_MONTH_MEM_USAGE,
+            --HIDDEN
+            B.DBID,
+            B.INST_ID,
+            TO_CHAR(B.PREDICTION_DT, 'YYYY/MM/DD HH24:MI:SS') AS PREDICTION_DT
+         FROM
+             (
+              SELECT DBID, INST_ID, MAX(PREDICTION_DT) PREDICTION_DT
+                FROM MEMORY_LIMIT_PREDICTION
+              GROUP BY DBID, INST_ID
+             ) A
+           , MEMORY_LIMIT_PREDICTION B
+           , DB_PREF DP
+           , DB_PRIV DB
+         WHERE A.DBID = B.DBID
+         AND A.INST_ID = B.INST_ID
+         AND A.PREDICTION_DT = B.PREDICTION_DT
+         AND A.DBID = DP.DBID
+         AND B.DBID = DB.DBID
+         AND B.INST_ID = DB.INST_ID
+         AND AFTER_3_MONTH_MEM_USAGE >= (B.PHYSICAL_MEMORY_SIZE * DP.MEM_THRESHOLD) / 100
+      )
+		SELECT DBID,INST_ID,INST_NM
+		,DECODE(LV
+			,1,'3개월전'
+			,2,'2개월전'
+			,3,'1개월전'
+			,4,'현재'
+			,5,'1개월후'
+			,6,'2개월후'
+			,7,'3개월후'
+		) PERIOD
+		,DECODE(LV
+			,1,BEFORE_3_MONTH_CPU_USAGE
+			,2,BEFORE_2_MONTH_CPU_USAGE
+			,3,BEFORE_1_MONTH_CPU_USAGE
+			,4,CURRENT_CPU_USAGE_B
+			,5,AFTER_1_MONTH_CPU_USAGE
+			,6,AFTER_2_MONTH_CPU_USAGE
+			,7,AFTER_3_MONTH_CPU_USAGE
+		) MONTH_CPU_USAGE
+		,DECODE(LV
+			,1,BEFORE_3_MONTH_MEM_USAGE
+			,2,BEFORE_2_MONTH_MEM_USAGE
+			,3,BEFORE_1_MONTH_MEM_USAGE
+			,4,CURRENT_MEM_USAGE_B
+			,5,AFTER_1_MONTH_MEM_USAGE
+			,6,AFTER_2_MONTH_MEM_USAGE
+			,7,AFTER_3_MONTH_MEM_USAGE
+		) MONTH_MEM_USAGE
+		FROM(      
+		      SELECT
+		         	DB.DB_NAME,
+		            DB.INST_NM,                    --인스턴스
+		            DB.RGB_COLOR_VALUE,            --RGB_COLOR_VALUE
+		            CP.CPU_CORE_CNT,               --CPU-CORE수
+		            CP.CURRENT_CPU_USAGE,          --CPU-현재
+		            CP.CPU_INCREASE_RATIO,         --CPU-증가
+		            ME.PHYSICAL_MEMORY_SIZE,       --MEMORY-메모리
+		            ME.CURRENT_MEM_USAGE,          --MEMORY-현재
+		            ME.MEM_INCREASE_USAGE,         --MEMORY-증가
+		            --HIDDEN 그래프: CPU
+		            CP.BEFORE_3_MONTH_CPU_USAGE,   --CPU-3개월전
+		            CP.BEFORE_2_MONTH_CPU_USAGE,   --CPU-2개월전
+		            CP.BEFORE_1_MONTH_CPU_USAGE,   --CPU-1개월전
+		            CP.CURRENT_CPU_USAGE_B,        --CPU-현재
+		            CP.AFTER_1_MONTH_CPU_USAGE,    --CPU-1개월후
+		            CP.AFTER_2_MONTH_CPU_USAGE,    --CPU-2개월후
+		            CP.AFTER_3_MONTH_CPU_USAGE,    --CPU-3개월후
+		            --HIDDEN 그래프: MEM
+		            ME.BEFORE_3_MONTH_MEM_USAGE,   --MEMORY-3개월전
+		            ME.BEFORE_2_MONTH_MEM_USAGE,   --MEMORY-2개월전
+		            ME.BEFORE_1_MONTH_MEM_USAGE,   --MEMORY-1개월전
+		            ME.CURRENT_MEM_USAGE_B,        --MEMORY-현재
+		            ME.AFTER_1_MONTH_MEM_USAGE,    --MEMORY-1개월후
+		            ME.AFTER_2_MONTH_MEM_USAGE,    --MEMORY-2개월후
+		            ME.AFTER_3_MONTH_MEM_USAGE,    --MEMORY-3개월
+		            --HIDDEN
+		            DB.DBID,
+		            DB.INST_ID,
+		            CP.PREDICTION_DT AS CPU_PREDICTION_DT, --CPU-예측일시
+		            ME.PREDICTION_DT AS MEM_PREDICTION_DT  --MEMORY-예측일시
+		        FROM DB_PRIV DB
+		           , CPU_PRED CP
+		           , MEM_PRED ME
+		       WHERE DB.DBID = CP.DBID(+)
+		         AND DB.INST_ID = CP.INST_ID(+)
+		         AND DB.DBID = ME.DBID(+)
+		         AND DB.INST_ID = ME.INST_ID(+)
+		         AND NVL(CP.CPU_CORE_CNT, 0) + NVL(ME.PHYSICAL_MEMORY_SIZE, 0) > 0
+		     ORDER BY DB.ORDERING,DB.INST_ID
+		),
+		(SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL <![CDATA[<=]]> 7) 
+		        ORDER BY INST_NM, LV    
+	</select>
+
+
+	<select id="getSequencePresentConditionChartLegendList" parameterType="sequenceLimitPoint" resultType="sequenceLimitPoint">
+	/* DashBoardV2Dao.getSequencePresentConditionChartLegendList */
+    WITH DB_PREF AS /* SEQUENCE자원 한계값 기준정보 */
+    (
+        SELECT /*+ MATERIALIZE */
+               TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS SEQUENCE_THRESHOLD
+        FROM (SELECT /*+ LEADING(DB) */
+                     SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+              FROM SPOP_PREFERENCES SP
+              WHERE PREF_ID IN (21004)) A,
+             (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                           , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                        FROM DB_PREFERENCES B
+                       WHERE DBID = #{dbid}  /****************** PARAMETER ***********************/
+                         AND PREF_ID IN (21004)
+                     )
+              WHERE PREF_SEQ = MAX_PREF_SEQ          
+             ) B
+         WHERE A.PREF_ID = B.PREF_ID(+)
+    )
+    SELECT 
+           DISTINCT B.SEQUENCE_NAME,'BEFORE_3_MONTH_TS_USED_PERCENT' PERIOD,AFTER_3_MONTH_SEQUENCE_RATIO
+      FROM (SELECT MAX(PREDICTION_DT) PREDICTION_DT
+            FROM SEQ_LIMIT_PREDICTION
+            WHERE DBID = #{dbid}) A,       /****************** PARAMETER ***********************/
+           SEQ_LIMIT_PREDICTION B,
+           SEQ_LIMIT_PREDICTION_DETAIL C,
+           DB_PREF DP
+    WHERE B.DBID = #{dbid}                /****************** PARAMETER ***********************/
+    AND A.PREDICTION_DT = B.PREDICTION_DT
+    AND B.PREDICTION_DT = C.PREDICTION_DT
+    AND B.DBID = C.DBID
+    AND B.SEQUENCE_OWNER = C.SEQUENCE_OWNER
+    AND B.SEQUENCE_NAME = C.SEQUENCE_NAME
+    AND C.BASE_DAY = (SELECT MAX(BASE_DAY) FROM SEQ_LIMIT_PREDICTION_DETAIL WHERE PREDICTION_DT = C.PREDICTION_DT AND DBID = C.DBID AND SEQUENCE_OWNER = C.SEQUENCE_OWNER AND SEQUENCE_NAME = C.SEQUENCE_NAME)
+      AND AFTER_3_MONTH_SEQUENCE_RATIO >= DP.SEQUENCE_THRESHOLD
+        ORDER BY AFTER_3_MONTH_SEQUENCE_RATIO DESC
+	</select>
+
+	<select id="getSequencePresentConditionChart" parameterType="sequenceLimitPoint" resultType="sequenceLimitPoint">
+		/* DashBoardV2Dao.getSequencePresentConditionChart */
+	    WITH DB_PREF AS /* SEQUENCE자원 한계값 기준정보 */
+	    (
+	        SELECT /*+ MATERIALIZE */
+	               TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS SEQUENCE_THRESHOLD
+	        FROM (SELECT /*+ LEADING(DB) */
+	                     SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+	              FROM SPOP_PREFERENCES SP
+	              WHERE PREF_ID IN (21004)) A,
+	             (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+	                FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+	                           , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+	                        FROM DB_PREFERENCES 
+	                       WHERE DBID = #{dbid}  /****************** PARAMETER ***********************/
+	                         AND PREF_ID IN (21004)
+	                     )
+	               WHERE PREF_SEQ = MAX_PREF_SEQ          
+	              ) B
+	         WHERE A.PREF_ID = B.PREF_ID(+)
+	    )
+		SELECT SEQUENCE_NAME
+		,DECODE(LV
+			,1,'3개월전'
+			,2,'2개월전'
+			,3,'1개월전'
+			,4,'현재'
+			,5,'1개월후'
+			,6,'2개월후'
+			,7,'3개월후'
+		) PERIOD
+		,DECODE(LV
+			,1,BEFORE_3_MONTH_SEQUENCE_RATIO
+			,2,BEFORE_2_MONTH_SEQUENCE_RATIO
+			,3,BEFORE_1_MONTH_SEQUENCE_RATIO
+			,4,CURRENT_SEQUENCE_RATIO_B
+			,5,AFTER_1_MONTH_SEQUENCE_RATIO
+			,6,AFTER_2_MONTH_SEQUENCE_RATIO
+			,7,AFTER_3_MONTH_SEQUENCE_RATIO
+		) MONTH_SEQUENCE_RATIO
+		FROM(    
+		    SELECT 
+		           B.SEQUENCE_NAME,                 --SEQUENCE
+		           C.SEQUENCE_MAX_VALUE,            --MAX VALUE
+		           ROUND(B.CURRENT_SEQUENCE_RATIO,4) CURRENT_SEQUENCE_RATIO,        --사용률
+		               --> hidden: Graph 시작
+		           ROUND(B.BEFORE_3_MONTH_SEQUENCE_RATIO,4) BEFORE_3_MONTH_SEQUENCE_RATIO, /*"3개월전 SEQ사용율(%)"*/
+		           ROUND(B.BEFORE_2_MONTH_SEQUENCE_RATIO,4) BEFORE_2_MONTH_SEQUENCE_RATIO, /*"2개월전 SEQ사용율(%)"*/
+		           ROUND(B.BEFORE_1_MONTH_SEQUENCE_RATIO,4) BEFORE_1_MONTH_SEQUENCE_RATIO, /*"1개월전 SEQ사용율(%)"*/
+		           ROUND(B.CURRENT_SEQUENCE_RATIO,4) CURRENT_SEQUENCE_RATIO_B, /*"현재 SEQ사용율(%)"*/
+		           ROUND(B.AFTER_1_MONTH_SEQUENCE_RATIO,4) AFTER_1_MONTH_SEQUENCE_RATIO, /*"1개월후 SEQ사용율(%)"*/
+		           ROUND(B.AFTER_2_MONTH_SEQUENCE_RATIO,4) AFTER_2_MONTH_SEQUENCE_RATIO, /*"2개월후 SEQ사용율(%)"*/
+		           ROUND(B.AFTER_3_MONTH_SEQUENCE_RATIO,4) AFTER_3_MONTH_SEQUENCE_RATIO, /*"3개월후 SEQ사용율(%)"*/
+		               --> hidden: Graph 종료
+		               B.SEQUENCE_OWNER,
+		           B.PREDICTION_DT, 
+		           B.DBID
+		      FROM (SELECT MAX(PREDICTION_DT) PREDICTION_DT
+		            FROM SEQ_LIMIT_PREDICTION
+		            WHERE DBID = #{dbid}) A,       /****************** PARAMETER ***********************/
+		           SEQ_LIMIT_PREDICTION B,
+		           SEQ_LIMIT_PREDICTION_DETAIL C,
+		           DB_PREF DP
+		    WHERE B.DBID = #{dbid}                /****************** PARAMETER ***********************/
+		    AND A.PREDICTION_DT = B.PREDICTION_DT
+		    AND B.PREDICTION_DT = C.PREDICTION_DT
+		    AND B.DBID = C.DBID
+		    AND B.SEQUENCE_OWNER = C.SEQUENCE_OWNER
+		    AND B.SEQUENCE_NAME = C.SEQUENCE_NAME
+		    AND C.BASE_DAY = (SELECT MAX(BASE_DAY) FROM SEQ_LIMIT_PREDICTION_DETAIL WHERE PREDICTION_DT = C.PREDICTION_DT AND DBID = C.DBID AND SEQUENCE_OWNER = C.SEQUENCE_OWNER AND SEQUENCE_NAME = C.SEQUENCE_NAME)
+		      AND AFTER_3_MONTH_SEQUENCE_RATIO >= DP.SEQUENCE_THRESHOLD
+        ORDER BY AFTER_3_MONTH_SEQUENCE_RATIO DESC
+		),
+		(SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL <![CDATA[<=]]> 7)
+        ORDER BY SEQUENCE_NAME, LV      
+	</select>
+
+	<select id="getNewSQLTimeoutPredictionChart" parameterType="newSQLTimeoutPrediction" resultType="newSQLTimeoutPrediction">
+	/* DashBoardV2Dao.getNewSQLTimeoutPredictionChart */
+      WITH DB_PRIV AS
+      (
+          SELECT UDP.DBID, D.DB_NAME, D.ORDERING, D.RGB_COLOR_ID, E.RGB_COLOR_VALUE
+          FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D, RGB_COLOR E
+          WHERE UDP.USER_ID = U.USER_ID
+          AND UDP.DBID = D.DBID
+          AND D.USE_YN = 'Y'
+          AND D.RGB_COLOR_ID = E.RGB_COLOR_ID(+)
+          AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+          AND U.USER_ID = #{user_id}  --> 사용자 /****************** PARAMETER ***********************/
+          AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001')           
+      )
+    ,PREF AS
+    (
+      SELECT A.DBID
+            ,MIN(A.DB_NAME) AS DB_NAME 
+            ,MIN(A.RGB_COLOR_VALUE) AS RGB_COLOR_VALUE
+            ,MIN(A.ORDERING) AS ORDERING
+            ,MAX(CASE WHEN A.PREF_ID = 21010 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS APP_TIMEOUT_TIME    -- 애플리케이션 타임아웃 예측 임계값
+            ,MAX(CASE WHEN A.PREF_ID = 21011 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS PREDICTION_BASE_DAY -- 신규 애플리케이션 타임아웃 예측 대상 선정 기준일
+            ,MAX(CASE WHEN A.PREF_ID = 21012 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS EXEC_MIN_DAY        -- 신규 애플리케이션 타임아웃 예측 대상 선정 최소 발생일 수
+      FROM (
+            SELECT A.DBID, A.DB_NAME, A.RGB_COLOR_ID, A.ORDERING, B.PREF_ID, B.DEFAULT_PREF_VALUE, C.RGB_COLOR_VALUE
+              FROM DB_PRIV A
+                 , SPOP_PREFERENCES B
+                 , RGB_COLOR C
+            WHERE B.PREF_ID IN (21010, 21011, 21012)
+              AND A.RGB_COLOR_ID = C.RGB_COLOR_ID(+)
+           ) A 
+         , (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+              FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                         , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+                      FROM DB_PREFERENCES B
+                     WHERE PREF_ID IN (21010, 21011, 21012)
+                   )
+             WHERE PREF_SEQ = MAX_PREF_SEQ        
+           ) B
+      WHERE A.DBID = B.DBID(+)
+      AND A.PREF_ID = B.PREF_ID(+)
+      GROUP BY A.DBID
+    )
+    SELECT         
+        MIN(B.DB_NAME) AS DB_NAME,          --DB
+        MIN(B.RGB_COLOR_VALUE) AS RGB_COLOR_VALUE,        
+        NVL(SUM(
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1
+                     WHEN A.AFTER_1_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 
+                     WHEN A.AFTER_2_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 
+                     WHEN A.AFTER_3_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1
+                     ELSE 0 END), 0) AS TOTAL_CNT,   --대상
+        NVL(SUM(
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_1_WEEK_ELAPSED_TIME,  --1주후
+        NVL(SUM(        
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_1_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_1_MONTH_ELAPSED_TIME, --1개월후
+        NVL(SUM(                                      
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_1_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_2_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_2_MONTH_ELAPSED_TIME, --2개월후
+        NVL(SUM(                                                 
+                CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_1_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_2_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                          A.AFTER_3_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_3_MONTH_ELAPSED_TIME, --3개월후
+        -- HIDDEN                  
+        A.DBID,
+        MIN(B.ORDERING) AS ORDERING
+    FROM NEW_SQL_TO_PREDICTION A, PREF B
+    WHERE A.DBID = B.DBID
+    AND A.PERF_PREDICTION_TARGET_YN = 'Y'
+    AND A.EXCEPT_YN = 'N'                                               --> 조건추가
+    AND FIRST_EXEC_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD')  --> 조건추가(최근3개월)
+    GROUP BY A.DBID
+    ORDER BY ORDERING
+	</select>
+
+	<select id="getNewAppTimeoutPredictionChart" parameterType="newAppTimeoutPrediction" resultType="newAppTimeoutPrediction">
+	/* DashBoardV2Dao.getNewAppTimeoutPredictionChart */
+    WITH WRKJOB_PREF AS 
+    (
+      SELECT A.WRKJOB_CD
+           , MIN(WRKJOB_CD_NM) AS WRKJOB_CD_NM
+           , MAX(CASE WHEN A.PREF_ID = 21006 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS APP_TIMEOUT_TIME    
+           , MAX(CASE WHEN A.PREF_ID = 21007 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS PREDICTION_BASE_DAY 
+           , MAX(CASE WHEN A.PREF_ID = 21008 THEN NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) ELSE '' END) AS EXEC_MIN_DAY        
+      FROM (SELECT A.WRKJOB_CD, WRKJOB_CD_NM, B.PREF_ID, B.DEFAULT_PREF_VALUE
+          FROM WRKJOB_CD A, SPOP_PREFERENCES B
+          WHERE B.PREF_ID IN (21006, 21007, 21008)) A 
+        ,(SELECT WRKJOB_CD,  PREF_ID, PREF_SEQ, PREF_VALUE, MAX(PREF_SEQ) OVER(PARTITION BY WRKJOB_CD, PREF_ID) MAX_PREF_SEQ
+          FROM WRKJOB_PREFERENCES B
+          WHERE PREF_ID IN (21006, 21007, 21008)) B
+      WHERE A.WRKJOB_CD = B.WRKJOB_CD(+)
+      AND A.PREF_ID = B.PREF_ID(+)
+      AND B.PREF_SEQ(+) = B.MAX_PREF_SEQ(+)
+      GROUP BY A.WRKJOB_CD
+    )
+    SELECT  
+           MIN(B.WRKJOB_CD_NM) AS WRKJOB_CD_NM,               --업무
+           NVL(SUM(
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1
+                        WHEN A.AFTER_1_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 
+                        WHEN A.AFTER_2_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 
+                        WHEN A.AFTER_3_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1
+                        ELSE 0 END), 0) AS TOTAL_CNT,         --계            
+           NVL(SUM(
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_1_WEEK_ELAPSED_TIME,  --1주일후
+           NVL(SUM(        
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_1_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_1_MONTH_ELAPSED_TIME, --1개월후
+           NVL(SUM(                                      
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_1_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_2_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_2_MONTH_ELAPSED_TIME, --2개월후
+           NVL(SUM(                                                 
+                   CASE WHEN A.AFTER_1_WEEK_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_1_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_2_MONTH_ELAPSED_TIME <![CDATA[ < ]]> B.APP_TIMEOUT_TIME AND
+                             A.AFTER_3_MONTH_ELAPSED_TIME >= B.APP_TIMEOUT_TIME THEN 1 ELSE 0 END), 0) AS AFTER_3_MONTH_ELAPSED_TIME, --3개월후
+           -- HIDDEN                  
+           A.WRKJOB_CD                              
+    FROM NEW_APP_TO_PREDICTION A, WRKJOB_PREF B
+    WHERE A.WRKJOB_CD = B.WRKJOB_CD
+    AND A.PERF_PREDICTION_TARGET_YN = 'Y'
+    AND A.EXCEPT_YN = 'N'                                               --> 조건추가
+    AND FIRST_EXEC_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD')  --> 조건추가(최근3개월)
+    GROUP BY A.WRKJOB_CD
+    ORDER BY A.WRKJOB_CD
+	</select>
+
+	
+</mapper>

@@ -1,0 +1,1364 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="omc.spop.dao.CommonDao">
+    <select id="getSimpleUserInfo" parameterType="users" resultType="users">
+      /* CommonDao.getSimpleUserInfo */
+      SELECT A.USER_ID, A.USER_NM, A.PASSWORD
+         , NVL(A.DEFAULT_PASSWORD_YN,'Y') AS DEFAULT_PASSWORD_YN
+         , NVL(A.APPROVE_YN,'N') AS APPROVE_YN
+         , A.SALT_VALUE AS SALT_VALUE
+       , NVL(TO_CHAR(A.PASSWORD_CHG_DT,  'YYYYMMDD'), '19010101') AS PASSWORD_CHG_DT
+         , D.WRKJOB_CD   AS DEFAULT_WRKJOB_CD
+         , C.AUTH_GRP_ID AS DEFAULT_AUTH_GRP_ID
+         , B.AUTH_CD     AS DEFAULT_AUTH_GRP_CD
+      FROM USERS A, AUTH B, USER_AUTH C, USER_WRKJOB D
+      WHERE A.USE_YN = 'Y'
+      AND A.USER_ID = #{user_id}
+      AND C.AUTH_GRP_ID = B.AUTH_ID(+)
+      AND A.USER_ID = C.USER_ID(+)
+      AND A.DEFAULT_AUTH_GRP_ID = C.AUTH_GRP_ID(+)
+      AND A.USER_ID = D.USER_ID(+)
+      AND A.DEFAULT_WRKJOB_CD = D.WRKJOB_CD(+)
+      AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN C.AUTH_START_DAY(+) AND C.AUTH_END_DAY(+)
+      AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN D.WORKJOB_START_DAY(+) AND D.WORKJOB_END_DAY(+)
+    </select>
+    
+    <select id="getUserInfo_20190307" parameterType="users" resultType="users">
+      /* CommonDao.getUserInfo */
+      SELECT A.USER_ID, A.USER_NM, A.PASSWORD
+          , NVL(A.DEFAULT_PASSWORD_YN,'Y') AS DEFAULT_PASSWORD_YN
+          , NVL(A.APPROVE_YN,'N') AS APPROVE_YN, B.AUTH_GRP_ID, C.AUTH_CD, C.AUTH_NM, D.WRKJOB_CD
+          , E.WRKJOB_CD_NM AS WRKJOB_NM
+          , D.LEADER_YN
+          , A.DEFAULT_WRKJOB_CD,A.DEFAULT_AUTH_GRP_ID
+      FROM USERS A, USER_AUTH B, AUTH C, USER_WRKJOB D, WRKJOB_CD E
+      WHERE A.USE_YN = 'Y'
+      AND A.USER_ID = #{user_id}
+      AND A.USER_ID = B.USER_ID
+      AND B.AUTH_GRP_ID = C.AUTH_ID
+      AND A.USER_ID = D.USER_ID(+)
+      AND D.WRKJOB_CD = E.WRKJOB_CD(+)
+      AND SYSDATE BETWEEN TO_DATE(B.AUTH_START_DAY, 'YYYY-MM-DD') AND TO_DATE(B.AUTH_END_DAY, 'YYYY-MM-DD')
+      AND SYSDATE BETWEEN TO_DATE(D.WORKJOB_START_DAY(+),'YYYY-MM-DD') AND TO_DATE(D.WORKJOB_END_DAY(+),'YYYY-MM-DD')
+    </select>
+    
+    <select id="getUserInfo" parameterType="users" resultType="users">
+      /* CommonDao.getUserInfo 20190307 revision */
+      SELECT A.USER_ID, A.USER_NM, A.PASSWORD
+          , NVL(A.DEFAULT_PASSWORD_YN,'Y') AS DEFAULT_PASSWORD_YN
+          , NVL(A.APPROVE_YN,'N') AS APPROVE_YN, B.AUTH_GRP_ID, C.AUTH_CD, C.AUTH_NM, D.WRKJOB_CD
+          , E.WRKJOB_CD_NM AS WRKJOB_NM
+          , D.LEADER_YN
+      FROM USERS A, USER_AUTH B, AUTH C, USER_WRKJOB D, WRKJOB_CD E
+      WHERE A.USE_YN = 'Y'
+      AND A.USER_ID = B.USER_ID
+      AND B.AUTH_GRP_ID = C.AUTH_ID
+      AND A.USER_ID = D.USER_ID(+)
+      AND D.WRKJOB_CD = E.WRKJOB_CD(+)
+      AND A.USER_ID = #{user_id}
+      AND C.AUTH_CD = #{default_auth_grp_cd}
+      AND D.WRKJOB_CD(+) = #{default_wrkjob_cd}
+      AND SYSDATE BETWEEN TO_DATE(B.AUTH_START_DAY, 'YYYY-MM-DD') AND TO_DATE(B.AUTH_END_DAY, 'YYYY-MM-DD')
+      AND SYSDATE BETWEEN TO_DATE(D.WORKJOB_START_DAY(+),'YYYY-MM-DD') AND TO_DATE(D.WORKJOB_END_DAY(+),'YYYY-MM-DD')
+    </select>
+    
+    <select id="login_20190307" parameterType="string" resultType="users">
+      /* CommonDao.login */
+      SELECT A.USER_ID, A.USER_NM, A.PASSWORD
+          , A.EXT_NO, A.HP_NO, A.EMAIL
+          , NVL(A.DEFAULT_PASSWORD_YN,'Y') AS DEFAULT_PASSWORD_YN
+          , NVL(A.APPROVE_YN,'N') AS APPROVE_YN, B.AUTH_GRP_ID, C.AUTH_CD, C.AUTH_NM, D.WRKJOB_CD
+          , E.WRKJOB_CD_NM AS WRKJOB_NM
+          , D.LEADER_YN
+      FROM USERS A, USER_AUTH B, AUTH C, USER_WRKJOB D, WRKJOB_CD E
+      WHERE A.USE_YN = 'Y'
+      AND A.USER_ID = #{user_id}
+      AND A.USER_ID = B.USER_ID
+      AND B.AUTH_GRP_ID = C.AUTH_ID
+      AND A.USER_ID = D.USER_ID(+)
+      AND D.WRKJOB_CD = E.WRKJOB_CD(+)
+      AND SYSDATE BETWEEN TO_DATE(B.AUTH_START_DAY, 'YYYY-MM-DD') AND TO_DATE(B.AUTH_END_DAY, 'YYYY-MM-DD')
+      AND SYSDATE BETWEEN TO_DATE(D.WORKJOB_START_DAY(+), 'YYYY-MM-DD') AND TO_DATE(D.WORKJOB_END_DAY(+), 'YYYY-MM-DD')
+    </select>
+    
+    <select id="login" parameterType="string" resultType="users">
+      /* CommonDao.login 20190307 revision */
+      SELECT A.USER_ID, A.USER_NM, A.PASSWORD
+          , A.EXT_NO, A.HP_NO, A.EMAIL
+          , NVL(A.DEFAULT_PASSWORD_YN,'Y') AS DEFAULT_PASSWORD_YN
+          , NVL(A.APPROVE_YN,'N') AS APPROVE_YN, B.AUTH_GRP_ID, C.AUTH_CD, C.AUTH_NM, D.WRKJOB_CD
+          , E.WRKJOB_CD_NM AS WRKJOB_NM
+          , D.LEADER_YN
+      FROM USERS A, USER_AUTH B, AUTH C, USER_WRKJOB D, WRKJOB_CD E
+      WHERE A.USE_YN = 'Y'
+      AND A.USER_ID = B.USER_ID
+      AND B.AUTH_GRP_ID = C.AUTH_ID
+      AND A.USER_ID = D.USER_ID(+)
+      AND D.WRKJOB_CD = E.WRKJOB_CD(+)
+      AND A.USER_ID = #{user_id}
+      AND C.AUTH_CD = #{auth_cd}
+      AND D.WRKJOB_CD(+) = #{wrkjob_cd}
+      AND SYSDATE BETWEEN TO_DATE(B.AUTH_START_DAY, 'YYYY-MM-DD') AND TO_DATE(B.AUTH_END_DAY, 'YYYY-MM-DD')
+      AND SYSDATE BETWEEN TO_DATE(D.WORKJOB_START_DAY(+), 'YYYY-MM-DD') AND TO_DATE(D.WORKJOB_END_DAY(+), 'YYYY-MM-DD')
+    </select>
+    <select id="getUserAuthMenuList" parameterType="myMenu" resultType="myMenu">
+      /* CommonMapper.getUserAuthMenuList */
+      SELECT LEVEL                    AS MENU_LEVEL 
+             ,MENU_ID 
+             ,PARENT_MENU_ID 
+             ,PARENT_MENU_NM 
+             ,MENU_NM 
+             ,MENU_DESC 
+             ,MENU_URL_ADDR 
+             ,MENU_IMAGE_NM 
+             ,MENU_ORDERING 
+             ,CONNECT_BY_ROOT MENU_ID AS TOP_MENU_ID 
+             ,CASE 
+                WHEN (PARENT_MENU_ID = 0 OR MY_MENU_ID IS NULL) THEN 'false' 
+                ELSE 'true' 
+              END                     AS CHECKED 
+      FROM   (SELECT DISTINCT A.MENU_ID 
+                              ,A.PARENT_MENU_ID 
+                              ,(SELECT MENU_NM 
+                                FROM   MENU MM 
+                                WHERE  MM.MENU_ID = A.PARENT_MENU_ID) PARENT_MENU_NM 
+                              ,A.MENU_NM 
+                              ,A.MENU_DESC 
+                              ,A.MENU_URL_ADDR 
+                              ,A.MENU_IMAGE_NM 
+                              ,A.MENU_ORDERING 
+                              ,B.MY_MENU_ID 
+              FROM   (SELECT A.MENU_ID 
+                             ,NVL(A.PARENT_MENU_ID, '0') AS PARENT_MENU_ID 
+                             ,A.MENU_NM 
+                             ,A.MENU_DESC 
+                             ,A.MENU_URL_ADDR 
+                             ,A.MENU_IMAGE_NM 
+                             ,A.MENU_ORDERING 
+                             ,B.MENU_ID                  AS AUTH_MENU_ID 
+                      FROM   MENU A 
+                             ,MENU_AUTH B 
+                             ,AUTH C 
+                      WHERE  A.MENU_ID = B.MENU_ID(+) 
+                             AND A.USE_YN = 'Y'
+                             AND B.AUTH_ID = C.AUTH_ID 
+                             AND C.AUTH_ID = (SELECT AUTH_GRP_ID 
+                                              FROM   USER_AUTH 
+                                              WHERE  USER_ID = #{user_id} and AUTH_GRP_ID = #{auth_grp_id})) A 
+                     ,(SELECT A.MENU_ID 
+                              ,B.MENU_ID AS MY_MENU_ID 
+                       FROM   MENU A 
+                              ,MY_MENU B 
+                       WHERE  A.MENU_ID = B.MENU_ID(+) 
+                              AND B.USER_ID(+) = #{user_id}) B 
+              WHERE  A.MENU_ID = B.MENU_ID(+) 
+              START WITH AUTH_MENU_ID IS NOT NULL 
+              CONNECT BY A.MENU_ID = PRIOR PARENT_MENU_ID) A 
+      START WITH PARENT_MENU_ID = '0' 
+      CONNECT BY PRIOR MENU_ID = PARENT_MENU_ID 
+      ORDER  SIBLINGS BY MENU_ORDERING 
+    </select>
+    
+    <select id="getMyMenuList" parameterType="myMenu" resultType="myMenu">
+      /* CommonDao.getMyMenuList */
+      SELECT LEVEL AS MENU_LEVEL, MENU_ID, PARENT_MENU_ID,PARENT_MENU_NM, MENU_NM, MENU_DESC, MENU_URL_ADDR,
+          MENU_IMAGE_NM, MENU_ORDERING, CONNECT_BY_ROOT MENU_ID AS TOP_MENU_ID
+      FROM (    
+          SELECT DISTINCT MENU_ID, PARENT_MENU_ID
+              ,(SELECT MENU_NM FROM MENU MM WHERE MM.MENU_ID = A.PARENT_MENU_ID) PARENT_MENU_NM
+              , MENU_NM, MENU_DESC, MENU_URL_ADDR, MENU_IMAGE_NM, MENU_ORDERING
+              FROM (
+                  SELECT A.MENU_ID, NVL(A.PARENT_MENU_ID,'0') AS PARENT_MENU_ID, A.MENU_NM, A.MENU_DESC,
+                      A.MENU_URL_ADDR, A.MENU_IMAGE_NM, A.MENU_ORDERING, B.MENU_ID AS MY_MENU_ID
+                  FROM MENU A
+                      , (SELECT A.MENU_ID, A.USER_ID
+                          FROM MY_MENU A, MENU_AUTH B
+                          WHERE A.MENU_ID = B.MENU_ID
+                          AND A.USER_ID = #{user_id}     -- Parameter1
+                          AND B.AUTH_ID = (SELECT AUTH_ID FROM AUTH WHERE AUTH_CD = #{auth_cd})     -- Parameter2
+                      ) B
+                  WHERE A.MENU_ID = B.MENU_ID(+)
+                  AND A.USE_YN = 'Y'
+              ) A
+              START WITH MY_MENU_ID IS NOT NULL
+              CONNECT BY A.MENU_ID = PRIOR PARENT_MENU_ID
+          ) A
+      START WITH PARENT_MENU_ID = '0'
+      CONNECT BY PRIOR MENU_ID = PARENT_MENU_ID
+      ORDER SIBLINGS BY MENU_ORDERING
+    </select>
+    
+    <select id="getMenuList" parameterType="menu" resultType="menu">
+      /* CommonDao.getMenuList */
+      SELECT A.MENU_ID, A.PARENT_MENU_ID, A.MENU_NM, A.MENU_DESC, A.MENU_URL_ADDR, A.MENU_IMAGE_NM
+      FROM
+      (
+          SELECT *
+          FROM MENU
+          WHERE USE_YN = 'Y'
+          START WITH PARENT_MENU_ID = #{menu_id}
+          CONNECT BY PRIOR MENU_ID = PARENT_MENU_ID
+          ORDER SIBLINGS BY MENU_ORDERING, MENU_ID
+      ) A, MENU_AUTH B, AUTH C
+      WHERE A.MENU_ID = B.MENU_ID
+      AND B.AUTH_ID = C.AUTH_ID
+      AND C.AUTH_CD = #{auth_cd}
+    </select>
+    
+    <select id="getWorkStatusCount" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+      /* CommonDao.getWorkStatusCount */
+      <if test="(tuning_requester_id != null and tuning_requester_id != '') and (wrkjob_mgr_id != null and wrkjob_mgr_id != '')">
+          WITH USER_LIST AS
+          (
+              SELECT A.USER_ID
+              FROM USERS A,
+                   USER_WRKJOB B,
+                   (SELECT WRKJOB_CD, WRKJOB_CD_NM, CONNECT_BY_ROOT WRKJOB_CD TOP_WRKJOB_CD 
+                    FROM WRKJOB_CD
+                    START WITH WRKJOB_CD = #{wrkjob_cd}
+                    CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD) C
+              WHERE A.USER_ID = B.USER_ID
+              AND B.WRKJOB_CD = C.WRKJOB_CD
+              <if test="(leader_yn != null and (leader_yn eq 'N'.toString()))">
+                  AND (B.WRKJOB_CD <![CDATA[ <> ]]> #{wrkjob_cd} OR (B.WRKJOB_CD = #{wrkjob_cd} AND A.USER_ID = #{wrkjob_mgr_id}))
+              </if>
+          )
+      </if>
+      SELECT NVL(SUM(CASE WHEN A.TUNING_STATUS_CD IN ('1', '2') THEN 1 ELSE 0 END), 0) AS PROCESS_1 -- 요청
+          ,NVL(SUM(CASE WHEN A.TUNING_STATUS_CD IN ('3')      THEN 1 ELSE 0 END), 0) AS PROCESS_3   -- 접수
+          ,NVL(SUM(CASE WHEN A.TUNING_STATUS_CD IN ('5')      THEN 1 ELSE 0 END), 0) AS PROCESS_5   -- 튜닝중
+          ,NVL(SUM(CASE WHEN A.TUNING_STATUS_CD IN ('6')      THEN 1 ELSE 0 END), 0) AS PROCESS_6   -- 적용대기
+          ,NVL(SUM(CASE WHEN A.TUNING_STATUS_CD IN ('4')      THEN 1 ELSE 0 END), 0) AS PROCESS_4   --튜닝반려
+      FROM TUNING_TARGET_SQL A
+      WHERE 1=1
+      <if test="perfr_id != null and perfr_id != ''">
+          AND A.PERFR_ID = #{perfr_id}
+      </if>
+      <if test="(tuning_requester_id != null and tuning_requester_id != '') and (wrkjob_mgr_id != null and wrkjob_mgr_id != '')">
+          AND (A.TUNING_REQUESTER_ID IN (SELECT USER_ID FROM USER_LIST) OR A.WRKJOB_MGR_ID IN (SELECT USER_ID FROM USER_LIST))
+      </if>
+    </select>
+    
+    <select id="getMessageCount" parameterType="recvNote" resultType="recvNote">
+      /* CommonDao.getMessageCount */
+      SELECT COUNT(*) AS RECV_CNT
+      FROM SEND_NOTE SN, RECV_NOTE RN
+      WHERE SN.SEND_USER_ID = RN.SEND_USER_ID
+      AND SN.SEND_DT = RN.SEND_DT
+      AND RN.RECV_USER_ID = #{recv_user_id}
+      AND READ_YN = 'N'
+    </select>
+    
+    <select id="commonCodeGroupList" parameterType="grpCd" resultType="grpCd">
+      /* CommonDao.commonCodeGroupList */
+      SELECT GRP_CD_ID, GRP_CD_NM || ' [ ' || GRP_CD_ID || ' ]' AS GRP_CD_NM
+      FROM GRP_CD 
+      WHERE USE_YN = 'Y'
+      ORDER BY GRP_CD_ID ASC
+    </select>
+    
+    <select id="commonCodeList" parameterType="cd" resultType="cd">
+      /* CommonDao.commonCodeList */
+      SELECT CD, CD_NM, CD_DESC, REF_VL_1, REF_VL_2
+        FROM CD
+       WHERE GRP_CD_ID = #{grp_cd_id}
+          <if test="ref_vl_1 != null and ref_vl_1 != ''">
+         AND REF_VL_1 = #{ref_vl_1}
+          </if>
+          <if test="ref_vl_2 != null and ref_vl_2 != ''">
+         AND REF_VL_2 = #{ref_vl_2}
+          </if>
+       ORDER BY ORDERED ASC
+    </select>
+    
+    <select id="commonRef2CodeList" parameterType="cd" resultType="cd">
+      /* CommonDao.commonRef2CodeList */
+      SELECT CD, REF_VL_2 AS CD_NM, CD_DESC, REF_VL_1
+      FROM CD 
+      WHERE GRP_CD_ID = #{grp_cd_id}
+          <if test="ref_vl_1 != null and ref_vl_1 != ''">
+            AND REF_VL_1 = #{ref_vl_1}
+          </if>
+      ORDER BY ORDERED ASC
+    </select>
+    
+    <select id="getDbidByDbName" parameterType="string" resultType="string">
+      /* CommonDao.getDbid */
+      SELECT DBID FROM DATABASE
+      WHERE DB_NAME = #{db_name}
+    </select>
+    
+    <select id="databaseList" parameterType="database" resultType="database">
+      /* CommonDao.databaseList */
+      SELECT A.DBID, A.DB_NAME, A.ORDERING, NVL(A.EXADATA_YN, 'N') AS EXADATA_YN
+      FROM DATABASE A, USER_DB_PRIVILEGE B, USERS C
+      WHERE A.USE_YN = 'Y'
+      AND A.DBID = B.DBID
+      AND B.USER_ID = C.USER_ID
+      AND C.USER_ID = #{user_id}
+      AND SYSDATE BETWEEN TO_DATE(B.PRIVILEGE_START_DAY,'YYYYMMDD') AND TO_DATE(B.PRIVILEGE_END_DAY,'YYYYMMDD')
+      ORDER BY ORDERING ASC
+    </select>
+    
+    <select id="masterInstanceList" parameterType="instance" resultType="instance">
+      /* CommonDao.masterInstanceList */
+      SELECT INST_ID, INST_ID AS INST_NAME FROM INSTANCE
+      WHERE DBID = #{dbid}
+      ORDER BY INST_ID
+    </select>
+    
+    <select id="wrkJobList" parameterType="wrkJobCd" resultType="wrkJobCd">
+      /* CommonDao.wrkJobList */
+        SELECT A.WRKJOB_CD, A.WRKJOB_CD_NM, B.DBID
+      FROM WRKJOB_CD A, WRKJOB_DB B, DATABASE C
+      WHERE A.WRKJOB_CD = B.WRKJOB_CD
+        AND B.DBID = C.DBID
+        AND A.UPPER_WRKJOB_CD IS NULL
+        AND C.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                       FROM SPOP_PREFERENCES 
+                                       WHERE PREF_ID = '22001')
+     <if test="deploy_check_target_yn != null and deploy_check_target_yn == 'Y'.toString()">
+         AND DEPLOY_CHECK_TARGET_YN = 'Y'
+     </if>
+        ORDER BY WRKJOB_CD
+    </select>
+      
+    <select id="wrkJobList_old_jmg" parameterType="wrkJobCd" resultType="wrkJobCd">
+      /* CommonDao.wrkJobList */
+        SELECT A.WRKJOB_CD, A.WRKJOB_CD_NM, A.DBID
+      FROM WRKJOB_CD A, DATABASE B
+      WHERE A.DBID = B.DBID
+        AND A.UPPER_WRKJOB_CD IS NULL
+        ORDER BY WRKJOB_CD
+    </select>
+
+    <select id="wrkJobDevList" parameterType="wrkJobCd" resultType="wrkJobCd">
+      /* CommonDao.wrkJobDevList */
+      SELECT A.WRKJOB_CD AS WRKJOB_CD, A.WRKJOB_CD_NM, C.DBID
+      FROM WRKJOB_CD A, WRKJOB_DB B, DATABASE C
+      WHERE A.WRKJOB_CD = B.WRKJOB_CD
+      AND B.DBID = C.DBID
+      AND UPPER_WRKJOB_CD IS NULL
+      AND C.USE_YN = 'Y'
+      AND A.USE_YN = 'Y'
+      AND (A.WRKJOB_CD, C.DB_OPERATE_TYPE_CD) IN 
+             (
+              SELECT SA.WRKJOB_CD, NVL(SB.PREF_VALUE, SC.DEFAULT_PREF_VALUE) DB_OPERATE_TYPE_CD
+               FROM WRKJOB_CD SA
+                  , (
+                    SELECT *
+                      FROM (
+                            SELECT WRKJOB_CD, PREF_ID, PREF_VALUE, PREF_SEQ, MAX(PREF_SEQ) OVER(PARTITION BY WRKJOB_CD) MAX_PREF_SEQ
+                               FROM WRKJOB_PREFERENCES 
+                              WHERE PREF_ID = 12005
+                            )
+                     WHERE PREF_SEQ = MAX_PREF_SEQ
+                    ) SB
+                  , SPOP_PREFERENCES SC
+              WHERE SA.WRKJOB_CD = SB.WRKJOB_CD(+)
+                AND SC.PREF_ID = 12005
+                AND SA.USE_YN = 'Y'
+                AND SA.UPPER_WRKJOB_CD IS NULL)
+        ORDER BY A.WRKJOB_CD
+    </select>
+    
+    <select id="wrkJobDevList_old_jmg" parameterType="wrkJobCd" resultType="wrkJobCd">
+      /* CommonDao.wrkJobDevList */
+      SELECT A.WRKJOB_CD || '|' || A.DBID AS WRKJOB_CD, A.WRKJOB_CD_NM 
+      FROM WRKJOB_CD A, DATABASE B
+      WHERE A.DBID = B.DBID
+        AND UPPER_WRKJOB_CD IS NULL
+    </select>
+    
+    <select id="getUserName" parameterType="odsUsers" resultType="odsUsers">
+      /* CommonDao.getUserName */
+      SELECT USERNAME, DBID FROM ODS_USERS
+      WHERE DBID = #{dbid}
+      AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_USERS WHERE DBID = #{dbid})
+      AND USERNAME NOT IN (SELECT USERNAME FROM UI_EXCEPT_DB_USER)
+      ORDER BY USERNAME
+    </select>
+    
+    <select id="getTableName" parameterType="odsUsers" resultType="odsUsers">
+      /* CommonDao.getTableName */
+      SELECT DISTINCT(TABLE_NAME) TABLE_NAME
+      FROM ${ods_table_name}
+      WHERE DBID = #{dbid}
+      <if test="ods_table_name eq 'ODS_TAB_MODIFICATIONS'">
+          AND TABLE_OWNER = #{username}
+      </if>
+      <if test="ods_table_name eq 'ODS_TABLES'">
+          AND OWNER = #{username}
+      </if>
+      ORDER BY TABLE_NAME
+    </select>
+      
+    <select id="getTuner" parameterType="databaseTuner" resultType="databaseTuner">
+      /* CommonDao.getTuner */
+      SELECT A.TUNER_ID
+           , B.USER_NM AS TUNER_NM
+        FROM DATABASE_TUNER A, USERS B
+       WHERE A.TUNER_ID = B.USER_ID
+         AND A.DBID = #{dbid}
+         AND B.USE_YN = 'Y'
+         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.TUN_START_DAY AND A.TUN_END_DAY
+    </select>
+    
+    <select id="getAccPathExec" parameterType="accPathExec" resultType="accPathExec">
+      /* CommonDao.getAccPathExec */
+      SELECT EXEC_SEQ,
+          EXEC_SEQ || '|' || START_SNAP_NO || '|' || END_SNAP_NO || '|' || ANALYSIS_SQL_CNT || '|' || TO_CHAR(ACCESS_PATH_EXEC_DT, 'YYYY-MM-DD HH24:MI:SS')
+          AS ACCESS_PATH_VALUE
+      FROM ACC_PATH_EXEC
+      WHERE DBID = #{dbid}
+      AND ACCESS_PATH_TYPE = #{access_path_type}
+      <if test="(file_no != null and file_no != '')">
+          AND FILE_NO = #{file_no}
+      </if>
+      ORDER BY EXEC_SEQ DESC
+    </select>
+    
+    <select id="getAccPathExecAddSec" parameterType="accPathExec" resultType="accPathExec">
+      /* CommonDao.getAccPathExecAddSec */
+      SELECT EXEC_SEQ
+           , EXEC_SEQ || '|' || TO_CHAR(B.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') 
+             || '|' || TO_CHAR(C.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') 
+             || '|' || ANALYSIS_SQL_CNT || '|' 
+             || TO_CHAR(ACCESS_PATH_EXEC_DT, 'YYYY-MM-DD HH24:MI:SS') 
+             || '|' || START_SNAP_NO || '|' || END_SNAP_NO AS ACCESS_PATH_VALUE
+        FROM ACC_PATH_EXEC  A
+           , VSQL_SNAPSHOT B
+           , VSQL_SNAPSHOT C
+       WHERE A.DBID = B.DBID
+         AND A.START_SNAP_NO = B.SNAP_NO
+         AND A.DBID = C.DBID
+         AND A.END_SNAP_NO = C.SNAP_NO
+         AND A.DBID = #{dbid}
+         AND A.ACCESS_PATH_TYPE = #{access_path_type}
+      <if test="(file_no != null and file_no != '')">
+          AND A.FILE_NO = #{file_no}
+      </if>
+      <if test="(exec_seq != null and exec_seq != '')">
+          AND A.EXEC_SEQ = #{exec_seq}
+      </if>
+      ORDER BY A.EXEC_SEQ DESC
+    </select>
+    
+    <select id="getDBIOLoadFile" parameterType="dbioLoadFile" resultType="dbioLoadFile">
+      /* CommonDao.getDBIOLoadFile */
+      SELECT FILE_NO, FILE_NO AS FILE_INFO
+      FROM DBIO_LOAD_FILE
+      WHERE DBID = #{dbid}
+      ORDER BY FILE_NO DESC
+    </select>
+    
+    <select id="getDBIOLoadFileInfo" parameterType="dbioLoadFile" resultType="dbioLoadFile">
+      /* CommonDao.getDBIOLoadFileInfo */
+      SELECT FILE_NM, QUERY_LOAD_CNT, TO_CHAR(REG_DT, 'YYYY-MM-DD HH24:MI:SS') AS REG_DT
+      FROM DBIO_LOAD_FILE
+      WHERE DBID = #{dbid}
+      AND FILE_NO = #{file_no}
+    </select>
+    
+    <select id="getDBIOExplainExec" parameterType="dbioExplainExec" resultType="dbioExplainExec">
+      /* CommonDao.getDBIOExplainExec */
+      SELECT EXPLAIN_EXEC_SEQ, EXPLAIN_EXEC_SEQ AS EXPLAIN_INFO
+      FROM DBIO_EXPLAIN_EXEC
+      WHERE FILE_NO = #{file_no}
+      ORDER BY EXPLAIN_EXEC_SEQ DESC
+    </select>
+    
+    <select id="getDBIOExplainExecInfo" parameterType="dbioExplainExec" resultType="dbioExplainExec">
+      /* CommonDao.getDBIOExplainExecInfo */
+      SELECT PLAN_CREATE_CNT
+          , PLAN_ERROR_CNT
+          , PLAN_NO_EXEC_CNT
+          , TO_CHAR(REG_DT, 'YYYY-MM-DD HH24:MI:SS') AS REG_DT
+          , TO_CHAR(EXEC_END_DT, 'YYYY-MM-DD HH24:MI:SS') AS EXEC_END_DT
+      FROM DBIO_EXPLAIN_EXEC
+      WHERE FILE_NO = #{file_no}
+      AND EXPLAIN_EXEC_SEQ = ${explain_exec_seq}
+    </select>
+    
+    <select id="getWrkJobCd" parameterType="wrkJobCd" resultType="wrkJobCd">
+      /* CommonDao.getWrkJobCd */
+      SELECT WRKJOB_CD AS ID, 
+          CASE WHEN LEVEL = 1 THEN '-1' ELSE NVL(UPPER_WRKJOB_CD,'-1') END AS PARENT_ID, 
+          WRKJOB_CD_NM AS TEXT,
+          DBID,
+          WRKJOB_DIV_CD
+      FROM WRKJOB_CD
+      WHERE USE_YN = 'Y'
+          <if test="deploy_check_target_yn != null and deploy_check_target_yn == 'Y'.toString()">
+                   AND DEPLOY_CHECK_TARGET_YN = 'Y'
+          </if>
+      <choose>
+          <when test="(wrkjob_cd != null and wrkjob_cd != '')">
+              START WITH WRKJOB_CD = #{wrkjob_cd}
+          </when>
+          <otherwise>
+              <choose>
+                  <when test="searchValue != null and searchValue != ''">
+                      <choose>
+                          <when test="selectValue eq '1'.toString()">
+                              START WITH WRKJOB_CD_NM LIKE '%'|| #{searchValue}||'%'
+                          </when>
+                          <when test="selectValue eq '2'.toString()">
+                              START WITH WRKJOB_CD LIKE '%'|| #{searchValue}||'%'
+                          </when>
+                      </choose>
+                  </when>
+                  <otherwise>
+                      START WITH UPPER_WRKJOB_CD IS NULL
+                  </otherwise>
+              </choose>
+          </otherwise>
+      </choose>
+      CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD
+      ORDER SIBLINGS BY WRKJOB_CD
+    </select>
+    
+    <select id="getUserWrkJobCd" parameterType="sqlStandards" resultType="wrkJobCd">
+      /* CommonDao.getUserWrkJobCd */
+      SELECT A.WRKJOB_CD AS ID
+           , C.WRKJOB_CD_NM AS TEXT
+        FROM PROJECT_WRKJOB A
+           , PROJECT B 
+           , WRKJOB_CD C
+       WHERE A.WRKJOB_CD IN (SELECT WRKJOB_CD
+                               FROM USER_WRKJOB
+                              WHERE USER_ID = #{user_id}
+                                AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN WORKJOB_START_DAY AND WORKJOB_END_DAY)
+         AND A.PROJECT_ID = B.PROJECT_ID
+         AND B.DEL_YN = 'N'
+         AND A.PROJECT_ID != 0
+         AND C.WRKJOB_CD = A.WRKJOB_CD
+         AND A.PROJECT_ID = #{project_id}
+    </select>
+    
+    <select id="checkWorkJobLeader" parameterType="userWrkjob" resultType="userWrkjob">
+      /* CommonDao.checkWorkJobLeader */
+      SELECT A.WRKJOB_CD, C.WRKJOB_CD_NM AS WRKJOB_NM, B.USER_ID, B.USER_NM
+      FROM USER_WRKJOB A, USERS B, WRKJOB_CD C
+      WHERE A.WRKJOB_CD = #{wrkjob_cd}
+      AND A.WRKJOB_CD = C.WRKJOB_CD
+      AND A.USER_ID = B.USER_ID
+      AND A.LEADER_YN = 'Y'
+    </select>
+    
+    <select id="checkWrkjobLeaderCnt" parameterType="userWrkjob" resultType="int">
+      /* CommonDao.checkWrkjobLeaderCnt */
+      SELECT COUNT(USER_ID)
+      FROM USER_WRKJOB
+      WHERE WRKJOB_CD = #{wrkjob_cd}
+      AND LEADER_YN = 'Y'
+    </select>
+    
+    <select id="getUsers" parameterType="users" resultType="users">
+      /* CommonDao.getUsers */
+      SELECT U.USER_ID, U.USER_NM, UW.WRKJOB_CD, W1.WRKJOB_CD_NM AS WRKJOB_NM, U.EXT_NO, WRKJOB_DIV_CD
+      FROM USERS U, USER_WRKJOB UW, WRKJOB_CD W1
+      WHERE U.USER_ID = UW.USER_ID
+      AND UW.WRKJOB_CD = W1.WRKJOB_CD
+      <if test="wrkjob_cd != null and wrkjob_cd != ''">
+          AND UW.WRKJOB_CD = #{wrkjob_cd}
+      </if>
+      <choose>
+          <when test="searchValue != null and searchValue != ''">
+              <choose>
+                  <when test="selectValue eq '1'.toString()">
+                      AND U.USER_NM LIKE '%'|| #{searchValue}||'%'
+                  </when>
+                  <when test="selectValue eq '2'.toString()">
+                      AND U.USER_ID LIKE '%'|| #{searchValue}||'%'
+                  </when>
+              </choose>
+          </when>
+          <otherwise>
+              <if test="selectValue eq '3'.toString()">
+                  AND UW.LEADER_YN = 'Y'
+              </if>
+          </otherwise>
+      </choose>
+      AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN WORKJOB_START_DAY AND WORKJOB_END_DAY
+      AND U.USE_YN = 'Y'
+    </select>
+    
+    <select id="getAuth" parameterType="auth" resultType="auth">
+      /* CommonDao.getAuth */
+      SELECT AUTH_ID, AUTH_NM
+      FROM AUTH
+      WHERE USE_YN = 'Y'
+      <if test="user_auth_id != null and user_auth_id != '' and user_auth_id != '9'.toString()">
+          AND AUTH_ID <![CDATA[<>]]> 9
+      </if>
+    </select>
+    
+    <select id="snapIdList" parameterType="odsHistSnapshot" resultType="odsHistSnapshot">
+      /* CommonDao.snapIdList */
+      SELECT SNAP_ID, INSTANCE_NUMBER,
+          TO_CHAR(STARTUP_TIME, 'YYYY-MM-DD HH24:MI:SS') AS STARTUP_TIME,
+          TO_CHAR(BEGIN_INTERVAL_TIME, 'YYYY-MM-DD HH24:MI:SS') AS BEGIN_INTERVAL_TIME,
+          TO_CHAR(END_INTERVAL_TIME, 'YYYY-MM-DD HH24:MI:SS') AS END_INTERVAL_TIME
+      FROM ODS_HIST_SNAPSHOT
+      WHERE DBID = #{dbid}
+      AND BEGIN_INTERVAL_TIME BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+      <if test="instance_number != null and instance_number != ''">
+          AND INSTANCE_NUMBER = #{instance_number}
+      </if>
+      <if test="snap_id != null and snap_id != ''">
+          AND SNAP_ID >= ${snap_id}
+      </if>
+      ORDER BY SNAP_ID, INSTANCE_NUMBER
+    </select>
+    
+    <update id="updateNewPwd" parameterType="users">
+      /* CommonDao.updateNewPwd */
+      UPDATE USERS SET 
+                PASSWORD = #{new_password}
+              , DEFAULT_PASSWORD_YN = 'N'
+              <choose>
+                  <when test="salt_value != null and salt_value != ''">
+                  , SALT_VALUE = #{salt_value}
+                  , PASSWORD_CHG_DT = SYSDATE
+                  </when>
+                <otherwise>
+                  , PASSWORD_CHG_DT = SYSDATE
+                  </otherwise>
+              </choose>
+      WHERE USER_ID = #{new_user_id}
+    </update>
+    
+    <!-- 2019-03-06 기본권한, 기본업무-->
+    <update id="updateUserDefaultRole" parameterType="users">
+      /* CommonDao.updateUserDefaultRole */
+      UPDATE USERS SET
+          DEFAULT_AUTH_GRP_ID = #{default_auth_grp_id}
+          ,DEFAULT_WRKJOB_CD = #{default_wrkjob_cd}
+      WHERE USER_ID = #{user_id}
+    </update>
+    
+    <select id="checkUserId" parameterType="users" resultType="users">
+      /* CommonDao.checkUserId */
+      SELECT USER_ID, USER_NM
+      FROM USERS
+      WHERE USER_ID = #{user_id}
+    </select>
+    
+    <insert id="saveNewUser" parameterType="users">
+      /* CommonDao.saveNewUser */
+      INSERT INTO USERS 
+      (USER_ID, USER_NM, PASSWORD, EXT_NO, HP_NO, EMAIL, USE_YN, DEFAULT_PASSWORD_YN, REG_DT, APPROVE_YN)
+      VALUES
+      (#{user_id}, #{user_nm}, #{password}, #{ext_no}, #{hp_no}, #{email}, 'Y', 'N', SYSDATE, 'N')
+    </insert>
+    
+    <insert id="saveNewUserBySHA256" parameterType="users">
+      /* CommonDao.saveNewUser */
+      INSERT INTO USERS 
+      (USER_ID, USER_NM, PASSWORD, EXT_NO, HP_NO, EMAIL, USE_YN, DEFAULT_PASSWORD_YN, REG_DT, APPROVE_YN, PASSWORD_CHG_DT, SALT_VALUE)
+      VALUES
+      (#{user_id}, #{user_nm}, #{password}, #{ext_no}, #{hp_no}, #{email}, 'Y', 'N', SYSDATE, 'N' , SYSDATE, #{salt_value})
+    </insert>
+    
+    <insert id="insertUserAuth" parameterType="userAuth">
+      /* CommonDao.insertUserAuth */
+      INSERT INTO USER_AUTH (USER_ID, AUTH_GRP_ID, AUTH_START_DAY, AUTH_END_DAY)
+      VALUES (#{user_id}, #{auth_grp_id}, #{auth_start_day}, '99991231')
+    </insert>
+    
+    <insert id="insertUserWrkJob" parameterType="userWrkjob">
+      /* CommonDao.insertUserWrkJob */
+      INSERT INTO USER_WRKJOB (USER_ID, WRKJOB_CD, WORKJOB_START_DAY, WORKJOB_END_DAY, LEADER_YN)
+      VALUES (#{user_id}, #{wrkjob_cd}, #{workjob_start_day}, '99991231', #{leader_yn})
+    </insert>
+    
+    <insert id="insertJobSchedulerConfigDetail_old" parameterType="jobSchedulerConfigDetail">
+    /* CommonDao.insertJobSchedulerConfigDetail_old */
+    INSERT INTO JOB_SCHEDULER_CONFIG_DETAIL (JOB_SCHEDULER_TYPE_CD,
+    JOB_SCHEDULER_WRK_TARGET_ID, EXEC_CYCLE, USE_YN, UPD_DT, UPD_ID,
+    EXEC_START_DT, EXEC_END_DT)
+    VALUES 
+    (
+      #{job_scheduler_type_cd}
+      , #{job_scheduler_wrk_target_id}
+      , #{exec_cycle}
+      , 'Y'
+      , SYSDATE + 2/24/60
+      , #{upd_id}
+      , TO_DATE(#{exec_start_dt}, 'YYYY-MM-DD HH24:MI:SS')
+      , TO_DATE(#{exec_end_dt}, 'YYYY-MM-DD HH24:MI:SS')
+    )
+    </insert>
+    <insert id="insertJobSchedulerConfigDetail" parameterType="jobSchedulerConfigDetail">
+    /* CommonDao.insertJobSchedulerConfigDetail */
+    INSERT INTO JOB_SCHEDULER_CONFIG_DETAIL (JOB_SCHEDULER_TYPE_CD,
+    JOB_SCHEDULER_WRK_TARGET_ID, EXEC_CYCLE, USE_YN, UPD_DT, UPD_ID,
+    EXEC_START_DT, EXEC_END_DT)
+    VALUES 
+    (
+      #{job_scheduler_type_cd}
+      , #{job_scheduler_wrk_target_id}
+      , #{exec_cycle}
+      , #{use_yn}
+      , TO_DATE(#{upd_dt}, 'YYYY-MM-DD HH24:MI:SS')
+      , #{upd_id}
+      , TO_DATE(#{exec_start_dt}, 'YYYY-MM-DD HH24:MI:SS')
+      , TO_DATE(#{exec_end_dt}, 'YYYY-MM-DD HH24:MI:SS')
+    )
+    </insert>
+    
+    <update id="updateJobSchedulerConfigDetail_old" parameterType="jobSchedulerConfigDetail">
+      /* CommonDao.updateJobSchedulerConfigDetail_old */
+      UPDATE JOB_SCHEDULER_CONFIG_DETAIL 
+         SET EXEC_CYCLE = #{exec_cycle}
+           , USE_YN = #{use_yn}
+           , UPD_DT = SYSDATE + 2/24/60
+           , UPD_ID = #{upd_id}
+           , EXEC_START_DT = TO_DATE(#{exec_start_dt}, 'YYYY-MM-DD HH24:MI:SS')
+           , EXEC_END_DT = TO_DATE(#{exec_end_dt}, 'YYYY-MM-DD HH24:MI:SS')
+       WHERE JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+         AND JOB_SCHEDULER_WRK_TARGET_ID = #{job_scheduler_wrk_target_id}
+    </update>
+    
+    <update id="updateJobSchedulerConfigDetail" parameterType="jobSchedulerConfigDetail">
+      /* CommonDao.updateJobSchedulerConfigDetail */
+      UPDATE JOB_SCHEDULER_CONFIG_DETAIL 
+          SET UPD_DT = SYSDATE + 2/24/60
+          , UPD_ID = #{upd_id}
+          <if test="exec_cycle != null">, EXEC_CYCLE = #{exec_cycle}</if>
+          <if test="use_yn != null">,USE_YN = #{use_yn}</if>
+          <if test="exec_start_dt != null">, EXEC_START_DT = TO_DATE(#{exec_start_dt}, 'YYYY-MM-DD HH24:MI:SS')</if>
+          <if test="exec_end_dt != null">, EXEC_END_DT = TO_DATE(#{exec_end_dt}, 'YYYY-MM-DD HH24:MI:SS')</if>
+      WHERE JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+          AND JOB_SCHEDULER_WRK_TARGET_ID = #{job_scheduler_wrk_target_id}
+    </update>
+    
+    <insert id="insertMyMenuAction1" parameterType="myMenu">
+      /* CommonDao.insertMyMenuAction1 */
+      INSERT INTO MY_MENU(USER_ID,MENU_ID) VALUES(#{user_id},#{menu_id})
+    </insert>
+    
+    <select id="getChildMenuCnt" parameterType="myMenu" resultType="int">
+      SELECT COUNT(*) CHILD_MENU_CNT 
+      FROM MENU 
+      WHERE PARENT_MENU_ID = #{menu_id}
+    </select>
+    
+    <insert id="insertMyMenuAction" parameterType="myMenu" useGeneratedKeys="false">
+      /* CommonDao.insertMyMenuAction */
+      MERGE INTO MY_MENU 
+          USING DUAL ON (USER_ID = #{user_id} AND MENU_ID = #{menu_id})
+      WHEN NOT MATCHED THEN
+          INSERT (USER_ID,MENU_ID) VALUES(#{user_id},#{menu_id})
+    </insert>
+    
+    <delete id="deleteMyMenuAction" parameterType="myMenu">
+      /* CommonDao.deleteMyMenuAction */
+      DELETE FROM MY_MENU
+      WHERE
+      USER_ID = #{user_id}
+      AND MENU_ID =#{menu_id}
+    </delete>
+    
+    <delete id="deleteAllMyMenuAction" parameterType="myMenu">
+      /* CommonDao.deleteAllMyMenuAction */
+      DELETE FROM MY_MENU
+      WHERE
+      USER_ID = #{user_id}
+    </delete>
+    
+    <select id="getAuthNmList" resultType="auth">
+      /* CommonDao.getAuthNmList */
+      SELECT
+          AUTH_ID,
+          AUTH_NM,
+          USE_YN,
+          AUTH_CD
+      FROM
+          AUTH
+      WHERE USE_YN = 'Y'
+      <if test="user_auth_id != null and user_auth_id != '' and user_auth_id != '9'.toString()">
+          AND AUTH_ID <![CDATA[<>]]> 9
+      </if>
+       
+    </select>
+    
+    <!-- 개발자 권한 -->
+    <select id="getUsersAuthList" resultType="auth">
+      /* CommonDao.getUsersAuthList */
+      SELECT
+            C.AUTH_ID
+          , C.AUTH_CD                        -- 권한명
+          , C.AUTH_NM                        -- 권한명
+          , COUNT(*) OVER() AS AUTH_CNT      -- 권한 개수  
+          , B.AUTH_GRP_ID                    -- 권한ID
+        FROM USERS A
+           , USER_AUTH B
+           , AUTH C
+       WHERE A.USE_YN ='Y' 
+         AND A.USER_ID = B.USER_ID
+         AND B.AUTH_GRP_ID = C.AUTH_ID
+         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.AUTH_START_DAY AND B.AUTH_END_DAY
+         AND C.USE_YN = 'Y'
+         -- 입력된 사용자ID
+         AND A.USER_ID = #{user_id}
+      ORDER BY B.AUTH_GRP_ID
+    </select>
+    <!-- 개발자 업무 -->
+    <select id="getUsersWrkJobCdList" resultType="wrkJobCd">
+      /* CommonDao.getUsersWrkJobCdList */
+      SELECT 
+             C.WRKJOB_CD                      -- 업무코드
+           , C.WRKJOB_CD_NM                   -- 업무명
+           , COUNT(*) OVER() AS WRKJOB_CNT    -- 업무 개수  
+        FROM USERS A
+           , USER_WRKJOB B
+           , WRKJOB_CD C
+       WHERE A.USE_YN ='Y' 
+         AND A.USER_ID = B.USER_ID
+         AND B.WRKJOB_CD = C.WRKJOB_CD
+         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.WORKJOB_START_DAY AND B.WORKJOB_END_DAY
+         AND C.USE_YN = 'Y'
+         AND A.USER_ID = #{user_id}
+      ORDER BY C.WRKJOB_CD
+    </select>
+    
+    <select id="getAuthNmMapList" resultType="org.apache.commons.collections4.map.CaseInsensitiveMap">
+      /* CommonDao.getAuthNmMapList */
+      SELECT
+          AUTH_ID,
+          AUTH_NM,
+          USE_YN,
+          AUTH_CD
+      FROM
+          AUTH
+      WHERE USE_YN = 'Y' 
+           ORDER BY AUTH_ID
+    </select>    
+    
+    <sql id="getAuthUserNameRefId">
+      /* CommonDao.getAuthUserNameRefId */
+      SELECT A.USER_ID,A.USER_NM,C.AUTH_ID, C.AUTH_NM 
+      , TO_CHAR(TO_DATE(B.AUTH_START_DAY,'YYYYMMDD'),'YYYY-MM-DD') AUTH_START_DAY
+      , TO_CHAR(TO_DATE(B.AUTH_END_DAY,'YYYYMMDD'),'YYYY-MM-DD') AUTH_END_DAY
+      FROM USERS A, USER_AUTH B, AUTH C
+      WHERE A.USER_ID = B.USER_ID
+      AND B.AUTH_GRP_ID = C.AUTH_ID
+      <if test="auth_id != null and auth_id != ''">
+          AND B.AUTH_GRP_ID = #{auth_id}    
+      </if>
+      <if test="searchValue != null and searchValue != ''">
+          AND A.USER_NM LIKE '%'||#{searchValue}||'%'    
+      </if>
+    </sql>
+    
+    <select id="getAuthUserName" resultType="users" parameterType="users">
+      /* CommonDao.getAuthUserName */
+      SELECT *
+      FROM (
+          SELECT ROWNUM RNUM, AA.*
+          FROM (
+      <include refid="getAuthUserNameRefId"/>
+          ) AA
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) AA
+      WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="getTableList" parameterType="userTables" resultType="userTables">
+      /* CommonDao.getTableList */
+      SELECT * FROM USER_TABLES
+      ORDER BY TABLE_NAME
+    </select>
+    
+    <select id="instanceList_old" resultType="instance" parameterType="instance">
+      /* CommonDao.instanceList */
+          SELECT A.DBID 
+                 , B.INST_ID || ',' || A.DBID AS INST_ID
+               , B.INST_NM  
+            FROM DATABASE A
+               , INSTANCE B
+           WHERE A.DBID = B.DBID
+             AND A.USE_YN = 'Y'
+           ORDER BY A.ORDERING, B.INST_NM
+    </select>
+    
+    <select id="instanceList" resultType="instance" parameterType="instance">
+      /* CommonDao.instanceList */
+        SELECT A.DBID 
+             , D.INST_ID || ',' || A.DBID AS INST_ID
+             , D.INST_NM
+        FROM DATABASE A, USER_DB_PRIVILEGE B, USERS C, INSTANCE D
+        WHERE A.USE_YN = 'Y'
+        AND A.DBID = B.DBID
+        AND B.USER_ID = C.USER_ID
+        AND A.DBID = D.DBID
+        AND C.USER_ID = #{user_id}
+        AND SYSDATE BETWEEN TO_DATE(B.PRIVILEGE_START_DAY,'YYYYMMDD') AND TO_DATE(B.PRIVILEGE_END_DAY,'YYYYMMDD')
+        ORDER BY A.ORDERING ASC
+    </select>
+    
+    <select id="projectList" parameterType="project" resultType="project">
+      /* CommonDao.projectList */
+      SELECT PROJECT_ID
+           , PROJECT_NM
+           , DEL_YN
+        FROM PROJECT
+       WHERE DEL_YN = 'N'
+         AND PROJECT_ID != 0
+       ORDER BY PROJECT_NM ASC
+    </select>
+    
+    <select id="getDevProjectList" parameterType="java.util.HashMap" resultType="project">
+      /* CommonDao.getDevProjectList */
+      SELECT DISTINCT 
+             C.PROJECT_ID
+           , C.PROJECT_NM
+        FROM USER_WRKJOB A
+           , PROJECT_WRKJOB B
+           , PROJECT C
+       WHERE A.USER_ID = #{user_id}
+         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.WORKJOB_START_DAY AND A.WORKJOB_END_DAY
+         AND A.LEADER_YN = 'Y'
+         AND B.WRKJOB_CD = A.WRKJOB_CD
+         AND C.PROJECT_ID = B.PROJECT_ID
+         AND C.DEL_YN = 'N'
+         AND C.PROJECT_ID != 0
+    </select>
+    
+    <select id="getUserPasswordChgDt" parameterType="users" resultType="int">
+      /* CommonDao.getUserPasswordChgDt */
+      SELECT NVL(TO_CHAR(PASSWORD_CHG_DT,'YYYYMMDD'), #{applied_dt}) FROM USERS
+      WHERE USER_ID = #{user_id}
+    </select>
+    
+    <select id="getUserPasswdChgDt" parameterType="users" resultType="String">
+      /* CommonDao.getUserPasswdChgDt */
+      SELECT 
+           NVL(TO_CHAR(A.PASSWORD_CHG_DT,  'YYYYMMDD'), '19010101') AS PASSWORD_CHG_DT  
+        FROM USERS A, AUTH B, USER_AUTH C, USER_WRKJOB D
+       WHERE A.USE_YN = 'Y'
+      <choose>
+          <when test="new_user_id != null and new_user_id != ''">
+          AND A.USER_ID = #{new_user_id}
+          </when>
+          <otherwise>
+          AND A.USER_ID = #{user_id}
+          </otherwise>
+      </choose>
+      AND C.AUTH_GRP_ID = B.AUTH_ID(+)
+      AND A.USER_ID = C.USER_ID(+)
+      AND A.DEFAULT_AUTH_GRP_ID = C.AUTH_GRP_ID(+)
+      AND A.USER_ID = D.USER_ID(+)
+      AND A.DEFAULT_WRKJOB_CD = D.WRKJOB_CD(+)
+      AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN C.AUTH_START_DAY(+) AND C.AUTH_END_DAY(+)
+      AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN D.WORKJOB_START_DAY(+) AND D.WORKJOB_END_DAY(+)
+    </select>
+    
+    <select id="userPasswordValidCheck" parameterType="String" resultType="String">
+      /* CommonDao.userPasswordValidCheck */
+      SELECT CD_NM AS VALID_CHECK_LIST FROM CD WHERE GRP_CD_ID = '1075'
+    </select>
+      
+    <select id="passwordErrCnt" parameterType="String" resultType="int">
+      /* CommonDao.passwordErrCnt */
+      SELECT NVL(MAX(PASSWORD_ERROR_CNT),0) FROM USERS WHERE USER_ID = #{user_id}
+    </select>
+    
+    <update id="updateErrCnt" parameterType="String" >
+      /* CommonDao.updateErrCnt */
+      UPDATE USERS SET
+                 PASSWORD_ERROR_CNT =  NVL(PASSWORD_ERROR_CNT,0) +1 
+                WHERE USER_ID = #{user_id}    
+    </update>
+    
+    <update id="updateResetErrCnt" parameterType="String" >
+      /* CommonDao.updateResetErrCnt */
+      UPDATE USERS SET
+                 PASSWORD_ERROR_CNT =  NULL 
+                WHERE USER_ID = #{user_id}    
+    </update>
+    
+    <select id="getNoneFileList" parameterType="String" resultType="String">
+      /* CommonDao.getNoneFileList */
+      SELECT CD_NM NONE_FILE_LIST FROM CD WHERE GRP_CD_ID = '1076'
+    </select>
+    
+    <select id="wrkJobTopLevel" parameterType="wrkJobCd" resultType="wrkJobCd">
+      /* CommonDao.wrkJobTopLevel */
+      /* Base type is CommonDao.wrkJobList */
+      /* The conditions of (WHERE PREF_ID = '22001') are excluded. */
+      /* Show in combotree */
+      SELECT A.WRKJOB_CD AS ID, A.WRKJOB_CD_NM AS TEXT, B.DBID
+          , CASE WHEN UPPER_WRKJOB_CD IS NULL THEN '-1' ELSE UPPER_WRKJOB_CD END AS PARENT_ID
+      FROM WRKJOB_CD A, WRKJOB_DB B, DATABASE C
+      WHERE A.WRKJOB_CD = B.WRKJOB_CD
+      AND B.DBID = C.DBID
+      AND A.UPPER_WRKJOB_CD IS NULL
+      AND C.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                    FROM SPOP_PREFERENCES 
+                                   WHERE PREF_ID = '22001')
+      ORDER BY ID
+    </select>
+    
+    <select id="sqlTextPlanList" parameterType="String" resultType="String">
+      /* CommonDao.sqlTextPlanList */
+      WITH TUN AS (
+          SELECT *
+          FROM ODS_HIST_SQL_PLAN
+          WHERE DBID = #{dbid}
+          AND SQL_ID = #{sql_id}
+          AND PLAN_HASH_VALUE = #{plan_hash_value}
+      )
+      SELECT ' '|| LPAD(' ',2*LEVEL)||
+             OPERATION ||
+             DECODE(OPTIONS, NULL, '', ' ' || OPTIONS) ||
+             DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME) || 
+             DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+          AS EXECUTION_PLAN
+        FROM TUN
+      CONNECT BY PRIOR ID = PARENT_ID 
+      START WITH ID = 0 
+      ORDER BY ID
+    </select>
+    
+    <select id="sqlTextPlanOption" parameterType="String" resultType="String">
+      /* CommonDao.sqlTextPlanOption */
+      WITH TUN AS (
+          SELECT *
+          FROM ODS_HIST_SQL_PLAN
+          WHERE DBID = #{dbid}
+          AND SQL_ID = #{sql_id}
+          AND PLAN_HASH_VALUE = #{plan_hash_value}
+      )
+      SELECT NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+                 || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+                 || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ') AS COSTTEXT
+        FROM TUN
+      CONNECT BY PRIOR ID = PARENT_ID 
+      START WITH ID = 0 
+      ORDER BY ID
+    </select>
+    
+    <select id="sqlTextPlanListAll" parameterType="String" resultType="String">
+      /* CommonDao.sqlTextPlanListAll */
+      WITH TUN AS (
+          SELECT *
+          FROM VSQL_PLAN
+          WHERE DBID = #{dbid}
+          AND PLAN_HASH_VALUE = #{plan_hash_value}
+      )
+      SELECT ' '|| LPAD(' ',2*LEVEL)||
+             OPERATION ||
+             DECODE(OPTIONS, NULL, '', ' ' || OPTIONS) ||
+             DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME) || 
+             DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+          AS EXECUTION_PLAN
+      FROM TUN
+      CONNECT BY PRIOR ID = PARENT_ID 
+      START WITH ID = 0 
+      ORDER BY ID
+    </select>
+    
+    <select id="sqlTextPlanAllOption" parameterType="String" resultType="String">
+      /* CommonDao.sqlTextPlanOption */
+      WITH TUN AS (
+          SELECT *
+          FROM VSQL_PLAN
+          WHERE DBID = #{dbid}
+          AND PLAN_HASH_VALUE = #{plan_hash_value}
+      )
+      SELECT NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+                 || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+                 || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ') AS COSTTEXT
+        FROM TUN
+      CONNECT BY PRIOR ID = PARENT_ID 
+      START WITH ID = 0 
+      ORDER BY ID
+    </select>
+    
+    <select id="sqlTextPlanListNew" parameterType="String" resultType="String">
+      /* CommonDao.sqlTextPlanListNew */
+      WITH TUN AS (
+          SELECT OPERATION
+               , OPTIONS
+               , OBJECT_OWNER
+               , OBJECT_NAME
+               , OBJECT_TYPE
+             , ID
+               , DECODE(ID, 0, NULL, PARENT_ID) PARENT_ID
+            FROM SQL_AUTO_PERF_SQL_PLAN
+           WHERE PROJECT_ID = #{project_id} 
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+             AND PLAN_HASH_VALUE = #{plan_hash_value}
+      )
+      SELECT ' '|| LPAD(' ',2*LEVEL)||
+             OPERATION ||
+             DECODE(OPTIONS, NULL, '', ' ' || OPTIONS) ||
+             DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME) || 
+             DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+             AS EXECUTION_PLAN
+        FROM TUN
+      CONNECT BY PRIOR ID = PARENT_ID 
+      START WITH ID = 0 
+      ORDER BY ID
+    </select>
+    
+    <select id="sqlTextPlanOptionNew" parameterType="String" resultType="String">
+      /* CommonDao.sqlTextPlanOptionNew */
+      WITH TUN AS (
+          SELECT OPTIMIZER
+               , CARDINALITY
+               , COST
+               , BYTES
+               , ID
+               , DECODE(ID, 0, NULL, PARENT_ID) PARENT_ID
+            FROM SQL_AUTO_PERF_SQL_PLAN
+           WHERE PROJECT_ID = #{project_id} 
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+             AND PLAN_HASH_VALUE = #{plan_hash_value}
+      )
+      SELECT NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+             || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+             || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+             || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+             || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+             || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ') AS COSTTEXT
+        FROM TUN
+      CONNECT BY PRIOR ID = PARENT_ID 
+      START WITH ID = 0 
+      ORDER BY ID
+    </select>
+    
+    <select id="loadAfterSelectTextPlanListAll" parameterType="String" resultType="String">
+      /* CommonDao.loadAfterSelectTextPlanListAll */
+      WITH TUN AS
+      (
+          SELECT *
+            FROM SQL_AUTO_PERF_SQL_PLAN
+           WHERE PROJECT_ID = #{project_id}
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+      )
+      SELECT ' '|| LPAD(' ',2*LEVEL)||
+             OPERATION ||
+             DECODE(OPTIONS, NULL, '', ' ' || OPTIONS) ||
+             DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME) || 
+             DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+          AS EXECUTION_PLAN
+        FROM TUN
+      CONNECT BY PRIOR ID = NVL(CASE WHEN PARENT_ID=0 THEN
+                                          CASE WHEN DEPTH=0 THEN -1
+                                          ELSE PARENT_ID
+                                          END
+                                      ELSE PARENT_ID
+                                  END, '-1')
+      START WITH ID = 0
+      ORDER BY ID
+    </select>
+    
+    <select id="loadAfterSelectTextPlanListOption" parameterType="String" resultType="String">
+      /* CommonDao.loadAfterSelectTextPlanListAll */
+      WITH TUN AS
+      (
+          SELECT *
+            FROM SQL_AUTO_PERF_SQL_PLAN
+           WHERE PROJECT_ID = #{project_id}
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+      )
+      SELECT NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+                 || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+                 || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ') AS COSTTEXT
+        FROM TUN
+      CONNECT BY PRIOR ID = NVL(CASE WHEN PARENT_ID=0 THEN
+                                          CASE WHEN DEPTH=0 THEN -1
+                                               ELSE PARENT_ID
+                                          END
+                                      ELSE PARENT_ID
+                                 END, '-1') 
+      START WITH ID = 0
+      ORDER BY ID
+    </select>
+    
+    <select id="loadAfterDMLTextPlanListAll" parameterType="String" resultType="String">
+      /* CommonDao.loadAfterDMLTextPlanListAll */
+      WITH TUN AS 
+      (
+          SELECT *
+            FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+           WHERE PROJECT_ID = #{project_id}
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+      )
+      SELECT ' '|| LPAD(' ',2*LEVEL)||
+             OPERATION ||
+             DECODE(OPTIONS, NULL, '', ' ' || OPTIONS) ||
+             DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME) || 
+             DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+          AS EXECUTION_PLAN
+        FROM TUN
+      CONNECT BY PRIOR ID = NVL(CASE WHEN PARENT_ID=0 THEN
+                                          CASE WHEN DEPTH=0 THEN -1
+                                          ELSE PARENT_ID
+                                          END
+                                      ELSE PARENT_ID
+                                  END, '-1')
+      START WITH ID = 0
+      ORDER BY ID
+    </select>
+    
+    <select id="loadAfterDMLTextPlanListOption" parameterType="String" resultType="String">
+      /* CommonDao.loadAfterDMLTextPlanListOption */
+      WITH TUN AS 
+      (
+          SELECT *
+            FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+           WHERE PROJECT_ID = #{project_id}
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+      )
+      SELECT NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+                 || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+               || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+                 || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ') AS COSTTEXT
+        FROM TUN
+      CONNECT BY PRIOR ID = NVL(CASE WHEN PARENT_ID=0 THEN
+                                          CASE WHEN DEPTH=0 THEN -1
+                                               ELSE PARENT_ID
+                                          END
+                                      ELSE PARENT_ID
+                                 END, '-1') 
+      START WITH ID = 0
+      ORDER BY ID
+    </select>
+    
+    <select id="loadAfterDMLTextPlanListNew" parameterType="String" resultType="String">
+      /* CommonDao.loadAfterDMLTextPlanListNew */
+      WITH TUN AS 
+      (
+          SELECT *
+            FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+           WHERE PROJECT_ID = #{project_id}
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+      )
+      SELECT ' '||LPAD(' ',2*LEVEL) 
+          || OPERATION
+          || DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+          || DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+          || DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+          AS EXECUTION_PLAN
+        FROM TUN
+      CONNECT BY PRIOR ID = NVL(CASE WHEN PARENT_ID=0 
+                                     THEN
+                                          CASE WHEN DEPTH=0 THEN -1
+                                          ELSE PARENT_ID
+                                      END
+                                ELSE PARENT_ID
+                                 END, '-1')
+       START WITH ID = 0
+       ORDER BY ID
+    </select>
+    <select id="loadAfterDMLTextPlanListOptionNew" parameterType="String" resultType="String">
+      /* CommonDao.loadAfterDMLTextPlanListOptionNew */
+      WITH TUN AS 
+      (
+          SELECT *
+            FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+           WHERE PROJECT_ID = #{project_id}
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+      )
+      SELECT NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+            || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+            || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+          AS EXECUTION_PLAN
+        FROM TUN
+      CONNECT BY PRIOR ID = NVL(CASE WHEN PARENT_ID=0 
+                                     THEN
+                                          CASE WHEN DEPTH=0 THEN -1
+                                          ELSE PARENT_ID
+                                      END
+                                ELSE PARENT_ID
+                                 END, '-1')
+       START WITH ID = 0
+       ORDER BY ID
+    </select>
+    
+    <select id="loadAfterSelectTextPlanListNew" parameterType="String" resultType="String">
+      /* CommonDao.loadAfterSelectTextPlanListNew */
+          WITH TUN AS
+          (
+              SELECT *
+                FROM SQL_AUTO_PERF_SQL_PLAN
+               WHERE PROJECT_ID = #{project_id}
+                 AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+                 AND SQL_ID = #{sql_id}
+                 AND PLAN_HASH_VALUE = #{tobe_plan_hash_value}
+          )
+          SELECT ' '||LPAD(' ',2*LEVEL) 
+              || OPERATION
+              || DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+              || DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+              || DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+              AS EXECUTION_PLAN
+                FROM TUN
+             CONNECT BY PRIOR ID = NVL(CASE WHEN PARENT_ID=0 
+                                            THEN
+                                                 CASE WHEN DEPTH=0 THEN -1
+                                                      ELSE PARENT_ID
+                                                  END
+                                            ELSE PARENT_ID
+                                        END, '-1')
+               START WITH ID = 0
+               ORDER BY ID
+    </select>
+    <select id="loadAfterSelectTextPlanListOptionNew" parameterType="String" resultType="String">
+      /* CommonDao.loadAfterSelectTextPlanListOptionNew */
+          WITH TUN AS
+          (
+              SELECT *
+                FROM SQL_AUTO_PERF_SQL_PLAN
+               WHERE PROJECT_ID = #{project_id}
+                 AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+                 AND SQL_ID = #{sql_id}
+                 AND PLAN_HASH_VALUE = #{tobe_plan_hash_value}
+          )
+          SELECT NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+                || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+                || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+                || (CASE WHEN CARDINALITY IS NOT NULL THEN ' ' || 'CARD=' || CARDINALITY ELSE '' END)
+                || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+                || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+              AS EXECUTION_PLAN
+                FROM TUN
+             CONNECT BY PRIOR ID = NVL(CASE WHEN PARENT_ID=0 
+                                            THEN
+                                                 CASE WHEN DEPTH=0 THEN -1
+                                                      ELSE PARENT_ID
+                                                  END
+                                            ELSE PARENT_ID
+                                        END, '-1')
+               START WITH ID = 0
+               ORDER BY ID
+    </select>
+</mapper>

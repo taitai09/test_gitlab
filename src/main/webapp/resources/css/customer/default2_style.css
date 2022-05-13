@@ -1,0 +1,28 @@
+@charset "utf-8";
+
+#wrapper #header .top h1 {
+	background: url(../../images/default2_logo.png) no-repeat;
+	width: 251px;
+	height: 24px;
+	text-indent: -1000px;
+	position: absolute;
+	top: 15px;
+	left: 16px;
+} /* kbcd */
+nav ul {
+	left: 110px;
+	position: absolute;
+}
+
+#wrapper .contents .logo {
+	width: 414px;
+	margin-left: 92px;
+	margin-bottom: 20px;
+	padding-top: 25px;
+}
+
+#wrapper .contents h1 {
+	position: relative;
+	left: -19px;
+	top: -10px;
+}

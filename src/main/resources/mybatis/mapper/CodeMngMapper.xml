@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2017.11.10	이원식	최초작성	
+	2018.04.09	이원식	OPENPOP V2 최초작업  (오픈메이드 관리자 메뉴로 분리)
+-->
+<mapper namespace="omc.spop.dao.CodeMngDao">	
+	<select id="codeGroupList" parameterType="grpCd" resultType="grpCd">
+		SELECT GRP_CD_ID, UP_GRP_CD_ID, GRP_CD_NM, GRP_CD_DESC, USE_YN
+		FROM GRP_CD
+		WHERE 1=1		
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND GRP_CD_ID LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND GRP_CD_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>	
+		ORDER BY GRP_CD_ID
+	</select>
+	
+	<update id="saveCodeGroup" parameterType="grpCd">
+		MERGE INTO GRP_CD 
+			USING DUAL ON (GRP_CD_ID = #{grp_cd_id})
+		WHEN MATCHED THEN
+			UPDATE SET 
+				UP_GRP_CD_ID = #{up_grp_cd_id},
+				GRP_CD_NM = #{grp_cd_nm},
+				GRP_CD_DESC = #{grp_cd_desc},
+				USE_YN = #{use_yn}
+		WHEN NOT MATCHED THEN
+			INSERT (GRP_CD_ID, UP_GRP_CD_ID, GRP_CD_NM, GRP_CD_DESC, USE_YN)
+			VALUES (#{grp_cd_id}, #{up_grp_cd_id}, #{grp_cd_nm}, #{grp_cd_desc}, #{use_yn})
+	</update>
+	
+	<select id="codeList" parameterType="cd" resultType="cd">
+		SELECT GRP_CD_ID, CD, CD_NM, CD_DESC, REF_VL_1, REF_VL_2, REF_VL_3, ORDERED, USE_YN
+		FROM CD
+		WHERE GRP_CD_ID = #{grp_cd_id}		
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND CD LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND CD_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>	
+		ORDER BY ORDERED, CD
+	</select>
+	
+	<update id="saveCode" parameterType="cd">
+		MERGE INTO CD 
+			USING DUAL ON (GRP_CD_ID = #{grp_cd_id} AND CD = #{cd})
+		WHEN MATCHED THEN
+			UPDATE SET 
+				CD_NM = #{cd_nm},
+				CD_DESC = #{cd_desc},
+				REF_VL_1 = #{ref_vl_1},
+				REF_VL_2 = #{ref_vl_2},
+				REF_VL_3 = #{ref_vl_3},
+				ORDERED = #{ordered},
+				USE_YN = #{use_yn}
+		WHEN NOT MATCHED THEN
+			INSERT (GRP_CD_ID, CD, CD_NM, CD_DESC, REF_VL_1, REF_VL_2, REF_VL_3, ORDERED, USE_YN)
+			VALUES (#{grp_cd_id}, #{cd}, #{cd_nm}, #{cd_desc}, #{ref_vl_1}, #{ref_vl_2}, #{ref_vl_3}, #{ordered}, #{use_yn})
+	</update>
+</mapper>

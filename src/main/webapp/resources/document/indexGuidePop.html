@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="EUC-KR">
+<title>인덱스 가이드</title>
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/common.css" />
+<link rel="stylesheet" href="/resources/css/layout.css" />
+<link rel="stylesheet" href="/resources/css/lib/easyui/default/easyui.css"/>
+<link rel="stylesheet" href="/resources/css/lib/easyui/color.css" />
+<link rel="stylesheet" href="/resources/css/lib/easyui/icon.css" />
+<link rel="stylesheet" href="/resources/css/lib/jquery.navgoco.css"/>
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/reset.css" />
+
+<script type="text/javascript" src="/resources/js/lib/jquery.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery.easyui.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/datagrid-filter.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery.form.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery.navgoco.js"></script>
+<script>
+function Btn_OnClosePopup(winName){
+	window.close();
+}
+</script>
+</head>
+<body>
+
+	<div class="easyui-layout layout easyui-fluid" data-options="fit:true,border:false" style="width: 1186px; height: 664px;">
+		<div class="panel layout-panel layout-panel-center panel-htop" style="width: 1186px; left: 0px; top: 0px;">
+		<div data-options="region:'center',split:false,border:false" style="padding: 10px; width: 1166px; height: 530px;" title="" class="panel-body panel-body-noheader panel-body-noborder layout-body" id="">
+			<table class="detailT">
+				<caption>인덱스 가이드</caption>                    
+				<colgroup>	
+					<col style="width:7%;">
+					<col style="width:12%;">
+					<col style="width:16%;">
+					<col style="width:37%;">
+					<col style="width:13%;">
+					<col style="width:15%;">
+				</colgroup>
+				<tbody><tr>
+                  <th>업무구분</th>
+                  <th>구분</th>
+                  <th>세부내용</th>
+                  <th>확인방법</th>
+                  <th>확인기준(임계치)</th>
+                  <th>비고</th>
+				</tr>
+				<tr>
+					<td rowspan="15" class="ctext">
+						<dl class="paddingB5 paddingT5">
+							<dd>인덱스</dd>
+							<dd>신규시</dd>
+							<dd>사전</dd>
+							<dd>점검사항</dd>
+						</dl>
+					</td>
+					<td rowspan="3">표준화 준수여부</td>
+					<td>Nextkey</td>
+					<td>
+						<dl class="paddingB5 paddingT5">
+							<dd>전체 OR 구문 누락</dd>
+							<dd>ORDER BY 구문 누락</dd>
+							<dd>ROWNUM &lt;= :pageRowCouont + 1 구문 누락</dd>
+							<dd>ORDER BY 구문의 컬럼과 OR 구문의 컬럼 불일치</dd>
+							<dd>ORDER BY 구문의 정렬과 OR 구문의 부등호 불일치</dd>
+							<dd>OR 구문 사용시 괄호 누락</dd>
+							<dd>pageRowCount 변수 미사용</dd>
+						</dl>
+					</td>
+					<td>해당사항없음</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>입력조건별 분기</td>
+				    <td>
+						<dl class="paddingB5 paddingT5">
+							<dd>기본조회 요건 필수 입력 여부</dd>
+							<dd>IS NULL 외 조건(NVL, DECODE, CASE, LIKE 등) 사용 여부</dd>
+							<dd>옵션이 4개 이상인 경우만 허용</dd>
+						</dl>
+				    </td>
+					<td>해당사항없음</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>outer 조인</td>
+					<td>
+						<dl class="paddingB5 paddingT5">
+							<dd>불필요 OUTER JOIN 사용 여부</dd>
+							<dd>ANSI OUTER JOIN 사용 여부</dd>
+							<dd>(+) 기호 누락 여부</dd>
+						</dl>
+				    </td>
+				    <td>해당사항없음</td>
+				    <td></td>
+				</tr>
+				<tr>
+				    <td rowspan="4">용량확인</td>
+					<td>테이블 용량 확인</td>
+				    <td>
+						<dl class="paddingB5 paddingT5">
+							<dd>SELECT SEGMENT_NAME, SUM(BYTES)/1024/1024 "MB"</dd>
+							<dd class="paddingL20">FROM DBA_SEGMENTS</dd>
+							<dd>WHERE OWNER = :TABLE_OWNER</dd>
+							<dd class="paddingL20">AND SEGMENT_NAME LIKE '%' || :TABLE_NAME || '%'</dd>
+							<dd>GROUP BY SEGMENT_NAME ;</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>파티션 테이블 용량 확인</td>
+				    <td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>SELECT SEGMENT_NAME, SUM(BYTES)/1024/1024 "MB"</dd>
+							<dd class="paddingL20">FROM DBA_SEGMENTS</dd>
+							<dd>WHERE OWNER = :TABLE_OWNER</dd>
+							<dd class="paddingL20">AND SEGMENT_NAME LIKE '%' || :TABLE_NAME || '%'</dd>
+							<dd>GROUP BY SEGMENT_NAME ;</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>인덱스 용량 확인</td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>select segment_name, bytes from dba_segments</dd>
+							<dd>where owner = 'CBKOWN'</dd>
+							<dd>and segment_name in</dd>
+							<dd class="paddingL20">(</dd>
+							<dd class="paddingL40">select index_name from dba_indexes</dd>
+							<dd class="paddingL40">where table_owner =: table_owner</dd>
+							<dd class="paddingL40">and table_name =: table_name</dd>
+							<dd class="paddingL20">)</dd>
+							<dd>;</dd>
+						</dl>
+				    </td>
+				    <td></td>
+				    <td></td>
+				</tr>
+				<tr>
+					<td>파티션 인덱스 용량 확인</td>
+				    <td>
+				    	<dl class="paddingB5 paddingT5 ">
+							<dd>select segment_name, bytes from dba_segments</dd>
+							<dd>where owner = 'CBKOWN'</dd>
+							<dd>and segment_name in</dd>
+							<dd class="paddingL20">(</dd>
+							<dd class="paddingL40">select index_name from dba_indexes</dd>
+							<dd class="paddingL40">where table_owner =: table_owner</dd>
+							<dd class="paddingL40">and table_name =: table_name</dd>
+							<dd class="paddingL20">)</dd>
+							<dd class="paddingL20">GROUP BY SEGMENT_NAME</dd>
+							<dd>;</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td>인덱스추가에따른인덱스로인한I/O증가율 및테이블스페이스용량확보</td>
+				</tr>
+				<tr>
+				    <td>인덱스 개수 확인</td>
+					<td>과다한 인덱스 추가를<br> 방지하기 위하여, 정확한 기준을 정할수는 없지만 7개 이상의 인덱스를<br> 소유한 테이블에 대한 <br>신규 인덱스 추가시<br> 액세스패턴에 대한 상세 검토를 수행 하도록 한다.</td>
+				    <td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>SELECT COUNT(*) FROM DBA_INDEXES</dd>
+							<dd class="paddingL20">WHERE TABLE_OWNER = :table_owner</dd>
+							<dd class="paddingL40">AND TABLE_NAME = :table_name ;</dd>
+						</dl>
+					</td>
+					<td>5</td>
+					<td></td>
+				</tr>
+				<tr>
+				    <td>통계정보 수집일 확인</td>
+					<td>인덱스를 추가하는<br> 테이블 및 인덱스의<br> 통계정보 수집일을 확인</td>
+				    <td>
+				    	<dl class="paddingB5 paddingT5 ">
+							<dd>SELECT * FROM 테이블명;</dd>
+							<dd class="paddingL10">-&gt; 오렌지툴에서 Ctl + E (실행계획확인)</dd>
+							<dd>LAST_ANALYZED날짜확인</dd>
+							<dd class="paddingT10">SELECT ‘TB’ TYPE, TABLE_NAME, LAST_ANALYZED</dd>
+							<dd class="paddingL10">FROM DBA_TABLES</dd>
+							<dd>WHERE TABLE_OWNER = :table_owner</dd>
+							<dd class="paddingL10">AND TABLE_NAME = :table_name</dd>
+							<dd>UNION ALL</dd>
+							<dd>SELECT ‘IX’, INDEX_NAME, LAST_ANALYZED</dd>
+							<dd class="paddingL10">FROM DBA_INDEXES</dd>
+							<dd>WHERE TABLE_OWNER = :table_owner</dd>
+							<dd class="paddingL10">AND TABLE_NAME = :table_name ;</dd>
+						</dl>
+					</td>
+					<td>2015/10/18</td>
+					<td>통계정보수집이후상당시간이경과하였거나,그에따른데이터변동량이많을경우,테이블관련통계정보의수집주기를확인하여통계정보갱신시점에맞추어인덱스추가를수행한다.</td>
+				</tr>
+				<tr>
+				    <td>데이터 일변동량 확인</td>
+					<td>데이터 일변동량을 확인하여, 해당 테이블 및 인덱스의 통계정보 수집후 데이터 변동량이 통계정보수집일 대략 10% 이상 변경한 경우 신규인덱스 생성으로 인한 의도하지 않은 실행계획 변경이 발생할 수 있음.</td>
+				    <td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>배치 BCV 로그인</dd>
+							<dd>SELECT BASE_DATE, TABLE_NAME, SUM(NUM_ROWS)</dd>
+							<dd class="paddingL20">FROM CBKDBA.TB_DBA_HIST_SEGMENTS</dd>
+							<dd class="paddingL10">WHERE OWNER = :TABLE_OWNER</dd>
+							<dd class="paddingL20">AND TABLE_NAME = :TABLE_NAME</dd>
+							<dd class="paddingL20">AND BASE_DATE = :LAST_ANALYZED</dd>
+							<dd class="paddingL10">GROUP BY BASE_DATE, TABLE_NAME</dd>
+							<dd>UNION ALL</dd>
+							<dd>SELECT BASE_DATE, TABLE_NAME, SUM(NUM_ROWS)</dd>
+							<dd class="paddingL20">FROM CBKDBA.TB_DBA_HIST_SEGMENTS</dd>
+							<dd class="paddingL10">WHERE OWNER = :TABLE_OWNER</dd>
+							<dd class="paddingL20">AND TABLE_NAME = :TABLE_NAME</dd>
+							<dd class="paddingL20">AND BASE_DATE = TO_CHAR(SYSDATE - 1,'YYYYMMDD')</dd>
+							<dd class="paddingL10">GROUP BY BASE_DATE, TABLE_NAME ;</dd>
+				        </dl>
+				    </td>
+				    <td>1.14~115（３００９４）</td>
+				    <td></td>
+				</tr>
+				<tr>
+					<td>유사인덱스 존재유무 확인</td>
+					<td>기존인덱스의컬럼구성을확인하여,신규인덱스의컬럼과중복되는인덱스인지확인필요. 유사인덱스를사용하는DAO의SQL PLAN변경유발가능성이있으며,인덱스과다로인한I/O부하발생함.</td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>SELECT INDEX_NAME, LISTAGG(COLUMN_NAME || ' ' ||</dd>
+							<dd class="paddingL40">DESCEND, ', ') WITHIN GROUP(ORDER BY</dd>
+							<dd class="paddingL40">COLUMN_POSITION) INDEX_COLUMN</dd>
+							<dd class="paddingL30">FROM DBA_IND_COLUMNS</dd>
+							<dd class="paddingL10">WHERE TABLE_OWNER = :TABLE_OWNER</dd>
+							<dd class="paddingL20">AND TABLE_NAME = :TABLE_NAME</dd>
+							<dd class="paddingL10">GROUP BY INDEX_NAME ;</dd>
+						</dl></td>
+					<td>pk인덱스 첫 번째컬럼 유사</td>
+					<td></td>
+				</tr>
+				<tr>
+				    <td>인덱스 효율성 확인</td>
+					<td>인덱스 자체의 Distinct 율 과 테이블 전체건수를 비교하여, 인덱스를 사용하는 엑세스 패턴에 따라 평균 추출되는 결과건수의 타당성을 확인한다.</td>
+				    <td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>(예제)</dd>
+							<dd>전체건수 : 16,947,462</dd>
+							<dd>신규 인덱스 : Distinct = 147</dd>
+							<dd class="paddingL20">Case1) 이퀄검색시 평균 7.6 건 추출</dd>
+							<dd class="paddingL20">Case2) Range검색시 평균 7.6 * N 건 추출</dd>
+							<dd>사용SQL의조건검색특성을확인하여복합컬럼의필요유무를검토.</dd>
+							<dd class="paddingL20">-&gt; 기존 튜닝가이드 사례를 기준으로 컬럼이 부족한 경우가</dd>
+							<dd>발생함.</dd>
+							<dd>/* SELECT COUNT(*)</dd>
+							<dd>FROM (</dd>
+							<dd>SELECT /*+ FULL(A) PARALLEL(A 16) */DISTINCT FNBB_TRN_AMT,</dd>
+							<dd>FNBB_TRN_DSNC_NO, HTDSP_DCD FROM TB_CBK_EXNEF1L A); */</dd>
+							<dd><img src="/resources/images/img_TI01.gif" alt="샘플" width="368px" height="153px"></dd>
+							<dd><img src="/resources/images/img_TI02.gif" alt="샘플" width="368px" height="153px"></dd>
+				        </dl>
+				    </td>
+				    <td>39,639</td>
+				    <td></td>
+				</tr>
+				<tr>
+				    <td>결합인덱스의 컬럼우선순위 확인</td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>- 결합인덱스의 컬럼 순서가 검색조건 연산자 우선순위에 부합하는지 확인.</dd>
+							<dd>- 공통 Access 컬럼을 앞쪽에 위치하게 하여, Index Skip Scan 발생억제</dd>
+							<dd>- 컬럼수가 많을 경우 Distinct가 낮은 컬럼 불필요하게 추가 유무 등</dd>
+							<dd>- 목록성 쿼리의 페이징 처리를 위한 Sort처리를 대체할 수 있는 컬럼구성 Order By 구문의 컬럼순서 확인</dd>
+				        </dl>
+				    </td>
+				    <td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>- 결합인덱스의 컬럼 순서가 검색조건 연산자 우선순위에 부합 하는지 확인.</dd>
+							<dd>- 공통 Access 컬럼을 앞쪽에 위치하게 하여, Index Skip Scan 발생억제</dd>
+							<dd>- 공통 Access 컬럼을 앞쪽에 위치하게 하여, Index Skip Scan 발생억제</dd>
+							<dd>- 목록성 쿼리의 페이징 처리를 위한 Sort처리를 대체할 수 있는 컬럼구성 Order By 구문의 컬럼순서 확인</dd>
+				        </dl>
+				    </td>
+				    <td></td>
+				    <td></td>
+				</tr>
+				<tr>
+					<td>파티션 인덱스의 특성확인</td>
+					<td></td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>- 성능적 관점의 Global Index를 사용이 꼭 필요한지 확인</dd>
+							<dd class="paddingL20">-&gt; 튜너 검토</dd>
+							<dd>- 운영적 관점에서 Local Index를 꼭 사용하여야 하는지 확인</dd>
+							<dd class="paddingL20">-&gt; DBA 검토</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>업무팀 확인</td>
+					<td>업무팀에 해당 테이블을 사용하는 관련기능에 대하여 단위 테스트 수행여부를 확인한다.</td>
+					<td></td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td rowspan="11" class="center">
+						<dl class="paddingB5 paddingT5 ">
+							<dd>인덱스</dd>
+							<dd>변경시</dd>
+							<dd>사전</dd>
+							<dd>점검사항</dd>
+						</dl>
+					</td>
+					<td rowspan="3">표준화 준수유무 확인</td>
+					<td>Nextkey</td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>전체 OR 구문 누락</dd>
+							<dd>ORDER BY 구문 누락</dd>
+							<dd>ROWNUM &lt;= :pageRowCouont + 1 구문 누락</dd>
+							<dd>ORDER BY 구문의 컬럼과 OR 구문의 컬럼 불일치</dd>
+							<dd>ORDER BY 구문의 정렬과 OR 구문의 부등호 불일치</dd>
+							<dd>OR 구문 사용시 괄호 누락</dd>
+							<dd>pageRowCount 변수 미사용</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>입력조건별 분기</td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>기본조회 요건 필수 입력 여부</dd>
+							<dd>IS NULL 외 조건(NVL, DECODE, CASE, LIKE 등) 사용 여부</dd>
+							<dd>옵션이 4개 이상인 경우만 허용</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>outer 조인</td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>불필요 OUTER JOIN 사용 여부</dd>
+							<dd>ANSI OUTER JOIN 사용 여부</dd>
+							<dd>(+) 기호 누락 여부</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>인덱스 용량확인</td>
+					<td></td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>SELECT SEGMENT_NAME, SUM(BYTES)/1024/1024 "MB"</dd>
+							<dd class="paddingL20">FROM DBA_SEGMENTS</dd>
+							<dd>WHERE OWNER = :TABLE_OWNER</dd>
+							<dd class="paddingL20">AND SEGMENT_NAME LIKE '%' || :TABLE_NAME || '%'</dd>
+							<dd>GROUP BY SEGMENT_NAME ;</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>해당 인덱스를 사용하는 DAO의 SQL영향도 분석</td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>관련SQL문을추출하여,인덱스컬럼구성의변경으로인한실행계획영향도확인</dd>
+							<dd class="paddingL10">- 첨부: 특정 테이블의인덱스를 사용하는 DAO 추출 SQL.sql</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>통계정보 수집일 확인</td>
+					<td></td>
+					<td></td>
+					<td></td>
+				    <td></td>
+				</tr>
+				<tr>
+					<td>데이터 일변동량 확인</td>
+					<td></td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>배치 BCV 로그인</dd>
+							<dd>SELECT BASE_DATE, TABLE_NAME, SUM(NUM_ROWS)</dd>
+							<dd class="paddingL20">FROM CBKDBA.TB_DBA_HIST_SEGMENTS</dd>
+							<dd class="paddingL10">WHERE OWNER = :TABLE_OWNER</dd>
+							<dd class="paddingL20">AND TABLE_NAME = :TABLE_NAME</dd>
+							<dd class="paddingL20">AND BASE_DATE = :LAST_ANALYZED</dd>
+							<dd class="paddingL10">GROUP BY BASE_DATE, TABLE_NAME</dd>
+							<dd>UNION ALL</dd>
+							<dd>SELECT BASE_DATE, TABLE_NAME, SUM(NUM_ROWS)</dd>
+							<dd class="paddingL20">FROM CBKDBA.TB_DBA_HIST_SEGMENTS</dd>
+							<dd class="paddingL10">WHERE OWNER = :TABLE_OWNER</dd>
+							<dd class="paddingL20">AND TABLE_NAME = :TABLE_NAME</dd>
+							<dd class="paddingL20">AND BASE_DATE = TO_CHAR(SYSDATE - 1,'YYYYMMDD')</dd>
+							<dd class="paddingL10">GROUP BY BASE_DATE, TABLE_NAME ;</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>유사인덱스 존재유무 확인</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>인덱스 효율성 확인</td>
+					<td></td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>/* SELECT COUNT(*)</dd>
+							<dd>FROM (</dd>
+							<dd class="paddingL20">SELECT /*+ FULL(A) PARALLEL(A 16) */DISTINCT FNBB_TRN_AMT,</dd>
+							<dd class="paddingL20">FNBB_TRN_DSNC_NO, HTDSP_DCD FROM TB_CBK_EXNEF1L</dd>
+							<dd>); */</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>결합인덱스의 컬럼우선순위 확인</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>업무팀 확인</td>
+					<td></td>
+					<td></td>
+					<td></td>				    
+					<td></td>
+				</tr>
+				<tr>
+					<td rowspan="2" class="center">
+						<dl class="paddingB5 paddingT5 ">
+							<dd>인덱스</dd>
+							<dd>삭제시</dd>
+							<dd>사전</dd>
+							<dd>점검사항</dd>
+						</dl>
+					</td>
+					<td>해당 인덱스를 사용하는 DAO의 SQL영향도 분석</td>
+					<td>
+						<dl class="paddingB5 paddingT5 ">
+							<dd>관련SQL문을추출하여해당인덱스를사용하는DAO가없음을확인</dd>
+							<dd class="paddingL10">- 첨부: 특정 테이블의 인덱스를 사용하는 DAO 추출 SQL.sql</dd>
+						</dl>
+					</td>
+					<td></td>
+					<td></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>업무팀 확인</td>
+					<td>DBMS에서 추출한 SQL문만으로는 해당 인덱스를 사용하는 모든 SQL문을 발췌할 수 없으므로, 업무팀에 삭제인덱스에 대한 사용유무를 확인한다.</td>
+					<td></td>
+					<td></td>
+					<td></td>
+				</tr>
+			</tbody></table>	
+		</div>
+		</div>
+		<div data-options="region:'south',split:false,border:false" style="width: 1186px; height: 55px;" title="" class="panel-body panel-body-noheader panel-body-noborder layout-body" id="">
+			<div class="searchBtn" style="margin-top:5px;padding-right:10px;">
+				<a href="javascript:;" class="w80 easyui-linkbutton l-btn l-btn-small" onclick="Btn_OnClosePopup('indexGuidePop');" group="" id=""><span class="l-btn-left"><span class="l-btn-text"><i class="btnRIcon fas fa-window-close fa-lg fa-fw"></i> 닫기</span></span></a>
+			</div>		
+		</div>
+	</div>
+</body>
+</html>

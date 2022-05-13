@@ -1,0 +1,26 @@
+@charset "utf-8";
+
+#wrapper #header .top h1 {
+	background: url(../../images/dstr_logo.png) no-repeat;
+	width: 116px;
+	height: 39px;
+	text-indent: -1000px;
+	position: absolute;
+	top: 7px;
+	left: 16px;
+}
+
+nav ul {
+	left: -30px;
+	position: absolute;
+}
+
+#wrapper .contents .logo {
+	width: 178px;
+	height: 61px;
+	margin-left: 92px;
+	padding-top: 25px;
+	position: relative;
+	left: 100px;
+	bottom: 26px;
+}

@@ -1,0 +1,1144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.14	이원식	OPENPOP V2 최초작업
+	2018.04.27	이원식	오브젝트 분석 => SPACE 분석으로 변경
+-->
+<mapper namespace="omc.spop.dao.SpaceAnalysisDao">	
+	<select id="tablespaceAnalysisList" parameterType="odsTablespaces" resultType="odsTablespaces">
+		/* SpaceAnalysisDao.tablespaceAnalysisList */
+		SELECT *
+		FROM (
+		SELECT A.TABLESPACE_NAME,
+			ROUND((A.TABLESPACE_SIZE*A.DB_BLOCK_SIZE)/(1024*1024), 2) TOTAL_SIZE_MB,
+			ROUND((A.USED_SPACE*A.DB_BLOCK_SIZE)/(1024*1024), 2) USED_SPACE_MB,
+			ROUND(A.USED_PERCENT,2) USED_PERCENT,
+			B.BLOCK_SIZE, 
+			B.INITIAL_EXTENT, 
+			B.NEXT_EXTENT, 
+			B.MIN_EXTENTS, 
+			B.MAX_EXTENTS, 
+			B.MAX_SIZE, 
+			B.PCT_INCREASE, 
+			B.MIN_EXTLEN, 
+			B.STATUS, 
+			B.CONTENTS, 
+			B.LOGGING, 
+			B.FORCE_LOGGING, 
+			B.EXTENT_MANAGEMENT, 
+			B.ALLOCATION_TYPE, 
+			B.PLUGGED_IN, 
+			B.SEGMENT_SPACE_MANAGEMENT, 
+			B.DEF_TAB_COMPRESSION, 
+			B.RETENTION, 
+			B.BIGFILE, 
+			B.PREDICATE_EVALUATION, 
+			B.ENCRYPTED, 
+			B.COMPRESS_FOR 
+		FROM ODS_TABLESPACE_USAGE_METRICS A, ODS_TABLESPACES B
+		WHERE A.DBID = B.DBID
+		AND A.TABLESPACE_NAME = B.TABLESPACE_NAME
+		AND A.DBID = #{dbid}
+		AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLESPACES WHERE DBID = #{dbid})
+		AND B.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLESPACES WHERE DBID = #{dbid})
+		ORDER BY TOTAL_SIZE_MB DESC	
+		)
+		WHERE ROWNUM <![CDATA[ <= ]]> 50
+	</select>
+	
+	<select id="dbSizeChartList" parameterType="odsTablespaces" resultType="odsTablespaces">
+		/* SpaceAnalysisDao.dbSizeChartList */
+		SELECT TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY, 
+			ROUND((SUM(USED_SPACE*DB_BLOCK_SIZE))/(1024*1024)) AS TOTAL_SIZE_MB
+		FROM ODS_TABLESPACE_USAGE_METRICS
+		WHERE DBID = #{dbid}
+		AND BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		GROUP BY TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD')
+		ORDER BY TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD')	
+	</select>
+	
+	<select id="topTablespaceChartLegendList" parameterType="odsTablespaces" resultType="odsTablespaces">
+		/* SpaceAnalysisDao.topTablespaceChartLegendList */
+		SELECT *
+		FROM (
+			SELECT A.BASE_DAY,
+				A.TABLESPACE_NAME,
+				ROUND((A.TABLESPACE_SIZE*A.DB_BLOCK_SIZE)/(1024*1024), 2) TOTAL_SIZE_MB,
+				ROUND((A.USED_SPACE*A.DB_BLOCK_SIZE)/(1024*1024), 2) USED_SPACE_MB,
+				ROUND(A.USED_PERCENT,2) USED_PERCENT,
+				B.STATUS,
+				B.EXTENT_MANAGEMENT,
+				B.SEGMENT_SPACE_MANAGEMENT
+			FROM ODS_TABLESPACE_USAGE_METRICS A, ODS_TABLESPACES B
+			WHERE A.DBID = B.DBID
+			AND A.TABLESPACE_NAME = B.TABLESPACE_NAME
+			AND A.DBID = #{dbid}
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLESPACES WHERE DBID = #{dbid})
+			AND B.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLESPACES WHERE DBID = #{dbid})
+			AND B.CONTENTS = 'PERMANENT'
+			ORDER BY USED_SPACE_MB DESC
+		) 
+		WHERE ROWNUM <![CDATA[ <= ]]> 5
+	</select>
+	
+	<select id="topTablespaceChartList" parameterType="odsTablespaces" resultType="odsTablespaces">
+		/* SpaceAnalysisDao.topTablespaceChartList */
+		WITH TABLESPACE AS (
+			SELECT *
+			FROM (
+				SELECT A.BASE_DAY,
+					A.TABLESPACE_NAME,
+					ROUND((A.TABLESPACE_SIZE*A.DB_BLOCK_SIZE)/(1024*1024), 2) TOTAL_SIZE_MB,
+					ROUND((A.USED_SPACE*A.DB_BLOCK_SIZE)/(1024*1024), 2) USED_SPACE_MB,
+					ROUND(A.USED_PERCENT,2) USED_PERCENT,
+					B.STATUS,
+					B.EXTENT_MANAGEMENT,
+					B.SEGMENT_SPACE_MANAGEMENT
+				FROM ODS_TABLESPACE_USAGE_METRICS A, ODS_TABLESPACES B
+				WHERE A.DBID = B.DBID
+				AND A.TABLESPACE_NAME = B.TABLESPACE_NAME
+				AND A.DBID = #{dbid}
+				AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLESPACES WHERE DBID = #{dbid})
+				AND B.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLESPACES WHERE DBID = #{dbid})
+				AND B.CONTENTS = 'PERMANENT'
+				ORDER BY USED_SPACE_MB DESC
+			) 
+			WHERE ROWNUM <![CDATA[ <= ]]> 5
+		), TABLESPACE_TREND AS
+		(
+			SELECT TO_CHAR(TO_DATE(A.BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY,
+				A.TABLESPACE_NAME,
+				ROUND((A.USED_SPACE*A.DB_BLOCK_SIZE)/(1024*1024), 2) USED_SPACE_MB
+			FROM TABLESPACE T, ODS_TABLESPACE_USAGE_METRICS A
+			WHERE T.TABLESPACE_NAME = A.TABLESPACE_NAME 
+			AND A.DBID = #{dbid}
+			AND A.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+			ORDER BY USED_SPACE_MB DESC
+		)
+		SELECT * FROM TABLESPACE_TREND
+		ORDER BY BASE_DAY, TABLESPACE_NAME	
+	</select>
+	
+	<select id="segmentList" parameterType="odsSegments" resultType="odsSegments">
+		/* SpaceAnalysisDao.segmentList */
+		SELECT *
+		FROM (
+		SELECT A.OWNER, A.SEGMENT_NAME, A.PARTITION_NAME, A.SEGMENT_TYPE, A.SEGMENT_SUBTYPE,
+			ROUND(A.BYTES/1024/1024, 2) AS BYTES, A.BLOCKS,
+			ROUND(ALLOCATED_SPACE/1024/1024, 2) ALLOCATED_SPACE_MB, 
+			ROUND(USED_SPACE/1024/1024, 2) USED_SPACE_MB, 
+			ROUND(RECLAIMABLE_SPACE/1024/1024, 2) RECLAIMABLE_SPACE_MB, 
+			CHAIN_ROWEXCESS, 
+			RECOMMENDATIONS, 
+			C1, C2, C3
+		FROM ODS_SEGMENTS A, 
+		(
+			SELECT DBID, SEGMENT_OWNER, SEGMENT_NAME, SEGMENT_TYPE, PARTITION_NAME, ALLOCATED_SPACE, USED_SPACE, 
+				RECLAIMABLE_SPACE, CHAIN_ROWEXCESS, RECOMMENDATIONS, C1, C2, C3
+			FROM ODS_ASA_RECOMMENDATIONS
+			WHERE DBID = #{dbid}
+			AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_ASA_RECOMMENDATIONS WHERE DBID = #{dbid})
+		) B
+		WHERE A.DBID = B.DBID(+)
+		AND A.OWNER = B.SEGMENT_OWNER(+)
+		AND A.SEGMENT_NAME = B.SEGMENT_NAME(+)
+		AND (A.PARTITION_NAME = DECODE(B.PARTITION_NAME, NULL, A.PARTITION_NAME, B.PARTITION_NAME) OR (B.PARTITION_NAME IS NULL AND A.PARTITION_NAME IS NULL))
+		AND A.DBID = #{dbid}
+		AND A.TABLESPACE_NAME = #{tablespace_name}
+		AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid})
+		ORDER BY BYTES DESC	
+		)
+		WHERE ROWNUM <![CDATA[ <= ]]> 50
+	</select>
+	
+	<select id="segmentStatisticsList" parameterType="odsSegments" resultType="odsSegments">
+		/* SpaceAnalysisDao.segmentStatisticsList */
+		SELECT TO_CHAR(B.BEGIN_INTERVAL_TIME, 'YYYY-MM-DD') SNAP_DT, 
+			SUM(PHYSICAL_READS_DELTA) AS PHYRDS,
+			SUM(PHYSICAL_WRITES_DELTA) AS PHYWRTS
+		FROM ODS_OBJECTS A, ODS_HIST_SEG_STAT B
+		WHERE A.DBID = B.DBID
+		AND A.OBJECT_ID = B.OBJ#
+		AND A.DATA_OBJECT_ID = B.DATAOBJ#
+		AND A.DBID = #{dbid}
+		AND A.OWNER = #{owner}
+		AND A.OBJECT_NAME = #{segment_name}
+		<if test="(partition_name != null and partition_name != '')">
+			AND (A.SUBOBJECT_NAME = DECODE(#{partition_name}, NULL, A.SUBOBJECT_NAME, #{partition_name}) OR (#{partition_name} IS NULL AND A.SUBOBJECT_NAME IS NULL))
+		</if>		
+		AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_OBJECTS WHERE DBID = #{dbid})
+		AND B.BEGIN_INTERVAL_TIME BETWEEN ADD_MONTHS(SYSDATE, -12) AND SYSDATE
+		GROUP BY TO_CHAR(B.BEGIN_INTERVAL_TIME, 'YYYY-MM-DD')
+		ORDER BY SNAP_DT	
+	</select>
+	
+	<select id="segmentSizeHistoryList" parameterType="odsSegments" resultType="odsSegments">
+		/* SpaceAnalysisDao.segmentSizeHistoryList */
+		SELECT TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY, ROUND(BYTES/1024/1024, 2) AS BYTES
+		FROM ODS_SEGMENTS
+		WHERE DBID = #{dbid}
+		AND OWNER = #{owner}
+		AND SEGMENT_NAME = #{segment_name}
+		<if test="(partition_name != null and partition_name != '')">
+			AND (PARTITION_NAME = DECODE(#{partition_name}, NULL, PARTITION_NAME, #{partition_name}) OR (#{partition_name} IS NULL AND PARTITION_NAME IS NULL))
+		</if>
+		AND BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		ORDER BY TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD')	
+	</select>
+	
+	<select id="dataFileList" parameterType="odsDataFiles" resultType="odsDataFiles">
+		/* SpaceAnalysisDao.dataFileList */
+		SELECT FILE_NAME, FILE_ID, ROUND(BYTES/1024/1024, 2) AS BYTES, BLOCKS, STATUS, USER_BYTES, USER_BLOCKS, ONLINE_STATUS
+		FROM ODS_DATA_FILES
+		WHERE DBID = #{dbid}
+		AND TABLESPACE_NAME = #{tablespace_name}
+		AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_DATA_FILES WHERE DBID = #{dbid})
+		ORDER BY FILE_NAME	
+	</select>
+	
+	<select id="datafileStatisticsList" parameterType="odsDataFiles" resultType="odsDataFiles">
+		/* SpaceAnalysisDao.datafileStatisticsList */
+		SELECT *
+		FROM
+		(
+			SELECT SNAP_DT, 
+				PHYRDS-LAG(PHYRDS) OVER(ORDER BY SNAP_DT) PHYRDS,
+				PHYWRTS-LAG(PHYWRTS) OVER(ORDER BY SNAP_DT) PHYWRTS
+			FROM
+			(
+				SELECT TO_CHAR(BEGIN_INTERVAL_TIME, 'YYYY-MM-DD') SNAP_DT, 
+					MAX(BLOCK_SIZE) AS BLOCK_SIZE, 
+					SUM(PHYRDS) AS PHYRDS, 
+					SUM(PHYWRTS) AS PHYWRTS
+				FROM ODS_HIST_FILESTATXS
+				WHERE DBID = #{dbid}
+				AND FILENAME = #{file_name}
+				AND BEGIN_INTERVAL_TIME BETWEEN ADD_MONTHS(SYSDATE, -12) AND SYSDATE
+				GROUP BY TO_CHAR(BEGIN_INTERVAL_TIME, 'YYYY-MM-DD')
+			)
+		)
+		WHERE PHYRDS IS NOT NULL
+		AND PHYRDS > 0
+		ORDER BY SNAP_DT	
+	</select>
+	
+	<select id="reorgTargetAnalysisList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.reorgTargetAnalysisList */
+		SELECT *
+		FROM (
+			SELECT A.TABLE_NAME, A.BASE_DAY,
+				E.COMMENTS,
+				A.PARTITIONED, 
+				(
+					<![CDATA[
+						CASE 
+						WHEN PARTITIONING_TYPE IS NULL THEN ''
+						WHEN PARTITIONING_TYPE IS NOT NULL AND SUBPARTITIONING_TYPE = 'NONE' THEN PARTITIONING_TYPE
+						WHEN PARTITIONING_TYPE IS NOT NULL AND SUBPARTITIONING_TYPE <> 'NONE' THEN PARTITIONING_TYPE || ', ' || SUBPARTITIONING_TYPE
+						END
+					]]>
+				) AS PARTITIONING_TYPE,
+				B.PART_KEY_COLUMN, 
+				C.SUBPART_KEY_COLUMN,
+				ROUND((A.BLOCKS*F.DB_BLOCK_SIZE)/1024,2) ALLOCATED_SPACE_MB, 
+				ROUND((A.NUM_ROWS*A.AVG_ROW_LEN/1024/1024),2) USED_SPACE_MB, 
+				ROUND((A.BLOCKS*F.DB_BLOCK_SIZE)/1024,2)-ROUND((A.NUM_ROWS*A.AVG_ROW_LEN/1024/1024),2) RECLAIMABLE_SPACE_MB,
+				ROUND(((ROUND((A.BLOCKS*F.DB_BLOCK_SIZE/1024),2)-ROUND((A.NUM_ROWS*A.AVG_ROW_LEN/1024/1024),2))/ROUND((BLOCKS*F.DB_BLOCK_SIZE/1024),2))*100 -10, 2) RECLAIMABLE_SPACE, 
+				A.NUM_ROWS, 
+				A.SAMPLE_SIZE, 
+				A.BLOCKS,
+				A.EMPTY_BLOCKS, 
+				A.AVG_SPACE, 
+				A.CHAIN_CNT, 
+				A.AVG_ROW_LEN, 
+				A.AVG_SPACE_FREELIST_BLOCKS, 
+				A.DEGREE,
+				TO_CHAR(A.LAST_ANALYZED, 'YYYY-MM-DD HH24:MI:SS') LAST_ANALYZED
+			FROM ODS_TABLES A,
+			(
+				SELECT DBID, OWNER, NAME, LISTAGG(COLUMN_NAME, ',') WITHIN GROUP(ORDER BY COLUMN_POSITION) PART_KEY_COLUMN
+				FROM ODS_PART_KEY_COLUMNS 
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_PART_KEY_COLUMNS WHERE DBID = #{dbid})
+				GROUP BY DBID, OWNER, NAME
+			) B,
+			(
+				SELECT DBID, OWNER, NAME, LISTAGG(COLUMN_NAME, ',') WITHIN GROUP(ORDER BY COLUMN_POSITION) SUBPART_KEY_COLUMN
+				FROM ODS_SUBPART_KEY_COLUMNS 
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SUBPART_KEY_COLUMNS WHERE DBID = #{dbid})
+				GROUP BY DBID, OWNER, NAME
+			) C,
+			(
+				SELECT DBID, OWNER, TABLE_NAME, PARTITIONING_TYPE, SUBPARTITIONING_TYPE
+				FROM ODS_PART_TABLES 
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_PART_TABLES WHERE DBID = #{dbid})
+			) D,  
+			(
+				SELECT DBID, OWNER, TABLE_NAME, COMMENTS, BASE_DAY
+				FROM ODS_TAB_COMMENTS 
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_COMMENTS WHERE DBID = #{dbid})
+			) E,
+			(
+				SELECT VALUE/1024 DB_BLOCK_SIZE
+				FROM ODS_HIST_PARAMETER
+				WHERE DBID = #{dbid}
+				AND INSTANCE_NUMBER = 1
+				AND PARAMETER_NAME = 'db_block_size'
+				AND SNAP_ID = (SELECT MAX(SNAP_ID) FROM ODS_HIST_PARAMETER WHERE DBID = #{dbid} AND INSTANCE_NUMBER = 1)
+			) F 
+			WHERE A.DBID = B.DBID(+)
+			AND A.OWNER = B.OWNER(+)
+			AND A.TABLE_NAME = B.NAME(+)
+			AND A.DBID = C.DBID(+)
+			AND A.OWNER = C.OWNER(+)
+			AND A.TABLE_NAME = C.NAME(+)
+			AND A.DBID = D.DBID(+)
+			AND A.OWNER = D.OWNER(+)
+			AND A.TABLE_NAME = D.TABLE_NAME(+)
+			AND A.DBID = E.DBID(+)
+			AND A.OWNER = E.OWNER(+)
+			AND A.TABLE_NAME = E.TABLE_NAME(+)
+			AND A.DBID = #{dbid}
+			AND A.OWNER = #{owner}
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLES WHERE DBID = #{dbid})
+			AND A.NUM_ROWS > 0
+			ORDER BY RECLAIMABLE_SPACE_MB DESC
+		)
+		WHERE ROWNUM <![CDATA[ <= ]]> 50	
+	</select>
+	
+	<select id="topDMLTableChartList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.topDMLTableChartList */
+		WITH TOP_DML_TABLE AS 
+		(
+			SELECT * 
+			FROM
+			(
+				SELECT DBID, TABLE_OWNER, TABLE_NAME, MAX(INSERTS)+MAX(UPDATES)+MAX(DELETES) DML_CNT
+				FROM ODS_TAB_MODIFICATIONS
+				WHERE DBID = #{dbid}
+				AND TABLE_OWNER = #{owner}
+				AND BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+				AND PARTITION_NAME IS NULL
+				GROUP BY DBID, TABLE_OWNER, TABLE_NAME
+				ORDER BY DML_CNT DESC
+			)
+			WHERE ROWNUM <![CDATA[ <= ]]> 10
+		)
+		SELECT B.TABLE_OWNER, B.TABLE_NAME, MAX(INSERTS) INSERTS, MAX(UPDATES) UPDATES, MAX(DELETES) DELETES
+		FROM TOP_DML_TABLE A, ODS_TAB_MODIFICATIONS B
+		WHERE A.DBID = B.DBID
+		AND A.TABLE_OWNER = B.TABLE_OWNER
+		AND A.TABLE_NAME = B.TABLE_NAME
+		AND B.PARTITION_NAME IS NULL
+		AND B.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		GROUP BY B.TABLE_OWNER, B.TABLE_NAME	
+	</select>
+	
+	<select id="topDMLTableHistoryChartLegendList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.topDMLTableHistoryChartLegendList */
+		SELECT * 
+		FROM
+		(
+			SELECT DBID, TABLE_OWNER, TABLE_NAME, MAX(INSERTS)+MAX(UPDATES)+MAX(DELETES) DML_CNT
+			FROM ODS_TAB_MODIFICATIONS
+			WHERE DBID = #{dbid}
+			AND TABLE_OWNER = #{owner}
+			AND PARTITION_NAME IS NULL
+			AND BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+			GROUP BY DBID, TABLE_OWNER, TABLE_NAME
+			ORDER BY DML_CNT DESC
+		)
+		WHERE ROWNUM <![CDATA[ <= ]]> 10
+	</select>
+	
+	<select id="topDMLTableHistoryChartList_bak" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.topDMLTableHistoryChartList_bak */
+		WITH TOP_DML_TABLE AS 
+		(
+			SELECT * 
+			FROM
+			(
+				SELECT DBID, TABLE_OWNER, TABLE_NAME, MAX(INSERTS)+MAX(UPDATES)+MAX(DELETES) DML_CNT
+				FROM ODS_TAB_MODIFICATIONS
+				WHERE DBID = #{dbid}
+				AND TABLE_OWNER = #{owner}
+				AND BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+				AND PARTITION_NAME IS NULL
+				GROUP BY DBID, TABLE_OWNER, TABLE_NAME
+				ORDER BY DML_CNT DESC
+			)
+			WHERE ROWNUM <![CDATA[ <= ]]> 10
+		)
+		SELECT TABLE_NAME, TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY, 
+		       ((CASE WHEN INSERTS_DELTA <![CDATA[ < ]]> 0 THEN INSERTS ELSE INSERTS_DELTA END)  +
+               (CASE WHEN UPDATES_DELTA <![CDATA[ < ]]> 0 THEN UPDATES ELSE UPDATES_DELTA END) +
+               (CASE WHEN DELETES_DELTA <![CDATA[ < ]]> 0 THEN DELETES ELSE DELETES_DELTA END)) AS DML_CNT
+		FROM
+		(
+			SELECT ROW_NUMBER() OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) RNUM,
+			    B.TABLE_OWNER, B.TABLE_NAME, B.BASE_DAY, 
+				B.INSERTS, B.UPDATES, B.DELETES,
+				B.INSERTS - LAG(B.INSERTS) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) INSERTS_DELTA,
+				B.UPDATES - LAG(B.UPDATES) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) UPDATES_DELTA,
+				B.DELETES - LAG(B.DELETES) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) DELETES_DELTA
+			FROM TOP_DML_TABLE A, ODS_TAB_MODIFICATIONS B
+			WHERE A.DBID = B.DBID
+			AND A.TABLE_OWNER = B.TABLE_OWNER
+			AND A.TABLE_NAME = B.TABLE_NAME
+			AND B.PARTITION_NAME IS NULL
+			AND B.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		)
+		WHERE RNUM > 1
+		ORDER BY BASE_DAY, TABLE_NAME
+	</select>
+	
+	<select id="topDMLTableHistoryChartList__" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.topDMLTableHistoryChartList__ */
+		WITH TOP_DML_TABLE AS 
+		(
+			SELECT * 
+			FROM
+			(
+				SELECT DBID, TABLE_OWNER, TABLE_NAME, MAX(INSERTS)+MAX(UPDATES)+MAX(DELETES) DML_CNT
+				FROM ODS_TAB_MODIFICATIONS
+				WHERE DBID = #{dbid}
+				AND TABLE_OWNER = #{owner}
+				AND BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+				AND PARTITION_NAME IS NULL
+				GROUP BY DBID, TABLE_OWNER, TABLE_NAME
+				ORDER BY DML_CNT DESC
+			)
+			WHERE ROWNUM <![CDATA[ <= ]]> 10
+		)
+		SELECT TABLE_NAME, TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY, 
+		       ((CASE WHEN INSERTS_DELTA <![CDATA[ < ]]> 0 THEN INSERTS ELSE INSERTS_DELTA END)  +
+               (CASE WHEN UPDATES_DELTA <![CDATA[ < ]]> 0 THEN UPDATES ELSE UPDATES_DELTA END) +
+               (CASE WHEN DELETES_DELTA <![CDATA[ < ]]> 0 THEN DELETES ELSE DELETES_DELTA END)) AS DML_CNT
+		FROM
+		(
+			SELECT ROW_NUMBER() OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) RNUM,
+			    B.TABLE_OWNER, B.TABLE_NAME, B.BASE_DAY, 
+				B.INSERTS, B.UPDATES, B.DELETES,
+				B.INSERTS - LAG(B.INSERTS) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) INSERTS_DELTA,
+				B.UPDATES - LAG(B.UPDATES) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) UPDATES_DELTA,
+				B.DELETES - LAG(B.DELETES) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) DELETES_DELTA
+			FROM TOP_DML_TABLE A, ODS_TAB_MODIFICATIONS B
+			WHERE A.DBID = B.DBID
+			AND A.TABLE_OWNER = B.TABLE_OWNER
+			AND A.TABLE_NAME = B.TABLE_NAME
+			AND B.PARTITION_NAME IS NULL
+			AND B.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		)
+		WHERE RNUM > 1
+<!-- 		AND TABLE_NAME = 'ODS_HIST_SYSMETRIC_HISTORY' -->
+		ORDER BY TABLE_NAME, BASE_DAY
+	</select>
+	<select id="topDMLTableHistoryChartList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.topDMLTableHistoryChartList */
+		WITH TOP_DML_TABLE AS 
+		(
+			SELECT * 
+			FROM
+			(
+				SELECT DBID, TABLE_OWNER, TABLE_NAME, MAX(INSERTS)+MAX(UPDATES)+MAX(DELETES) DML_CNT
+				FROM ODS_TAB_MODIFICATIONS
+				WHERE DBID = #{dbid}
+				AND TABLE_OWNER = #{owner}
+				AND BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+				AND PARTITION_NAME IS NULL
+				GROUP BY DBID, TABLE_OWNER, TABLE_NAME
+				ORDER BY DML_CNT DESC
+			)
+			WHERE ROWNUM   <![CDATA[ <= ]]>   10
+		)
+        SELECT A.BASE_DAY, A.TABLE_NAME, B.DML_CNT
+        FROM(
+            SELECT
+                DISTINCT BASE_DAY, TABLE_NAME
+            FROM
+            (
+                SELECT BASE_DAY,TABLE_NAME FROM(
+                    SELECT DISTINCT(TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD')) AS BASE_DAY 
+                    FROM
+                    (
+                        SELECT ROW_NUMBER() OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) RNUM,
+                            B.BASE_DAY 
+                        FROM TOP_DML_TABLE A, ODS_TAB_MODIFICATIONS B
+                        WHERE A.DBID = B.DBID
+                        AND A.TABLE_OWNER = B.TABLE_OWNER
+                        AND A.TABLE_NAME = B.TABLE_NAME
+                        AND B.PARTITION_NAME IS NULL
+                        AND B.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                    )
+                    --WHERE RNUM > 1
+                    ORDER BY BASE_DAY
+                )A
+                ,(
+                    SELECT TABLE_NAME
+                    FROM
+                    (
+                        SELECT ROW_NUMBER() OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) RNUM,
+                            B.TABLE_NAME
+                        FROM TOP_DML_TABLE A, ODS_TAB_MODIFICATIONS B
+                        WHERE A.DBID = B.DBID
+                        AND A.TABLE_OWNER = B.TABLE_OWNER
+                        AND A.TABLE_NAME = B.TABLE_NAME
+                        AND B.PARTITION_NAME IS NULL
+                        AND B.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                    )
+                    --WHERE RNUM > 1
+                    ORDER BY TABLE_NAME         
+                )B
+            )
+            ORDER BY TABLE_NAME, BASE_DAY
+        )A,
+        (
+            SELECT TABLE_NAME, TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY, 
+		       ((CASE WHEN INSERTS_DELTA <![CDATA[ < ]]> 0 THEN INSERTS ELSE INSERTS_DELTA END)  +
+               (CASE WHEN UPDATES_DELTA <![CDATA[ < ]]> 0 THEN UPDATES ELSE UPDATES_DELTA END) +
+               (CASE WHEN DELETES_DELTA <![CDATA[ < ]]> 0 THEN DELETES ELSE DELETES_DELTA END)) AS DML_CNT
+            FROM
+            (
+                SELECT ROW_NUMBER() OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) RNUM,
+                    B.TABLE_OWNER, B.TABLE_NAME, B.BASE_DAY, 
+                    B.INSERTS, B.UPDATES, B.DELETES,
+                    B.INSERTS - NVL(LAG(B.INSERTS) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY), 0) INSERTS_DELTA,
+                    B.UPDATES - NVL(LAG(B.UPDATES) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY), 0) UPDATES_DELTA,
+                    B.DELETES - NVL(LAG(B.DELETES) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY), 0) DELETES_DELTA
+                FROM TOP_DML_TABLE A, ODS_TAB_MODIFICATIONS B
+                WHERE A.DBID = B.DBID
+                AND A.TABLE_OWNER = B.TABLE_OWNER
+                AND A.TABLE_NAME = B.TABLE_NAME
+                AND B.PARTITION_NAME IS NULL
+                AND B.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+            )
+            --WHERE RNUM > 1
+            ORDER BY TABLE_NAME, BASE_DAY 
+        )B
+        WHERE A.TABLE_NAME = B.TABLE_NAME(+)
+        AND A.BASE_DAY = B.BASE_DAY(+)
+        ORDER BY A.TABLE_NAME, BASE_DAY		
+	</select>
+	
+	<select id="dmlHistoryChartList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.dmlHistoryChartList */
+		SELECT BASE_DAY, 
+		       (CASE WHEN INSERTS_DELTA <![CDATA[ < ]]> 0 THEN INSERTS ELSE INSERTS_DELTA END) INSERTS, 
+		       (CASE WHEN UPDATES_DELTA <![CDATA[ < ]]> 0 THEN UPDATES ELSE UPDATES_DELTA END) UPDATES, 
+		       (CASE WHEN DELETES_DELTA <![CDATA[ < ]]> 0 THEN DELETES ELSE DELETES_DELTA END) DELETES
+		FROM
+		(
+			SELECT TO_CHAR(TO_DATE(B.BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY, B.TABLE_NAME,
+			    ROW_NUMBER() OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY) RNUM,
+			    B.INSERTS, B.UPDATES, B.DELETES,
+				B.INSERTS - NVL(LAG(B.INSERTS) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY), 0) INSERTS_DELTA,
+				B.UPDATES - NVL(LAG(B.UPDATES) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY), 0) UPDATES_DELTA,
+				B.DELETES - NVL(LAG(B.DELETES) OVER(PARTITION BY B.TABLE_OWNER, B.TABLE_NAME ORDER BY B.BASE_DAY), 0) DELETES_DELTA
+			FROM ODS_TAB_MODIFICATIONS B
+			WHERE B.DBID = #{dbid}
+			AND B.TABLE_OWNER = #{owner}
+			AND B.TABLE_NAME = #{table_name}
+			AND B.PARTITION_NAME IS NULL
+			AND B.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		)
+		--WHERE RNUM > 1
+		ORDER BY BASE_DAY	
+	</select>
+	
+	<select id="partitionTargetAnalysisList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.partitionTargetAnalysisList */
+		SELECT *
+		FROM (
+			SELECT A.TABLE_NAME, A.BASE_DAY,
+				F.COMMENTS,
+				A.NUM_ROWS, 
+				B.TABLESPACE_NAME, 
+				B.SIZE_MB CURRENT_SIZE_MB,
+				NVL(C.SIZE_MB, 0) ONE_MONTH_AGO_SIZE_MB,
+				NVL(D.SIZE_MB, 0) THREE_MONTH_AGO_SIZE_MB,
+				NVL(E.SIZE_MB, 0) SIX_MONTH_AGO_SIZE_MB,
+				ROUND((
+					CASE 
+					WHEN NVL(C.SIZE_MB, 0) > 0 THEN  (NVL(B.SIZE_MB, 0) - C.SIZE_MB)/B.SIZE_MB*100 
+					ELSE 100 END
+				), 2) ONE_MONTH_SIZE_INCREAS_RATIO,
+				B.BLOCKS,
+				A.SAMPLE_SIZE, 
+				TO_CHAR(A.LAST_ANALYZED, 'YYYY-MM-DD HH24:MI:SS') LAST_ANALYZED
+			FROM ODS_TABLES A,
+			(
+				SELECT DBID, OWNER, SEGMENT_NAME, TABLESPACE_NAME, ROUND(BYTES/1024/1024, 2) SIZE_MB, BLOCKS
+				FROM ODS_SEGMENTS
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid})
+                AND PARTITION_NAME IS NULL
+			) B,
+			(
+				SELECT DBID, OWNER, SEGMENT_NAME, TABLESPACE_NAME, ROUND(BYTES/1024/1024, 2) SIZE_MB, BLOCKS
+				FROM ODS_SEGMENTS
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid} AND BASE_DAY <![CDATA[ <= ]]> TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD'))
+                AND PARTITION_NAME IS NULL
+			) C,
+			(
+				SELECT DBID, OWNER, SEGMENT_NAME, TABLESPACE_NAME, ROUND(BYTES/1024/1024, 2) SIZE_MB, BLOCKS
+				FROM ODS_SEGMENTS
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid} AND BASE_DAY <![CDATA[ <= ]]> TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD'))
+                AND PARTITION_NAME IS NULL
+			) D,
+			(
+				SELECT DBID, OWNER, SEGMENT_NAME, TABLESPACE_NAME, ROUND(BYTES/1024/1024, 2) SIZE_MB, BLOCKS
+				FROM ODS_SEGMENTS
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid} AND BASE_DAY <![CDATA[ <= ]]> TO_CHAR(ADD_MONTHS(SYSDATE, -6), 'YYYYMMDD'))
+                AND PARTITION_NAME IS NULL
+			) E,
+			(
+				SELECT DBID, OWNER, TABLE_NAME, COMMENTS, BASE_DAY
+				FROM ODS_TAB_COMMENTS 
+				WHERE DBID = #{dbid}
+				AND OWNER = #{owner}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_COMMENTS WHERE DBID = #{dbid})
+			) F
+			WHERE A.DBID = B.DBID(+)
+			AND A.OWNER = B.OWNER(+)
+			AND A.TABLE_NAME = B.SEGMENT_NAME(+)
+			AND A.DBID = C.DBID(+)
+			AND A.OWNER = C.OWNER(+)
+			AND A.TABLE_NAME = C.SEGMENT_NAME(+)
+			AND A.DBID = D.DBID(+)
+			AND A.OWNER = D.OWNER(+)
+			AND A.TABLE_NAME = D.SEGMENT_NAME(+)
+			AND A.DBID = E.DBID(+)
+			AND A.OWNER = E.OWNER(+)
+			AND A.TABLE_NAME = E.SEGMENT_NAME(+)
+			AND A.TABLE_NAME = F.TABLE_NAME(+)
+			AND A.DBID = #{dbid}
+			AND A.OWNER = #{owner}
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLES WHERE DBID = #{dbid})
+			AND A.NUM_ROWS > 0
+			AND A.PARTITIONED = 'NO'
+			AND B.SIZE_MB > 0
+			ORDER BY CURRENT_SIZE_MB DESC	
+		)
+		WHERE ONE_MONTH_SIZE_INCREAS_RATIO > 2.0
+          AND ROWNUM <![CDATA[ <= ]]> 100
+	</select>
+	
+	<select id="topSizeTableChartList" parameterType="odsSegments" resultType="odsSegments">
+		/* SpaceAnalysisDao.topSizeTableChartList */
+		SELECT SEGMENT_NAME, SIZE_MB AS BYTES
+		FROM
+		(
+			SELECT A.DBID, A.OWNER, A.SEGMENT_NAME, A.SIZE_MB
+                      ,ROUND((
+                            CASE 
+                            WHEN NVL(B.SIZE_MB, 0) > 0 THEN  (NVL(A.SIZE_MB, 0) - B.SIZE_MB)/B.SIZE_MB*100 
+                            ELSE 100 END
+                        ), 2) ONE_MONTH_SIZE_INCREAS_RATIO
+                  FROM (
+                        SELECT DBID, OWNER, SEGMENT_NAME, ROUND(BYTES/1024/1024, 2) AS SIZE_MB
+                        FROM ODS_SEGMENTS A
+                        WHERE A.DBID = #{dbid}
+                        AND A.OWNER = #{owner}
+                        AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid})
+                        AND A.PARTITION_NAME IS NULL
+                        AND SEGMENT_TYPE = 'TABLE'
+                       ) A,
+                       (
+                        SELECT DBID, OWNER, SEGMENT_NAME, TABLESPACE_NAME, ROUND(BYTES/1024/1024, 2) SIZE_MB, BLOCKS
+                        FROM ODS_SEGMENTS
+                        WHERE DBID = #{dbid}
+                        AND OWNER = #{owner}
+                        AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid} AND BASE_DAY <![CDATA[ <= ]]> TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD'))
+                        AND PARTITION_NAME IS NULL
+                        AND SEGMENT_TYPE = 'TABLE'
+                       ) B
+                 WHERE A.DBID = B.DBID(+)
+                   AND A.OWNER = B.OWNER(+)
+                   AND A.SEGMENT_NAME = B.SEGMENT_NAME(+)
+                 ORDER BY SIZE_MB DESC
+		)
+		WHERE ONE_MONTH_SIZE_INCREAS_RATIO > 2
+          AND ROWNUM <![CDATA[ <= ]]> 10
+		
+	</select>
+	
+	<select id="topSizeTableHistoryChartLegendList" parameterType="odsSegments" resultType="odsSegments">
+		/* SpaceAnalysisDao.topSizeTableHistoryChartLegendList */
+		SELECT SEGMENT_NAME, SIZE_MB AS BYTES
+		FROM
+		(
+			SELECT A.DBID, A.OWNER, A.SEGMENT_NAME, A.SIZE_MB
+                      ,ROUND((
+                            CASE 
+                            WHEN NVL(B.SIZE_MB, 0) > 0 THEN  (NVL(A.SIZE_MB, 0) - B.SIZE_MB)/B.SIZE_MB*100 
+                            ELSE 100 END
+                        ), 2) ONE_MONTH_SIZE_INCREAS_RATIO
+                  FROM (
+                        SELECT DBID, OWNER, SEGMENT_NAME, ROUND(BYTES/1024/1024, 2) AS SIZE_MB
+                        FROM ODS_SEGMENTS A
+                        WHERE A.DBID = #{dbid}
+                        AND A.OWNER = #{owner}
+                        AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid})
+                        AND A.PARTITION_NAME IS NULL
+                        AND SEGMENT_TYPE = 'TABLE'
+                       ) A,
+                       (
+                        SELECT DBID, OWNER, SEGMENT_NAME, TABLESPACE_NAME, ROUND(BYTES/1024/1024, 2) SIZE_MB, BLOCKS
+                        FROM ODS_SEGMENTS
+                        WHERE DBID = #{dbid}
+                        AND OWNER = #{owner}
+                        AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid} AND BASE_DAY <![CDATA[ <= ]]> TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD'))
+                        AND PARTITION_NAME IS NULL
+                        AND SEGMENT_TYPE = 'TABLE'
+                       ) B
+                 WHERE A.DBID = B.DBID(+)
+                   AND A.OWNER = B.OWNER(+)
+                   AND A.SEGMENT_NAME = B.SEGMENT_NAME(+)
+                 ORDER BY SIZE_MB DESC
+		)
+		WHERE ONE_MONTH_SIZE_INCREAS_RATIO > 2
+          AND ROWNUM <![CDATA[ <= ]]> 10
+	</select>
+		
+	<select id="topSizeTableHistoryChartList" parameterType="odsSegments" resultType="odsSegments">
+		/* SpaceAnalysisDao.topSizeTableHistoryChartList */
+		WITH TOP_SIZE_TABLE AS
+		(
+			SELECT *
+			FROM
+			(
+				SELECT A.DBID, A.OWNER, A.SEGMENT_NAME, A.SIZE_MB
+                      ,ROUND((
+                            CASE 
+                            WHEN NVL(B.SIZE_MB, 0) > 0 THEN  (NVL(A.SIZE_MB, 0) - B.SIZE_MB)/B.SIZE_MB*100 
+                            ELSE 100 END
+                        ), 2) ONE_MONTH_SIZE_INCREAS_RATIO
+                  FROM (
+                        SELECT DBID, OWNER, SEGMENT_NAME, ROUND(BYTES/1024/1024, 2) AS SIZE_MB
+                        FROM ODS_SEGMENTS A
+                        WHERE A.DBID = #{dbid}
+                        AND A.OWNER = #{owner}
+                        AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid})
+                        AND A.PARTITION_NAME IS NULL
+                        AND SEGMENT_TYPE = 'TABLE'
+                       ) A,
+                       (
+                        SELECT DBID, OWNER, SEGMENT_NAME, TABLESPACE_NAME, ROUND(BYTES/1024/1024, 2) SIZE_MB, BLOCKS
+                        FROM ODS_SEGMENTS
+                        WHERE DBID = #{dbid}
+                        AND OWNER = #{owner}
+                        AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SEGMENTS WHERE DBID = #{dbid} AND BASE_DAY <![CDATA[ <= ]]> TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD'))
+                        AND PARTITION_NAME IS NULL
+                        AND SEGMENT_TYPE = 'TABLE'
+                       ) B
+                 WHERE A.DBID = B.DBID(+)
+                   AND A.OWNER = B.OWNER(+)
+                   AND A.SEGMENT_NAME = B.SEGMENT_NAME(+)
+                 ORDER BY SIZE_MB DESC
+                      
+			)
+			WHERE ONE_MONTH_SIZE_INCREAS_RATIO > 2
+              AND ROWNUM   <![CDATA[ <= ]]>   10
+		)
+		SELECT B.SEGMENT_NAME, TO_CHAR(TO_DATE(B.BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY, ROUND(B.BYTES/1024/1024, 2) BYTES
+		FROM TOP_SIZE_TABLE A, ODS_SEGMENTS B
+		WHERE A.DBID = B.DBID
+		AND A.OWNER = B.OWNER
+		AND A.SEGMENT_NAME = B.SEGMENT_NAME
+		AND B.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		ORDER BY SEGMENT_NAME, BASE_DAY
+	</select>
+	
+	<select id="tableSizeHistoryChartList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.tableSizeHistoryChartList */
+		SELECT TO_CHAR(TO_DATE(BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY, ROUND(BYTES/1024/1024, 2) AS BYTES
+		FROM ODS_SEGMENTS A
+		WHERE A.DBID = #{dbid}
+		AND A.OWNER = #{owner}
+		AND A.SEGMENT_NAME = #{table_name}
+		AND A.BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		ORDER BY BASE_DAY	
+	</select>
+
+	<select id="accessPathList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.accessPathList */
+		SELECT ROWNUM AS RNUM, ACCESS_PATH, ACCESS_PATH_COUNT
+		FROM
+		(
+			SELECT ACCESS_PATH, COUNT(DISTINCT SQL_ID || TO_CHAR(PLAN_HASH_VALUE)) ACCESS_PATH_COUNT 
+			FROM
+			(
+				SELECT C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME                                          
+					,LISTAGG(ACCESS_PATH, ', ') WITHIN GROUP(ORDER BY ORDERED, ACCESS_PATH) ACCESS_PATH 
+				FROM ACC_PATH_EXEC A,
+				(
+					SELECT DBID, EXEC_SEQ, SNAP_NO, QUERY_SEQ, QBLOCK_NAME, ACCESS_PATH, ORDERED
+					FROM ACC_PATH                                                          
+					WHERE DBID = #{dbid}
+					AND TABLE_OWNER = #{owner}
+					AND TABLE_NAME = #{table_name}
+				) B, VSQL_TEXT C                                                                        
+				WHERE A.DBID = B.DBID
+				AND A.EXEC_SEQ = B.EXEC_SEQ
+				AND B.DBID = C.DBID
+				AND B.SNAP_NO = C.SNAP_NO                                                                
+				AND B.QUERY_SEQ = C.QUERY_SEQ   
+				AND A.ACCESS_PATH_TYPE = 'VSQL'
+				AND A.DBID = #{dbid}
+				AND A.EXEC_SEQ = (SELECT MAX(EXEC_SEQ) FROM ACC_PATH_EXEC WHERE ACCESS_PATH_TYPE = 'VSQL' AND DBID = #{dbid})
+				GROUP BY C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME
+			)                 
+			GROUP BY ACCESS_PATH                                                                 
+			ORDER BY ACCESS_PATH_COUNT DESC, ACCESS_PATH ASC                                                 
+		)	
+	</select>
+	
+	<select id="getPartitionRecommendation" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.getPartitionRecommendation */
+		SELECT NVL(COUNT(DISTINCT C.SQL_ID||C.PLAN_HASH_VALUE||B.QBLOCK_NAME),0) AS USAGE_CNT
+		FROM ACC_PATH_EXEC A,
+		(
+			SELECT DBID, EXEC_SEQ, SNAP_NO, QUERY_SEQ, QBLOCK_NAME, ACCESS_PATH, ORDERED, COLUMN_NAME
+			FROM ACC_PATH                                                          
+			WHERE DBID = #{dbid}
+			AND TABLE_OWNER = #{owner}
+			AND TABLE_NAME = #{table_name}
+		) B, VSQL_TEXT C                                                                        
+		WHERE A.DBID = B.DBID
+		AND A.EXEC_SEQ = B.EXEC_SEQ
+		AND B.DBID = C.DBID
+		AND B.SNAP_NO = C.SNAP_NO                                                                
+		AND B.QUERY_SEQ = C.QUERY_SEQ   
+		AND A.ACCESS_PATH_TYPE = 'VSQL'
+		AND A.DBID = #{dbid}
+		AND A.EXEC_SEQ = (SELECT MAX(EXEC_SEQ) FROM ACC_PATH_EXEC WHERE ACCESS_PATH_TYPE = 'VSQL' AND DBID = #{dbid})	
+	</select>
+	
+	<select id="partitionRecommendationList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.partitionRecommendationList */
+		SELECT COLUMN_NAME, USAGE_CNT, DENSE_RANK() OVER(ORDER BY USAGE_CNT DESC) PARTITION_KEY_RECOMMEND_RANK
+		FROM
+		(		
+			SELECT COLUMN_NAME, COUNT(*) USAGE_CNT
+			FROM
+			(
+				SELECT DISTINCT C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME, B.COLUMN_NAME 
+				FROM ACC_PATH_EXEC A,
+				(
+					SELECT DBID, EXEC_SEQ, SNAP_NO, QUERY_SEQ, QBLOCK_NAME, ACCESS_PATH, ORDERED, COLUMN_NAME
+					FROM ACC_PATH                                                          
+					WHERE DBID = #{dbid}
+					AND TABLE_OWNER = #{owner}
+					AND TABLE_NAME = #{table_name}
+				) B, VSQL_TEXT C                                                                        
+				WHERE A.DBID = B.DBID
+				AND A.EXEC_SEQ = B.EXEC_SEQ
+				AND B.DBID = C.DBID
+				AND B.SNAP_NO = C.SNAP_NO                                                                
+				AND B.QUERY_SEQ = C.QUERY_SEQ   
+				AND A.ACCESS_PATH_TYPE = 'VSQL'
+				AND A.DBID = #{dbid}
+				AND A.EXEC_SEQ = (SELECT MAX(EXEC_SEQ) FROM ACC_PATH_EXEC WHERE ACCESS_PATH_TYPE = 'VSQL' AND DBID = #{dbid})
+			)
+			GROUP BY COLUMN_NAME
+		)
+		ORDER BY USAGE_CNT DESC	
+	</select>
+	
+	<select id="dataIOAnalysisList" parameterType="odsDataFiles" resultType="odsDataFiles">
+		/* SpaceAnalysisDao.dataIOAnalysisList */
+		SELECT A.FILE_NAME, A.FILE_ID, A.TABLESPACE_NAME, A.BYTES, A.BLOCKS, B.PHYRDS, B.PHYWRTS, B.WAIT_COUNT, B.TIME
+		FROM ODS_DATA_FILES A,
+		(
+			SELECT *
+			FROM
+			(
+				SELECT FILE#, 
+					MAX(PHYRDS) - MIN(PHYRDS) PHYRDS,
+					MAX(PHYWRTS) - MIN(PHYWRTS) PHYWRTS,
+					MAX(WAIT_COUNT) - MIN(WAIT_COUNT) WAIT_COUNT,
+					MAX(TIME) - MIN(TIME) TIME
+				FROM
+				(
+					SELECT FILE#, SNAP_ID, 
+						SUM(PHYRDS) PHYRDS,
+						SUM(PHYWRTS) PHYWRTS,
+						SUM(WAIT_COUNT) WAIT_COUNT,
+						SUM(TIME) TIME
+					FROM ODS_HIST_FILESTATXS
+					WHERE DBID = #{dbid}
+					AND SNAP_ID IN
+					(
+						SELECT DISTINCT SNAP_ID
+						FROM ODS_HIST_SNAPSHOT
+						WHERE DBID = #{dbid}
+						AND BEGIN_INTERVAL_TIME BETWEEN TO_DATE(#{start_time}, 'YYYY/MM/DD HH24:MI:SS') AND TO_DATE(#{end_time}, 'YYYY/MM/DD HH24:MI:SS')
+					)
+					GROUP BY FILE#, SNAP_ID
+				)
+				GROUP BY FILE#
+			) 
+		) B
+		WHERE A.FILE_ID = B.FILE#
+		AND A.DBID = #{dbid}
+		AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_DATA_FILES WHERE DBID = #{dbid})
+		ORDER BY WAIT_COUNT DESC	
+	</select>
+	
+	<select id="datafileIOChartList" parameterType="odsDataFiles" resultType="odsDataFiles">
+		/* SpaceAnalysisDao.datafileIOChartList */
+		WITH FILESTATXS AS
+		(
+			SELECT * FROM 
+			(
+				SELECT FILE#, 
+					MAX(PHYRDS) - MIN(PHYRDS) PHYRDS,
+					MAX(PHYWRTS) - MIN(PHYWRTS) PHYWRTS,
+					MAX(WAIT_COUNT) - MIN(WAIT_COUNT) WAIT_COUNT,
+					MAX(TIME) - MIN(TIME) TIME
+				FROM
+				(
+					SELECT FILE#, SNAP_ID, 
+						SUM(PHYRDS) PHYRDS,
+						SUM(PHYWRTS) PHYWRTS,
+						SUM(WAIT_COUNT) WAIT_COUNT,
+						SUM(TIME) TIME
+					FROM ODS_HIST_FILESTATXS
+					WHERE DBID = #{dbid}
+					AND SNAP_ID IN (
+						SELECT DISTINCT SNAP_ID
+						FROM ODS_HIST_SNAPSHOT
+						WHERE DBID = #{dbid}
+						AND BEGIN_INTERVAL_TIME BETWEEN TO_DATE(#{start_time}, 'YYYY/MM/DD HH24:MI:SS') AND TO_DATE(#{end_time}, 'YYYY/MM/DD HH24:MI:SS')
+					)
+					GROUP BY FILE#, SNAP_ID
+				)
+				GROUP BY FILE#
+				ORDER BY WAIT_COUNT DESC
+			)
+			WHERE ROWNUM <![CDATA[ <= ]]> 10
+		)
+		SELECT FILE# AS FILE_ID, FILENAME AS FILE_NAME, SUM(PHYRDS_DELTA) AS PHYRDS, SUM(PHYWRTS_DELTA) AS PHYWRTS
+		FROM
+		(
+			SELECT B.FILE#, 
+				B.FILENAME, 
+				B.PHYRDS - LAG(B.PHYRDS) OVER(PARTITION BY B.FILE# ORDER BY B.SNAP_ID) PHYRDS_DELTA, 
+				B.PHYWRTS - LAG(B.PHYWRTS) OVER(PARTITION BY B.FILE# ORDER BY B.SNAP_ID) PHYWRTS_DELTA
+				FROM FILESTATXS A, ODS_HIST_FILESTATXS B, 
+				(
+					SELECT DISTINCT SNAP_ID, BEGIN_INTERVAL_TIME
+					FROM ODS_HIST_SNAPSHOT
+					WHERE DBID = #{dbid}
+					AND BEGIN_INTERVAL_TIME BETWEEN TO_DATE(#{start_time}, 'YYYY/MM/DD HH24:MI:SS') AND TO_DATE(#{end_time}, 'YYYY/MM/DD HH24:MI:SS')
+				) C
+			WHERE A.FILE# = B.FILE#
+			AND B.SNAP_ID = C.SNAP_ID
+			AND B.DBID = #{dbid}
+		)
+		WHERE PHYRDS_DELTA IS NOT NULL
+		AND PHYRDS_DELTA >= 0
+		GROUP BY FILE#, FILENAME
+	</select>
+	
+	<select id="datafileIOHistoryChartList" parameterType="odsDataFiles" resultType="odsDataFiles">
+		/* SpaceAnalysisDao.datafileIOHistoryChartList */
+		SELECT *
+		FROM
+		(
+			SELECT TO_CHAR(BEGIN_INTERVAL_TIME, 'YYYY-MM-DD HH24:MI:SS') AS BEGIN_INTERVAL_TIME,
+				PHYRDS - LAG(PHYRDS) OVER(ORDER BY BEGIN_INTERVAL_TIME) PHYRDS, 
+				PHYWRTS - LAG(PHYWRTS) OVER(ORDER BY BEGIN_INTERVAL_TIME) PHYWRTS,
+				WAIT_COUNT - LAG(WAIT_COUNT) OVER(ORDER BY BEGIN_INTERVAL_TIME) WAIT_COUNT,
+				TIME - LAG(TIME) OVER(ORDER BY BEGIN_INTERVAL_TIME) TIME
+			FROM
+			(
+				SELECT B.BEGIN_INTERVAL_TIME, 
+					SUM(PHYRDS) PHYRDS,
+					SUM(PHYWRTS) PHYWRTS,
+					SUM(WAIT_COUNT) WAIT_COUNT,
+					SUM(TIME) TIME
+				FROM ODS_HIST_FILESTATXS A,
+				(
+					SELECT DISTINCT SNAP_ID, BEGIN_INTERVAL_TIME
+					FROM ODS_HIST_SNAPSHOT
+					WHERE DBID = #{dbid}
+					AND BEGIN_INTERVAL_TIME BETWEEN TO_DATE(#{start_time}, 'YYYY/MM/DD HH24:MI:SS') AND TO_DATE(#{end_time}, 'YYYY/MM/DD HH24:MI:SS')
+				) B
+				WHERE A.SNAP_ID = B.SNAP_ID
+				AND A.DBID = #{dbid}
+				AND A.FILE# = #{file_id}
+				GROUP BY B.BEGIN_INTERVAL_TIME
+			)
+		)
+		WHERE PHYRDS IS NOT NULL
+		AND PHYRDS >= 0
+		ORDER BY BEGIN_INTERVAL_TIME	
+	</select>
+	
+	<select id="dmlChangeTableList" parameterType="odsTables" resultType="odsTables">
+		/* SpaceAnalysisDao.dmlChangeTableList */
+		SELECT A.OWNER
+			,A.TABLE_NAME
+			,B.PARTITION_NAME
+			,C.SUBPARTITION_NAME
+		<![CDATA[ 			
+			,(CASE 
+				WHEN D.PARTITIONING_TYPE IS NULL THEN A.NUM_ROWS
+				WHEN D.PARTITIONING_TYPE IS NOT NULL AND D.SUBPARTITIONING_TYPE = 'NONE' THEN B.NUM_ROWS
+				WHEN D.PARTITIONING_TYPE IS NOT NULL AND D.SUBPARTITIONING_TYPE <> 'NONE' THEN C.NUM_ROWS
+			END) AS NUM_ROWS
+			,(CASE 
+				WHEN D.PARTITIONING_TYPE IS NULL THEN A.LAST_ANALYZED
+				WHEN D.PARTITIONING_TYPE IS NOT NULL AND D.SUBPARTITIONING_TYPE = 'NONE' THEN B.LAST_ANALYZED
+				WHEN D.PARTITIONING_TYPE IS NOT NULL AND D.SUBPARTITIONING_TYPE <> 'NONE' THEN C.LAST_ANALYZED
+			END) AS LAST_ANALYZED
+		]]>				 
+		FROM ODS_TABLES A
+			,(SELECT *
+				FROM ODS_TAB_PARTITIONS 
+				WHERE DBID = #{dbid}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_PARTITIONS WHERE DBID = #{dbid})
+			) B
+		    ,(SELECT *
+				FROM ODS_TAB_SUBPARTITIONS 
+				WHERE DBID = #{dbid}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_SUBPARTITIONS WHERE DBID = #{dbid})
+			) C
+		    ,(SELECT *
+				FROM ODS_PART_TABLES 
+				WHERE DBID = #{dbid}
+				AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_PART_TABLES WHERE DBID = #{dbid})
+			) D
+		WHERE A.OWNER = B.TABLE_OWNER(+)
+		AND A.TABLE_NAME = B.TABLE_NAME(+)
+		AND B.TABLE_OWNER = C.TABLE_OWNER(+)
+		AND B.TABLE_NAME = C.TABLE_NAME(+)
+		AND B.PARTITION_NAME = C.PARTITION_NAME(+)
+		AND A.OWNER = D.OWNER(+)
+		AND A.TABLE_NAME = D.TABLE_NAME(+)
+		<if test="table_name != null and table_name != ''">
+			AND A.TABLE_NAME = #{table_name}
+		</if>
+		AND A.DBID = #{dbid}
+		AND A.OWNER = #{owner}
+		AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLES WHERE DBID = #{dbid})
+	</select>
+	
+	<select id="dmlOccurrenceList" parameterType="odsTabModifications" resultType="odsTabModifications">
+		/* SpaceAnalysisDao.dmlOccurrenceList */
+		SELECT TABLE_NAME, PARTITION_NAME, SUBPARTITION_NAME, INSERTS_DELTA INSERTS, UPDATES_DELTA UPDATES, DELETES_DELTA DELETES, TRUNCATED,
+			TIMESTAMP, BASE_DAY, (INSERTS_DELTA+UPDATES_DELTA+DELETES_DELTA) AS ALL_CHANGE_CNT,
+			RANK() OVER(ORDER BY INSERTS_DELTA+UPDATES_DELTA+DELETES_DELTA DESC) AS RANK
+		FROM (
+			SELECT TABLE_NAME, PARTITION_NAME, SUBPARTITION_NAME, INSERTS, UPDATES, DELETES, TRUNCATED,
+				TO_CHAR(TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS') AS TIMESTAMP, BASE_DAY,
+		        (CASE WHEN (INSERTS - LAG(INSERTS, 1, 0) OVER(ORDER BY BASE_DAY)) <![CDATA[<]]> 0 THEN 0 ELSE (INSERTS - LAG(INSERTS, 1, 0) OVER(ORDER BY BASE_DAY)) END) INSERTS_DELTA,
+		        (CASE WHEN (UPDATES - LAG(UPDATES, 1, 0) OVER(ORDER BY BASE_DAY)) <![CDATA[<]]> 0 THEN 0 ELSE (UPDATES - LAG(UPDATES, 1, 0) OVER(ORDER BY BASE_DAY)) END) UPDATES_DELTA,
+		        (CASE WHEN (DELETES - LAG(DELETES, 1, 0) OVER(ORDER BY BASE_DAY)) <![CDATA[<]]> 0 THEN 0 ELSE (DELETES - LAG(DELETES, 1, 0) OVER(ORDER BY BASE_DAY)) END) DELETES_DELTA
+			FROM ODS_TAB_MODIFICATIONS
+			WHERE DBID = #{dbid}
+			AND TABLE_OWNER = #{owner}
+			AND TABLE_NAME = #{table_name}
+			<choose>
+				<when test="partition_name != null and partition_name != ''">
+					AND PARTITION_NAME = #{partition_name}
+				</when>
+				<otherwise>
+					AND PARTITION_NAME IS NULL
+				</otherwise>
+			</choose>
+			
+			<if test="subpartition_name != null and subpartition_name != ''">
+				AND SUBPARTITION_NAME = #{subpartition_name}
+			</if>
+			
+		)
+		ORDER BY BASE_DAY DESC
+	</select>
+	
+	
+	
+	<sql id="dmlChangeDailyListQuery">
+		/* SpaceAnalysisDao.dmlChangeDailyList */
+	SELECT TABLE_NAME, PARTITION_NAME, SUBPARTITION_NAME, INSERTS_DELTA INSERTS, UPDATES_DELTA UPDATES, DELETES_DELTA DELETES, TRUNCATED,
+	    TIMESTAMP, BASE_DAY, (INSERTS_DELTA+UPDATES_DELTA+DELETES_DELTA) AS ALL_CHANGE_CNT,
+	    RANK() OVER(ORDER BY INSERTS_DELTA+UPDATES_DELTA+DELETES_DELTA DESC) AS RANK
+	FROM (
+	    SELECT A.TABLE_NAME, A.PARTITION_NAME, A.SUBPARTITION_NAME, A.INSERTS, A.UPDATES, A.DELETES, A.TRUNCATED,
+	        TO_CHAR(A.TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS') AS TIMESTAMP, TO_CHAR(TO_DATE(A.BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY,
+	        (CASE WHEN (A.INSERTS - B.INSERTS)  <![CDATA[<]]>  0 THEN 0 ELSE (A.INSERTS - B.INSERTS) END) INSERTS_DELTA,
+	        (CASE WHEN (A.UPDATES - B.UPDATES)  <![CDATA[<]]>  0 THEN 0 ELSE (A.UPDATES - B.UPDATES) END) UPDATES_DELTA,
+	        (CASE WHEN (A.DELETES - B.DELETES)  <![CDATA[<]]>  0 THEN 0 ELSE (A.DELETES - B.DELETES) END) DELETES_DELTA
+	    FROM 
+	     (SELECT A.DBID, A.TABLE_OWNER, A.TABLE_NAME, NVL(A.PARTITION_NAME, TABLE_NAME) PARTITION_NAME,
+	            NVL(A.SUBPARTITION_NAME, TABLE_NAME) SUBPARTITION_NAME, A.TRUNCATED,
+	             A.TIMESTAMP, A.BASE_DAY, A.INSERTS, A.UPDATES, A.DELETES
+	        FROM ODS_TAB_MODIFICATIONS A
+	       WHERE A.DBID = #{dbid}
+	         AND A.TABLE_OWNER = #{owner}
+	         <if test="table_name != null and table_name != ''">
+		         AND A.TABLE_NAME = #{table_name}
+	         </if>
+	         AND A.BASE_DAY = REPLACE(#{strStartDt},'-', '') -- 기준일자
+	         AND A.PARTITION_NAME IS NULL
+	     ) A
+	    ,(SELECT DBID, TABLE_OWNER, TABLE_NAME, NVL(PARTITION_NAME, TABLE_NAME) PARTITION_NAME,
+	            NVL(SUBPARTITION_NAME, TABLE_NAME) SUBPARTITION_NAME,
+	            INSERTS, UPDATES, DELETES, BASE_DAY,
+	            ROW_NUMBER() OVER(PARTITION BY TABLE_NAME, NVL(PARTITION_NAME, TABLE_NAME), NVL(SUBPARTITION_NAME, TABLE_NAME) ORDER BY BASE_DAY DESC) RNUM
+	        FROM ODS_TAB_MODIFICATIONS 
+	        WHERE DBID = #{dbid}
+	        AND TABLE_OWNER = #{owner}
+	         <if test="table_name != null and table_name != ''">
+		         AND TABLE_NAME = #{table_name}
+	         </if>
+	        <![CDATA[
+	            AND BASE_DAY < REPLACE(#{strStartDt},'-', '') -- 기준일자
+	        ]]>
+	        AND PARTITION_NAME IS NULL
+	    ) B
+	    WHERE A.DBID = B.DBID(+)
+	    AND A.TABLE_OWNER = B.TABLE_OWNER(+)
+	    AND A.TABLE_NAME = B.TABLE_NAME(+)
+	    AND A.PARTITION_NAME = B.PARTITION_NAME(+)
+	    AND A.SUBPARTITION_NAME = B.SUBPARTITION_NAME(+)
+	    AND B.RNUM(+) = 1
+	)
+	ORDER BY ALL_CHANGE_CNT DESC
+	</sql>
+	
+	<select id="dmlChangeDailyList" parameterType="odsTabModifications" resultType="odsTabModifications">
+		/* SpaceAnalysisDao.dmlChangeDailyList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="dmlChangeDailyListQuery"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="dmlChangeDailyListByExcelDown" parameterType="odsTabModifications" resultType="java.util.LinkedHashMap">
+		/* SpaceAnalysisDao.dmlChangeDailyListByExcelDown */
+				<include refid="dmlChangeDailyListQuery"/>
+	</select>
+	
+</mapper>

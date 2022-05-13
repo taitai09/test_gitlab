@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2019.10.28	명성태	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.DiagnosisReportDao">
+	<select id="loadSLTProgramContents" parameterType="diagnosisReport" resultType="diagnosisReport">
+		/* DiagnosisReportDao.loadSltProgramContents */
+		/* 목차 조회 */
+		SELECT
+			ROWNUM AS RNUM
+			, LPAD(' ', 4*(LEVEL-1))||CONTENTS_NAME AS PATH			/* 목차명 (계층표현)  */
+			, CONTENTS_ID											/* 목차ID             */
+			, NVL(PARENT_CONTENTS_ID,'-1') AS PARENT_CONTENTS_ID
+			, CONTENTS_DESC											/* 설명               */
+			, CONTENTS_URL_ADDR										/* 호출 URL주소       */
+			, EXADATA_CONTENTS_YN									/* Exadata여부        */
+			, CONTENTS_ORDERING										/* 정렬순서           */
+			, USE_YN												/* 사용여부           */
+			, LEVEL
+			, CONTENTS_NAME											/* 목차명 */
+			, SLT_PROGRAM_DIV_CD
+		FROM SLT_PROGRAM_CONTENTS
+		<if test = "slt_program_div_cd != null">
+			WHERE SLT_PROGRAM_DIV_CD = #{slt_program_div_cd}
+		</if>
+		<if test = "slt_program_div_cd == null">
+			WHERE SLT_PROGRAM_DIV_CD = 'P'
+		</if>
+		<if test="exadata_yn != null and exadata_yn eq 'N'.toString()">
+			AND EXADATA_CONTENTS_YN = 'N'
+		</if>
+		AND USE_YN = 'Y'
+		--AND LEVEL IN (1, 2)
+		START WITH PARENT_CONTENTS_ID IS NULL
+		CONNECT BY PRIOR CONTENTS_ID = PARENT_CONTENTS_ID
+		ORDER SIBLINGS BY CONTENTS_ORDERING
+	</select>
+	
+	<select id="getSQL" parameterType="diagnosisReport" resultType="diagnosisReport">
+		/* DiagnosisReportDao.getSQL */
+		SELECT SLT_PROGRAM_SQL_NUMBER, SLT_PROGRAM_SQL_NAME, SLT_PROGRAM_CHK_SQL
+		FROM SLT_PROGRAM_SQL
+		WHERE CONTENTS_ID = #{contents_id}
+		ORDER BY SLT_PROGRAM_SQL_NUMBER
+	</select>
+	
+	<select id="loadSQL" parameterType="diagnosisReport" resultType="java.util.LinkedHashMap">
+		/* DiagnosisReportDao.loadSQL */
+		${sql}
+	</select>
+	
+	<select id="getSQLUnit" parameterType="diagnosisReport" resultType="diagnosisReport">
+		/* DiagnosisReportDao.getSQLUnit */
+		SELECT SLT_PROGRAM_SQL_NAME, SLT_PROGRAM_CHK_SQL
+		FROM SLT_PROGRAM_SQL
+		WHERE SLT_PROGRAM_SQL_NUMBER = #{slt_program_sql_number}
+	</select>
+	
+	<select id="loadSQLUnit" parameterType="diagnosisReport" resultType="java.util.LinkedHashMap">
+		/* DiagnosisReportDao.loadSQLUnit */
+		${sql}
+	</select>
+	
+</mapper>

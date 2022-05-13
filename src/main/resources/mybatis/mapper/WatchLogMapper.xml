@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2019.01.07	임호경	최초작성	
+-->
+<mapper namespace="omc.spop.dao.WatchLogDao">
+
+	
+	<!-- 
+	AUDIT_LOG_DATE 		: 감사 로그가 발생한 일시
+	AUDIT_LOG_DIV_CD	: 감사 로그를 구분하기 위한 코드
+	AUDIT_LOG_USER_ID	: 감사로그 발생시 접속한 사용자 ID
+	AUDIT_LOG_IP	 	: 감사로그 발생시 접속한 IP
+	AUDIT_LOG_DESC		: 감사로그를 남길 내용
+	AUDIT_LOG_RESULT_VALUE : 성공, 실패 등 감사 로그의 실행 결과값
+	 -->
+	 
+	<insert id="insertWatchLog" parameterType="users">
+		/* watchLogDao.insertWatchLog */
+		INSERT INTO SYS_AUDIT_LOG (AUDIT_LOG_DATE, AUDIT_LOG_DIV_CD, AUDIT_LOG_USER_ID, AUDIT_LOG_IP, AUDIT_LOG_DESC, AUDIT_LOG_RESULT_VALUE)
+		VALUES(SYSDATE, #{audit_log_div_cd}, #{user_id}, #{audit_log_ip}, #{audit_log_desc}, #{audit_log_result_value})
+	</insert>
+	
+</mapper>

@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="omc.spop.dao.ExecSqlStdChkDao">
+    <select id="loadSchedulerByManager" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+      /* ExecSqlStdChkDao.loadSchedulerByManager */
+      <include refid="loadSchedulerListSql"/>
+    </select>
+    
+    <select id="schedulerExcelDownload" parameterType="jobSchedulerBase" resultType="java.util.LinkedHashMap">
+      /* ExecSqlStdChkDao.loadSchedulerByManager */
+      <include refid="loadSchedulerListSql"/>
+    </select>
+    
+    <sql id="loadSchedulerListSql">
+      /* ExecSqlStdChkDao.loadSchedulerByManager */
+      SELECT A.JOB_SCHEDULER_NM                                                        /* 스케줄러명   */
+           , DB.DB_NAME AS STD_QTY_TARGET_DB_NAME                                      /* 표준점검DB   */
+           , TO_CHAR(B.EXEC_START_DT, 'YYYY-MM-DD') AS EXEC_START_DT                   /* 수행시작일시 */
+           , TO_CHAR(B.EXEC_END_DT, 'YYYY-MM-DD') AS EXEC_END_DT                       /* 수행종료일시 */
+           , CASE WHEN A.EXEC_CYCLE_DIV_CD = '1' THEN
+                       '매일 '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행'
+                  WHEN A.EXEC_CYCLE_DIV_CD = '2' THEN
+                       '매주 '||EXEC_DAY_OF_WEEK||' '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행'
+                  WHEN A.EXEC_CYCLE_DIV_CD = '3' THEN
+                       '매월 '||EXEC_DAY||'일 '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행'
+              END EXEC_CYCLE                                                           /* 실행주기      */
+           , A.PARSE_CODE                                                              /* Parse Code    */
+           , C.PROJECT_NM                                                              /* 프로젝트이름  */
+           , A.JOB_SCHEDULER_DESC                                                      /* 스케줄러 설명 */
+           , CD3.CD_NM AS SQL_SOURCE_TYPE_CD                                           /* SQL소스       */
+           , CASE WHEN A.GATHER_TERM_TYPE_CD = '1'
+                       THEN CD1.CD_NM || '/' || CD2.CD_NM
+                  WHEN A.GATHER_TERM_TYPE_CD = '2'
+                       THEN CD1.CD_NM || '/' ||
+                            TO_CHAR(TO_DATE(A.GATHER_TERM_START_DAY, 'YYYYMMDD'), 'YYYY-MM-DD') || '~' ||
+                            TO_CHAR(TO_DATE(A.GATHER_TERM_END_DAY, 'YYYYMMDD'), 'YYYY-MM-DD')
+             END GATHER_RANGE
+           , A.OWNER_LIST                                                              /* Table Owner (오너목록)  */
+           , A.MODULE_LIST                                                             /* Module (모듈목록)       */
+           , A.EXTRA_FILTER_PREDICATION                                                /* 기타필터조건            */
+           /* HIDDEN */
+           , A.PROJECT_ID                                                              /* 프로젝트ID              */
+           , A.SQL_STD_QTY_SCHEDULER_NO                                                /* SQL표준점검스케줄러번호 */
+           , A.STD_QTY_TARGET_DBID                                                     /* 표준점검대상DBID        */
+           , A.EXEC_CYCLE_DIV_CD                                                       /* 실행주기구분코드        */
+           , A.GATHER_TERM_TYPE_CD                                                     /* 1:주기, 2:기간 1093     */
+           , A.GATHER_RANGE_DIV_CD                                                     /* 1:일, 2:주, 3:월 4:분기 5:년 1002 */
+           , TO_CHAR(TO_DATE(A.GATHER_TERM_START_DAY, 'YYYYMMDD'), 'YYYY-MM-DD') AS GATHER_TERM_START_DAY
+           , TO_CHAR(TO_DATE(A.GATHER_TERM_END_DAY, 'YYYYMMDD'), 'YYYY-MM-DD') AS GATHER_TERM_END_DAY
+        FROM SQL_STD_QTY_SCHEDULER A
+           , JOB_SCHEDULER_CONFIG_DETAIL B
+           , PROJECT C
+           , CD CD1
+           , CD CD2
+           , CD CD3
+           , DATABASE DB
+       WHERE A.DEL_YN = 'N'
+      <if test="project_id != null and project_id !='' ">
+         AND A.PROJECT_ID = #{project_id}
+      </if>
+         AND B.JOB_SCHEDULER_TYPE_CD = '37'
+         AND B.JOB_SCHEDULER_WRK_TARGET_ID = A.SQL_STD_QTY_SCHEDULER_NO 
+         AND A.PROJECT_ID = C.PROJECT_ID
+         AND CD1.GRP_CD_ID(+) = '1093'
+         AND A.GATHER_TERM_TYPE_CD = CD1.CD(+)
+         AND CD2.GRP_CD_ID(+) = '1002'
+         AND A.GATHER_RANGE_DIV_CD = CD2.CD(+)
+         AND CD3.GRP_CD_ID(+) = '1084'
+         AND A.SQL_SOURCE_TYPE_CD = CD3.CD(+)
+         AND A.STD_QTY_TARGET_DBID = DB.DBID(+)
+         AND A.STD_QTY_SCHEDULER_DIV_CD = #{std_qty_scheduler_div_cd}
+    </sql>
+    
+    <select id="checkExistScheduler" parameterType="jobSchedulerConfigDetail" resultType="int">
+      /* ExecSqlStdChkDao.checkExistScheduler */
+      SELECT COUNT(SQL_STD_QTY_SCHEDULER_NO)
+        FROM SQL_STD_QTY_SCHEDULER
+       WHERE PROJECT_ID = #{project_id}
+         AND STD_QTY_SCHEDULER_DIV_CD = #{std_qty_scheduler_div_cd}
+         AND DEL_YN = 'N'
+      <if test="sql_std_qty_scheduler_no != null and sql_std_qty_scheduler_no !='' ">
+         AND SQL_STD_QTY_SCHEDULER_NO <![CDATA[<>]]> #{sql_std_qty_scheduler_no}
+      </if>
+         AND JOB_SCHEDULER_NM = #{job_scheduler_nm}
+    </select>
+    
+    <select id="loadSqlStdChkRslt" parameterType="sqlStandards" resultType="jobSchedulerBase">
+      /* ExecSqlStdChkDao.loadSqlStdChkRslt */
+      SELECT B.JOB_SCHEDULER_NM                                                        /* 스케줄러명    */
+           , CASE WHEN A.STD_QTY_AGENT_STATUS_CD IS NOT NULL THEN CD1.CD_NM
+                  WHEN A.FORCE_CLOSE_YN = 'Y' THEN '강제완료'
+                  WHEN NVL(A.FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y' AND A.EXEC_END_DT IS NOT NULL THEN '완료'
+                  WHEN A.EXEC_END_DT IS NULL THEN '수행중'
+              END EXEC_STATUS                                                          /* 수행상태      */
+            , (SELECT COUNT(*)
+               FROM SELFSQL_STD_QTY_CHK_PGM
+               WHERE SQL_STD_QTY_CHKT_ID = A.SQL_STD_QTY_CHKT_ID) AS SQL_CNT           /* 수행결과 전체 */
+            , CASE WHEN A.EXEC_END_DT IS NOT NULL THEN
+                        A.IN_PROGRESS_SQL_CNT
+              ELSE 0
+              END COMPLETE_CNT                                                         /* 수행결과 완료 */
+            , CASE WHEN A.EXEC_END_DT IS NULL THEN
+                   NVL(A.IN_PROGRESS_SQL_CNT, 0) 
+              ELSE 0
+              END IN_PROGRESS_SQL_CNT                                                  /* 수행결과 수행중 */
+            , TO_CHAR(A.EXEC_START_DT, 'YYYY-MM-DD HH24:MI:SS') EXEC_START_DT          /* 수행시작일시    */
+            , TO_CHAR(A.EXEC_END_DT, 'YYYY-MM-DD HH24:MI:SS') EXEC_END_DT              /* 수행종료일시    */
+            , CASE WHEN ROUND((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24*60*60) <![CDATA[<]]> 60 THEN
+                        ROUND((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24*60*60)||'초'
+                   WHEN FLOOR((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24) = 0 THEN
+                        TRUNC(((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24 - 
+                        FLOOR((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24) )*60)||'분'
+                   WHEN FLOOR((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24) <![CDATA[>]]> 0 THEN
+                        FLOOR((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24)||'시간 '||
+                        TRUNC(((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24 - 
+                        FLOOR((NVL(A.EXEC_END_DT, SYSDATE) - A.EXEC_START_DT)*24) )*60)||'분'
+                   ELSE ''
+              END AS EXEC_START_TIME                                                   /* 수행시간   */
+           , DB.DB_NAME AS STD_QTY_TARGET_DB_NAME                                      /* 표준점검DB */
+           , C.PROJECT_NM
+          /* HIDDEN */
+           , A.SQL_STD_QTY_CHKT_ID
+           , B.SQL_STD_QTY_SCHEDULER_NO
+           , C.PROJECT_ID
+        FROM SELFSQL_STD_QTY_PLAN_EXEC A
+           , SQL_STD_QTY_SCHEDULER B
+           , PROJECT C
+           , CD CD1
+           , DATABASE DB
+       WHERE A.SQL_STD_QTY_SCHEDULER_NO = B.SQL_STD_QTY_SCHEDULER_NO
+         AND A.PROJECT_ID = C.PROJECT_ID
+         AND B.STD_QTY_TARGET_DBID = DB.DBID(+) 
+         AND CD1.GRP_CD_ID(+) = '1090'
+         AND A.STD_QTY_AGENT_STATUS_CD = CD1.CD(+)
+      <if test="project_id != null and project_id !='' ">
+         AND A.PROJECT_ID = #{project_id}
+      </if>
+         AND B.STD_QTY_SCHEDULER_DIV_CD = #{std_qty_scheduler_div_cd}
+         AND B.DEL_YN = 'N'
+      ORDER BY A.EXEC_START_DT DESC
+    </select>
+    
+    <select id="loadExceptionList" parameterType="sqlStandards" resultType="sqlStandards">
+      /* ExecSqlStdChkDao.loadExceptionList */
+      SELECT *
+      FROM (
+          SELECT ROWNUM RNUM, AA.*
+          FROM (
+              <include refid="getExceptionList"/>
+          ) AA
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) AA
+      WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="loadExceptionExcelDownload" parameterType="sqlStandards" resultType="java.util.LinkedHashMap">
+      /* ExecSqlStdChkDao.excelDownExceptionList */
+      <include refid="getExceptionList"/>
+    </select>
+    
+    <sql id="getExceptionList">
+      /* ExecSqlStdChkDao.loadExceptionList */
+      SELECT A.QTY_CHK_IDT_CD
+           , CASE WHEN B.QTY_CHK_IDT_NM IS NOT NULL
+                        THEN B.QTY_CHK_IDT_NM
+                  WHEN B.QTY_CHK_IDT_NM IS NULL AND A.QTY_CHK_IDT_CD = 'ALL'
+                       THEN 'ALL'
+                  ELSE NULL
+              END AS QTY_CHK_IDT_NM
+           , A.WRKJOB_CD AS WRKJOB_CD
+           , DB.DB_NAME AS STD_QTY_TARGET_DB_NAME
+           , A.DIR_NM  AS DIR_NM
+           , A.DBIO AS DBIO
+           , A.SQL_ID AS SQL_ID
+           , A.SQL_HASH AS SQL_HASH
+           , A.SQL_LENGTH AS SQL_LENGTH
+           , A.EXCEPT_SBST AS EXCEPT_SBST
+           , A.REQUESTER AS REQUESTER
+           , A.REG_DT AS REG_DT
+           , A.REG_USER_ID AS USER_ID
+           /* HIDDEN */
+           , A.DBID AS DBID
+        FROM SQL_STD_QTY_CHK_EXCEPT A
+           , SQL_STD_QTY_IDT_BASE B
+           , DATABASE DB
+       WHERE A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD(+)
+         AND A.DBID = DB.DBID(+)
+          <if test="qty_chk_idt_cd != null and qty_chk_idt_cd != ''">
+              AND A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}                                 /* 품질점검지표코드  */
+          </if>
+          <if test="dbid != null and dbid != ''">
+              AND A.DBID = #{dbid}                                                     /* 표준점검DB        */
+          </if>
+          <if test="wrkjob_cd != null and wrkjob_cd != ''">
+              AND A.WRKJOB_CD = #{wrkjob_cd}                                           /* 업무              */
+          </if>
+          <if test="dbio != null and dbio != ''">
+              AND UPPER(A.DBIO) LIKE '%'||UPPER(#{dbio})||'%'                          /* SQL 식별자{DBIO} */
+          </if>
+          <if test="sql_id != null and sql_id != ''">
+              AND A.SQL_ID = #{sql_id}                                                 /* SQL ID           */
+          </if>
+      ORDER BY A.QTY_CHK_IDT_CD, A.DBID, A.SQL_ID, A.DBIO, A.WRKJOB_CD, A.DIR_NM
+    </sql>
+    
+    <select id="countException" parameterType="sqlStandards" resultType="int">
+      /* ExecSqlStdChkDao.countException */
+      SELECT COUNT(QTY_CHK_IDT_CD)
+      FROM SQL_STD_QTY_CHK_EXCEPT
+      WHERE QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+      
+      <choose>
+          <when test="dbid != null and dbid != ''">
+              AND DBID = #{dbid}
+          </when>
+          <otherwise>
+              AND DBID = -1
+          </otherwise>
+      </choose>
+      <choose>
+          <when test="wrkjob_cd != null and wrkjob_cd != ''">
+              AND WRKJOB_CD = #{wrkjob_cd}
+          </when>
+          <otherwise>
+              AND WRKJOB_CD = ' '
+          </otherwise>
+      </choose>
+      <choose>
+          <when test="dir_nm != null and dir_nm != ''">
+              AND DIR_NM = #{dir_nm}
+          </when>
+          <otherwise>
+              AND DIR_NM = ' '
+          </otherwise>
+      </choose>
+      <choose>
+          <when test="dbio != null and dbio != ''">
+              AND DBIO = #{dbio}
+          </when>
+          <otherwise>
+              AND DBIO = ' '
+          </otherwise>
+      </choose>
+      <choose>
+          <when test="sql_id != null and sql_id != ''">
+              AND SQL_ID = #{sql_id}
+          </when>
+          <otherwise>
+              AND SQL_ID = ' '
+          </otherwise>
+      </choose>
+    </select>
+    
+    <update id="saveException" parameterType="sqlStandards">
+      /* ExecSqlStdChkDao.saveException */
+      MERGE INTO SQL_STD_QTY_CHK_EXCEPT A
+          USING DUAL
+              ON ( 
+                  A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}                                 /* 품질점검지표코드 */
+                  AND A.DBID = NVL(#{dbid}, -1)                                        /* 표준점검DB       */
+                  AND A.SQL_ID = NVL(#{sql_id}, ' ')                                   /* SQL ID           */
+                  AND A.DBIO = NVL(#{dbio}, ' ')                                       /* DBIO             */
+                  AND A.WRKJOB_CD = NVL(#{wrkjob_cd}, ' ')                             /* 업무코드         */
+                  AND A.DIR_NM = NVL(#{dir_nm}, ' ')                                   /* 디렉토리명       */
+              )
+          WHEN MATCHED THEN
+              UPDATE 
+                 SET A.EXCEPT_SBST = #{except_sbst}                                    /* 예외사유         */
+                   , A.REQUESTER = #{requester}                                        /* 요청자           */
+                   , A.REG_DT = SYSDATE                                                /* 등록일시         */
+                   , REG_USER_ID = #{user_id}                                          /* 등록자 */
+          WHEN NOT MATCHED THEN
+              INSERT (
+                      QTY_CHK_IDT_CD                                                   /* 품질점검지표코드 */
+                    , DBID                                                             /* 표준점검DB       */
+                    , WRKJOB_CD                                                        /* 업무코드         */
+                    , DIR_NM                                                           /* 디렉토리명       */
+                    , DBIO                                                             /* DBIO             */
+                    , SQL_ID                                                           /* SQL ID           */
+                  <if test="sql_hash != null and sql_hash != ''">
+                      , SQL_HASH                                                       /* SQL해시          */
+                  </if>
+                  <if test="sql_length != null and sql_length > -1">
+                      , SQL_LENGTH                                                     /* SQL길이          */
+                  </if>
+                  , EXCEPT_SBST                                                        /* 예외사유         */
+                  , REQUESTER                                                          /* 요청자           */
+                  , REG_DT                                                             /* 등록일시         */
+                  , REG_USER_ID                                                         /* 등록자 */
+              ) VALUES (
+                    NVL(#{qty_chk_idt_cd}, ' ')                                        /* 품질점검지표코드 */
+                  , NVL(#{dbid}, -1)                                                   /* 표준점검DB       */
+                  , NVL(#{wrkjob_cd}, ' ')                                             /* 업무코드         */
+                  , NVL(#{dir_nm}, ' ')                                                /* 디렉토리명       */
+                  , NVL(#{dbio}, ' ')                                                  /* DBIO             */
+                  , NVL(#{sql_id}, ' ')                                                /* SQL ID           */
+                  <if test="sql_hash != null and sql_hash != ''">
+                      , #{sql_hash}                                                    /* SQL해시          */
+                  </if>
+                  <if test="sql_length != null and sql_length > -1">
+                      , #{sql_length}                                                  /* SQL길이          */
+                  </if>
+                  , #{except_sbst}                                                     /* 예외사유         */
+                  , #{requester}                                                       /* 요청자           */
+                  , SYSDATE                                                            /* 등록일시         */
+                  , #{user_id}                                                          /* 등록자 */
+              )
+    </update>
+    
+    <delete id="deleteMaintainQualityCheckException" parameterType="sqlStandards">
+      /* ExecSqlStdChkDao.deleteMaintainQualityCheckException */
+      DELETE SQL_STD_QTY_CHK_EXCEPT A                                                  /* SQL표준품질점검예외(TABLE) */
+      WHERE A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}                                       /* 품질점검지표코드 */
+      AND A.DBID = #{dbid}                                                             /* 표준점검DB       */
+      AND A.WRKJOB_CD = #{wrkjob_cd}                                                   /* 업무코드         */
+      AND A.DIR_NM = #{dir_nm}                                                         /* 디렉토리명       */
+      AND A.DBIO = #{dbio}                                                             /* DBIO             */
+      AND A.SQL_ID = #{sql_id}                                                         /* SQL ID           */
+    </delete>
+    
+    <sql id="loadIndexListSql">
+      /* ExecSqlStdChkDao.loadIndexList */
+      SELECT A.QTY_CHK_IDT_CD
+           , A.QTY_CHK_IDT_NM
+        FROM SQL_STD_QTY_IDT_BASE A
+           , PROJECT_SQL_STD_QTY_CHK_SQL B 
+       WHERE A.QTY_CHK_IDT_YN = 'Y' 
+         AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+         AND B.PROJECT_ID = #{project_id}
+      ORDER BY A.QTY_CHK_IDT_CD
+    </sql>
+    
+    <select id="loadQtyIdxByProject" parameterType="String" resultType="sqlStandards">
+      /* ExecSqlStdChkDao.loadQtyIdnxByProject */
+      SELECT *
+      FROM (
+          <include refid="loadIndexListSql"/>
+      ) A
+      WHERE A.QTY_CHK_IDT_CD NOT IN ('100')
+    </select>
+
+    <select id="loadSchedulerList" parameterType="map" resultType="jobSchedulerBase">
+      /* ExecSqlStdChkDao.loadSchedulerList */
+      SELECT SQL_STD_QTY_SCHEDULER_NO
+           , JOB_SCHEDULER_NM
+        FROM SQL_STD_QTY_SCHEDULER
+       WHERE PROJECT_ID = #{project_id}
+         AND DEL_YN = 'N'
+         AND STD_QTY_SCHEDULER_DIV_CD = #{std_qty_scheduler_div_cd}
+    </select>
+    
+    <select id="loadSqlFullText" parameterType="sqlStandards" resultType="java.util.LinkedHashMap">
+      /* ExecSqlStdChkDao.loadSqlFullText */
+      SELECT A.SQL_ID
+           , A.PROGRAM_SOURCE_DESC
+        FROM SQL_STD_QTY_CHK_ERR A
+       WHERE A.PROJECT_ID = #{project_id}
+         AND A.SQL_STD_GATHER_DT = TO_DATE(#{sql_std_gather_day} || '000000', 'YYYY-MM-DD HH24:MI:SS')
+         AND A.SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+         AND A.SQL_STD_QTY_DIV_CD = #{sql_std_qty_div_cd}
+         AND A.SQL_ID = #{sql_id}
+    </select>
+</mapper>

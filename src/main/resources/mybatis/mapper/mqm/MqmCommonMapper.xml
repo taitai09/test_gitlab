@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.mqm.dao.MqmCommonDao">
+
+	<select id="getAllLibNm" parameterType="modelEntityType" resultType="cd">
+		/* MqmCommonDao.getAllLibNm */
+		/* 전체-라이브러리명 */
+		SELECT LIB_NM CD, LIB_NM CD_NM
+		FROM TB_OPENM_LIB
+		ORDER BY LIB_NM  
+	</select>
+	
+	<select id="getAllModelNm" parameterType="modelEntityType" resultType="cd">
+		/* MqmCommonDao.getAllModelNm */
+		/* 전체-모델명 */
+		SELECT MODEL_NM CD, MODEL_NM CD_NM
+		FROM TB_OPENM_MODEL
+		WHERE LIB_NM = #{lib_nm}
+		ORDER BY MODEL_NM
+	</select>
+	
+	<select id="getAllSubNm" parameterType="modelEntityType" resultType="cd">
+		/* MqmCommonDao.getAllSubNm */
+		/* 전체-주제영역명 */
+		SELECT SUB_NM CD, SUB_NM CD_NM
+		FROM TB_OPENM_SUB
+		WHERE LIB_NM = #{lib_nm}
+			AND MODEL_NM = #{model_nm}
+		ORDER BY SUB_NM
+	</select>
+	
+	<select id="getLibNm" parameterType="modelEntityType" resultType="cd">
+		/* MqmCommonDao.getLibNm */
+		/* 프로젝트 단위-라이브러리명 */
+		SELECT DISTINCT LIB_NM CD, LIB_NM CD_NM
+		  FROM PROJECT_CHK_TARGET A
+		 WHERE 1=1
+		 <if test="project_id != null and project_id != ''">
+			AND A.PROJECT_ID = #{project_id}
+			AND A.PROJECT_CHECK_TARGET_TYPE_CD = '1'
+		 </if>
+		ORDER BY A.LIB_NM
+	</select>
+	
+	<select id="getModelNm" parameterType="modelEntityType" resultType="cd">
+		/* MqmCommonDao.getModelNm */
+		/* 프로젝트 단위-모델명 */
+		SELECT MODEL_NM CD, MODEL_NM CD_NM
+		  FROM PROJECT_CHK_TARGET A
+		 WHERE 1=1
+		 <if test="project_id != null and project_id != ''">
+			AND A.PROJECT_ID = #{project_id}
+			AND A.PROJECT_CHECK_TARGET_TYPE_CD = '1'
+		 </if>
+		   AND A.LIB_NM = #{lib_nm}
+		ORDER BY A.MODEL_NM
+	</select>
+	
+	<select id="getSubNm" parameterType="modelEntityType" resultType="cd">
+		/* MqmCommonDao.getSubNm */
+		/* 프로젝트 단위-주제영역명 */
+		SELECT SUB_NM CD, SUB_NM CD_NM
+		  FROM PROJECT_CHK_TARGET A
+		 WHERE 1=1
+		 <if test="project_id != null and project_id != ''">
+			AND A.PROJECT_ID = #{project_id}
+			AND A.PROJECT_CHECK_TARGET_TYPE_CD = '1'
+		 </if>
+		   AND A.LIB_NM = #{lib_nm}
+		   AND A.MODEL_NM = #{model_nm}
+		ORDER BY A.SUB_NM
+	</select>
+	
+</mapper>

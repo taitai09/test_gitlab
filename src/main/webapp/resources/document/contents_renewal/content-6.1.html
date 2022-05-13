@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>6. Dashboard</h1>
+	<div>
+		<p>Open-POP 은 사용자 역할별 다른 대시보드를 제공하며 , 업무 처리가 필요한 작업 목록과 검토 또는 확인이필요한 대상을 한눈에 보기 쉽게 도출하여 모든 업무 처리는 대시보드를 통해 처리하도록 구성하였다</p>
+	</div>
+	<h2>6.1. 관리자</h2>
+	<div>
+		<p class="">성능 개선 진행 현황 및 성능 개선 3개월 누적 실적 현황을 보여준다. </p>
+<!-- 		<p class="redpoint">DB 예방점검 , DB 변경사항 , 긴급조치대상 , 튜닝진행현황 등의 성능 및 장애예방과 관련되어 DB 에서일상적으로 확인해야 할 업무 중심으로 대시보드를 구성하였다 </p> -->
+		<p class="imagebox"><img src="/resources/images/menual/bgimg_renewal/6-1.jpg"></p>
+	</div>
+<!-- 	<div> -->
+<!-- 		<h4>DB 점검</h4> -->
+<!-- 		<div class="list-a"> -->
+<!-- 			<ul style="padding-bottom:5px;"> -->
+<!-- 				<li>업무 시작 전 관리대상 DB 에 대한 DB 점검결과를 통합하여 보여준다.</li> -->
+<!-- 				<li>점검결과 등급은 4 단계를 분류한다.</li> -->
+<!-- 			</ul> -->
+<!-- 		</div> -->
+<!-- 		<p> -->
+<!-- 			<table class="centerbox"> -->
+<!-- 			  <tr> -->
+<!-- 				<th scope="col">점검등급</th> -->
+<!-- 				<th scope="col">설명</th> -->
+<!-- 				<th scope="col">점검항목수</th> -->
+<!-- 				<th scope="col">색상</th> -->
+<!-- 			  </tr> -->
+<!-- 			  <tr> -->
+<!-- 				<td>Fatal</td> -->
+<!-- 				<td style="text-align:left;">시스템을 사용할 수 없는 상태로 최악의 상황이며 신속한 대응이 필요</td> -->
+<!-- 				<td>10</td> -->
+<!-- 				<td>RED</td> -->
+<!-- 			  </tr> -->
+<!-- 			  <tr> -->
+<!-- 				<td>Critical</td> -->
+<!-- 				<td style="text-align:left;">CPU, Memory, Lock, Active Session이 임계값을  초과하여 시스템에 즉각 조치가 필요</td> -->
+<!-- 				<td>6</td> -->
+<!-- 				<td>ORANGE</td> -->
+<!-- 			  </tr> -->
+<!-- 			  <tr> -->
+<!-- 				<td>Warning</td> -->
+<!-- 				<td style="text-align:left;">CPU, Memory, Lock, Active Session이 임계값에  근접하여 지금 시스템 영향은 없으나 다른 영향으로 발전 가능</td> -->
+<!-- 				<td>13</td> -->
+<!-- 				<td>YELLOW</td> -->
+<!-- 			  </tr> -->
+<!-- 			  <tr> -->
+<!-- 				<td>Info</td> -->
+<!-- 				<td style="text-align:left;">DB 관리에 필요한 정보이며 정상적인 상황</td> -->
+<!-- 				<td>17</td> -->
+<!-- 				<td>GREEN</td> -->
+<!-- 			  </tr> -->
+<!-- 			</table> -->
+<!-- 		</p> -->
+<!-- 		<h4>SQL/APP 점검</h4> -->
+<!-- 		<div class="list-a"> -->
+<!-- 			<ul> -->
+<!-- 				<li>DB 별 SQL/APP 성능 점검결과를 보여준다.</li> -->
+<!-- 				<li>SQL 성능점검항목 : 플랜변경 SQL, 신규 SQL, LITERAL SQL, TEMP 과다사용 SQL, FULLSCAN SQL,조건절없는 DELETE, TOPSQL, OFFLOAD 비효율 SQL, OFFLOAD 효율저하 SQL</li> -->
+<!-- 				<li>APP 성능점검항목 : TIMEOUT, 응답시간증가</li> -->
+<!-- 			</ul> -->
+<!-- 		</div> -->
+<!-- 		<h4>TOP SQL</h4> -->
+<!-- 		<div class="list-a"> -->
+<!-- 			<ul> -->
+<!-- 				<li>Logical Reads 기준으로 전체 부하 대비 1% 이상 부하를 유발하는 SQL 현황과 최근 3 개월동안의 발생 추이를 보여준다.</li> -->
+<!-- 			</ul> -->
+<!-- 		</div> -->
+<!-- 		<h4>자원한계점 예측 (3 월내 한계도래 )</h4> -->
+<!-- 		<div class="list-a"> -->
+<!-- 			<ul> -->
+<!-- 				<li>CPU/ 메모리 (SGA+PGA) 가 3 개월 이내에 설정한 한계점에 도달하는 인스턴스 목록과 사용량추이를 보여준다</li> -->
+<!-- 			</ul> -->
+<!-- 		</div> -->
+<!-- 		<h4>Tablespace/Sequence 한계점 예측 (3 월내 한계도래 )</h4> -->
+<!-- 		<div class="list-a"> -->
+<!-- 			<ul> -->
+<!-- 				<li>Tablespace/Sequence 가 3 개월 이내에 설정한 한계점에 도달하는 목록과 사용량 추이를보여준다</li> -->
+<!-- 			</ul> -->
+<!-- 		</div> -->
+<!-- 		<h4>신규 SQL/APP Timeout 예측</h4> -->
+<!-- 		<div class="list-a"> -->
+<!-- 			<ul> -->
+<!-- 				<li>1 주 ~ 3 개월 중에 설정한 타임아웃 시간에 도달하는 SQL/APP 현황과 추이를 보여준다.</li> -->
+<!-- 			</ul> -->
+<!-- 		</div> -->
+<!-- 	</div> -->
+</div>
+</body>
+</html>

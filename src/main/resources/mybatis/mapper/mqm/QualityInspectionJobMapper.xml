@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2019.05.20	임승률	최초작성
+-->
+<mapper namespace="omc.mqm.dao.QualityInspectionJobDao">	
+	<sql id="selectQualityInspectionJobListRefId">
+		/* QualityInspectionJobDao.selectQualityInspectionJobListRefId */
+		SELECT A.QTY_CHK_TG_YN
+		     , A.MDI_PCS_CD ||'-'||A.QTY_CHK_IDT_CD AS QTY_CHK_IDT
+		     , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+		     , 0 AS QTY_INSPECTION_CNT
+		     , A.OUTPUT_START_ROW AS OUTPUT_START_ROW
+		     , A.QTY_CHK_IDT_CD||REPLACE(A.QTY_CHK_IDT_NM,' ','') AS QTY_RESULT_SHEET_NM
+		     , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+		     , A.MDI_PCS_CD AS MDI_PCS_CD
+		     , A.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM
+		     , NVL(A.EXCEL_OUTPUT_YN, 'N') AS EXCEL_OUTPUT_YN
+		     , NVL(B.DML_YN, 'Y') AS DML_YN
+		  FROM TB_OPENM_QAINDI A
+		     , TB_OPENM_QTY_CHK_SQL B
+		 WHERE A.QTY_CHK_TP_CD = '1'
+		   AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD(+)
+		 ORDER BY
+		 	   A.SRT_ORD
+	</sql>
+	
+	<select id="selectQualityInspectionJobList" parameterType="openmQaindi" resultType="openmQaindi">
+		/* QualityInspectionJobDao.selectQualityInspectionJobList */
+				<include refid="selectQualityInspectionJobListRefId"/>
+	</select>
+	
+	<sql id="selectQualityInspectionJobResultListRefId">
+		/* QualityInspectionJobDao.selectQualityInspectionJobResultListRefId */
+		WITH OPENQ_ERR_CNT AS (
+		    SELECT ERR_TYPE_CD AS QTY_CHK_IDT_CD
+		         , SUM(CASE WHEN ERR_TYPE_CD = '100' THEN NVL(ENT_CNT,0) + NVL(ATT_CNT,0) ELSE ERR_CNT END) AS QTY_INSPECTION_CNT
+		      FROM TB_OPENQ_ERR_CNT A
+		     WHERE A.EXTRAC_DT = (SELECT MAX(B.EXTRAC_DT) FROM TB_OPENQ_ERR_CNT B)
+		     GROUP BY
+		           ERR_TYPE_CD
+		)
+		SELECT A.QTY_CHK_TG_YN
+		     , A.MDI_PCS_CD ||'-'||A.QTY_CHK_IDT_CD AS QTY_CHK_IDT
+		     , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+		     , C.QTY_INSPECTION_CNT AS QTY_INSPECTION_CNT
+		     , A.OUTPUT_START_ROW AS OUTPUT_START_ROW
+		     , A.QTY_CHK_IDT_CD||REPLACE(A.QTY_CHK_IDT_NM,' ','') AS QTY_RESULT_SHEET_NM
+		     , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+		     , A.MDI_PCS_CD AS MDI_PCS_CD
+		     , A.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM
+		     , NVL(A.EXCEL_OUTPUT_YN, 'N') AS EXCEL_OUTPUT_YN
+		     , NVL(B.DML_YN, 'Y') AS DML_YN
+		  FROM TB_OPENM_QAINDI A
+		     , TB_OPENM_QTY_CHK_SQL B
+		     , OPENQ_ERR_CNT C
+		 WHERE A.QTY_CHK_TP_CD = '1'
+		   AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD(+)
+		   AND A.QTY_CHK_IDT_CD = C.QTY_CHK_IDT_CD(+)
+		 ORDER BY
+		       A.SRT_ORD
+	</sql>
+	
+	<sql id="getQualityInspectionJobRefId">
+		/* QualityInspectionJobDao.getQualityInspectionJobRefId */
+			WITH OPENQ_ERR_CNT AS (
+			    SELECT ERR_TYPE_CD AS QTY_CHK_IDT_CD
+			         , SUM(CASE WHEN ERR_TYPE_CD = '100' THEN NVL(ENT_CNT,0) + NVL(ATT_CNT,0) ELSE ERR_CNT END) AS QTY_INSPECTION_CNT
+			      FROM TB_OPENQ_ERR_CNT A
+			     WHERE A.EXTRAC_DT = TRUNC(SYSDATE)
+			       AND A.PROJECT_ID = #{project_id}
+			     GROUP BY
+			           ERR_TYPE_CD
+			)
+			SELECT --A.QTY_CHK_TG_YN
+			      (SELECT PROJECT_NM FROM PROJECT WHERE PROJECT_ID = #{project_id})  AS PROJECT_NM   -- 프로젝트
+			     , A.MDI_PCS_CD ||'-'||A.QTY_CHK_IDT_CD AS QTY_CHK_IDT
+			     , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+			     , D.QTY_INSPECTION_CNT AS QTY_INSPECTION_CNT
+			     , A.OUTPUT_START_ROW AS OUTPUT_START_ROW
+			     , A.QTY_CHK_IDT_CD||REPLACE(A.QTY_CHK_IDT_NM,' ','') AS QTY_RESULT_SHEET_NM
+			     , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+			     , A.MDI_PCS_CD AS MDI_PCS_CD
+			     , A.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM
+			     , NVL(A.EXCEL_OUTPUT_YN, 'N') AS EXCEL_OUTPUT_YN
+			     , NVL(C.DML_YN, 'Y') AS DML_YN
+			  FROM TB_OPENM_QAINDI A
+			     , TB_OPENM_PROJECT_QTY_CHK_SQL B
+			     , TB_OPENM_QTY_CHK_SQL C
+			     , OPENQ_ERR_CNT D
+			 WHERE A.QTY_CHK_TP_CD = '1'
+			   AND A.QTY_CHK_TG_YN = 'Y'
+			   AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+			   AND B.PROJECT_ID(+) = #{project_id}
+			   AND A.QTY_CHK_IDT_CD = C.QTY_CHK_IDT_CD
+			   AND A.QTY_CHK_IDT_CD = D.QTY_CHK_IDT_CD(+)
+			 ORDER BY
+			       A.SRT_ORD
+	</sql>
+	
+	<select id="selectQualityInspectionJobResultList" parameterType="openmQaindi" resultType="openmQaindi">
+		/* QualityInspectionJobDao.selectQualityInspectionJobResultList */
+				<include refid="selectQualityInspectionJobResultListRefId"/>
+	</select>
+	
+	<update id="updateTbOpenmQaindi" parameterType="hashmap">
+		/* QualityInspectionJobDao.updateTbOpenmQaindi */
+		UPDATE TB_OPENM_QAINDI
+		   SET QTY_CHK_TG_YN = CASE WHEN QTY_CHK_IDT_CD IN (${qty_chk_idt_cd}) THEN 'Y' ELSE 'N' END
+		 WHERE QTY_CHK_TP_CD = '1'
+	</update>
+   	<delete id="deleteQtyChkResultTblNm" parameterType="hashmap">
+   		/* QualityInspectionJobDao.deleteQtyChkResultTblNm */
+		DELETE FROM ${qty_chk_result_tbl_nm} WHERE PROJECT_ID = #{project_id}
+	</delete>
+   	<delete id="deleteTbOpenqErrCnt" parameterType="hashmap">
+   		/* QualityInspectionJobDao.deleteTbOpenqErrCnt */
+		DELETE FROM TB_OPENQ_ERR_CNT
+		 WHERE EXTRAC_DT = TO_DATE(#{extrac_dt},'YYYY/MM/DD HH24:MI:SS')
+		   AND ERR_TYPE_CD  IN (${qty_chk_idt_cd}) 
+		   AND PROJECT_ID = #{project_id}  -- 20190812 추가
+	</delete>
+	<select id="selectQualityInspectionJobSql" parameterType="openmQaindi" resultType="openmQtyChkSql">
+		/* QualityInspectionJobDao.selectQualityInspectionJobSql */
+		SELECT A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+		     , A.QTY_CHK_SQL AS QTY_CHK_SQL
+		     , NVL(A.DML_YN, 'Y') AS DML_YN
+		  FROM TB_OPENM_QTY_CHK_SQL A
+		 WHERE 1 = 1
+           AND A.QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+	</select>
+	<select id="selectQualityInspectionJobSqlList" parameterType="openmQaindi" resultType="openmQtyChkSql">
+		/* QualityInspectionJobDao.selectQualityInspectionJobSqlList */
+		         SELECT A.QTY_CHK_SQL AS QTY_CHK_SQL
+			 , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+			 , B.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM
+		  FROM TB_OPENM_PROJECT_QTY_CHK_SQL A
+             , TB_OPENM_QAINDI B
+		 WHERE 1 = 1
+           AND A.QTY_CHK_IDT_CD IN (${qty_chk_idt_cd})
+		   AND PROJECT_ID = #{project_id}
+           AND B.QTY_CHK_TP_CD = '1'
+           AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+		 ORDER BY
+		 	   B.SRT_ORD
+	</select>
+	<select id="selectQualityInspectionJobSqlList_old" parameterType="openmQaindi" resultType="openmQtyChkSql">
+		/* QualityInspectionJobDao.selectQualityInspectionJobSqlList */
+		SELECT A.QTY_CHK_SQL AS QTY_CHK_SQL
+			 , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+			 , B.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM
+		  FROM TB_OPENM_QTY_CHK_SQL A
+             , TB_OPENM_QAINDI B
+		 WHERE 1 = 1
+           AND A.QTY_CHK_IDT_CD IN (${qty_chk_idt_cd})
+		   AND A.DML_YN = 'Y'
+           AND B.QTY_CHK_TP_CD = '1'
+           AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+		 ORDER BY
+		 	   B.SRT_ORD
+	</select>
+	<select id="selectQualityInspectionJobExcelOutSqlList" parameterType="openqErrCnt" resultType="openmQaindi">
+		/* QualityInspectionJobDao.selectQualityInspectionJobExcelOutSqlList */
+		SELECT CASE WHEN A.QTY_CHK_IDT_CD = '001'  THEN 'Y' 
+				WHEN B.QTY_CHK_IDT_CD IS NULL THEN 'N'   /* 프로젝트 미사용 품질지표*/
+				ELSE A.QTY_CHK_TG_YN END AS EXCEL_OUTPUT_YN
+				, CASE WHEN A.QTY_CHK_IDT_CD = '001' THEN B.QTY_CHK_SQL ELSE NULL END AS QTY_CHK_SQL
+				, A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+				, A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+				, A.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM
+				, A.QTY_CHK_IDT_CD||REPLACE(A.QTY_CHK_IDT_NM,' ','') AS QTY_RESULT_SHEET_NM
+				, A.OUTPUT_START_ROW AS OUTPUT_START_ROW
+				, A.OUTPUT_START_COL AS OUTPUT_START_COL
+		FROM TB_OPENM_QAINDI A
+			, TB_OPENM_PROJECT_QTY_CHK_SQL B
+		WHERE 1 = 1
+		AND A.EXCEL_OUTPUT_YN  = 'Y'
+		AND A.QTY_CHK_TP_CD = '1'
+		AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD(+)
+		AND B.PROJECT_ID(+) = #{project_id}
+		ORDER BY
+			A.SRT_ORD
+	</select>
+	<select id="selectQualityInspectionJobExcelOutSqlList_old" parameterType="openqErrCnt" resultType="openmQaindi">
+		/* QualityInspectionJobDao.selectQualityInspectionJobExcelOutSqlList */
+		SELECT CASE WHEN A.QTY_CHK_IDT_CD = '001'  THEN 'Y' ELSE QTY_CHK_TG_YN END AS EXCEL_OUTPUT_YN
+			 , CASE WHEN A.QTY_CHK_IDT_CD = '001' THEN B.QTY_CHK_SQL ELSE NULL END AS QTY_CHK_SQL
+			 , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+             , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+			 , A.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM
+             , A.QTY_CHK_IDT_CD||REPLACE(A.QTY_CHK_IDT_NM,' ','') AS QTY_RESULT_SHEET_NM
+             , A.OUTPUT_START_ROW AS OUTPUT_START_ROW
+             , A.OUTPUT_START_COL AS OUTPUT_START_COL
+		  FROM TB_OPENM_QAINDI A
+             , TB_OPENM_QTY_CHK_SQL B
+		 WHERE 1 = 1
+		   AND A.EXCEL_OUTPUT_YN  = 'Y'
+           AND A.QTY_CHK_TP_CD = '1'
+           AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD(+)
+		 ORDER BY
+		 	   A.SRT_ORD
+	</select>
+	<insert id="insertQualityInspectionJob" parameterType="openmQtyChkSql" useGeneratedKeys="false">
+		/* QualityInspectionJobDao.insertQualityInspectionJob */
+		${qty_chk_sql}
+	</insert>
+	<insert id="insertTbOpenqErrCnt" parameterType="hashmap" useGeneratedKeys="false">
+		/* QualityInspectionJobDao.insertTbOpenqErrCnt */
+		INSERT INTO TB_OPENQ_ERR_CNT
+		    ( 
+		      PROJECT_ID  								
+			, EXTRAC_DT
+			, LIB_NM
+			, MODEL_NM
+			, ERR_TYPE_CD
+			, ENT_CNT
+			, ATT_CNT
+			, ERR_CNT
+		 )
+		SELECT
+		      PROJECT_ID
+			, MIN(TO_DATE(#{extrac_dt},'YYYY/MM/DD HH24:MI:SS'))
+			, LIB_NM
+			, MODEL_NM
+			, #{qty_chk_idt_cd}
+			, 0
+			, 0
+			, COUNT(*)
+	     FROM ${qty_chk_result_tbl_nm}
+	     WHERE PROJECT_ID = #{project_id}
+		GROUP BY
+		 	  PROJECT_ID, LIB_NM, MODEL_NM
+	</insert>
+	<select id="selectTbOpenmEntExtrecDt" resultType="string">
+		/* QualityInspectionJobDao.selectTbOpenmEntExtrecDt */
+		SELECT TO_CHAR(RGDTTI,'YYYY/MM/DD HH24:MI:SS')  AS EXTRAC_DT
+		  FROM TB_OPENM_ENT
+		 WHERE ROWNUM = 1
+	</select>
+	<select id="selectTbOpenmCurDate" resultType="string">
+		/* QualityInspectionJobDao.selectTbOpenmCurDate */
+		SELECT TO_CHAR(TRUNC(SYSDATE),'YYYY/MM/DD HH24:MI:SS')  AS CUR_DATE
+		  FROM DUAL
+	</select>
+	<select id="selectQualityInspectionJobSqlResultList" parameterType="hashmap" resultType="java.util.LinkedHashMap">
+		/* QualityInspectionJobDao.selectQualityInspectionJobSqlResultList */
+		${qty_chk_sql}
+	</select>
+   	<select id="selectQtyChkResultTblNmResultList" parameterType="hashmap" resultType="java.util.LinkedHashMap">
+   		/* QualityInspectionJobDao.selectQtyChkResultTblNmResultList */
+		SELECT *
+		  FROM ${qty_chk_result_tbl_nm}
+		 WHERE 1 = 1
+		 	AND PROJECT_ID = #{project_id}
+  		<if test="lib_nm != null and lib_nm != ''">
+		   AND LIB_NM = #{lib_nm}                                            -- 라이브러리명
+  		</if>
+  		<if test="model_nm != null and model_nm != ''">
+		   AND MODEL_NM = #{model_nm}                                        -- 모델명
+  		</if>
+	</select>
+	
+	<select id="selectQualityInspectionJobListByExcelDown" parameterType="openmQaindi" resultType="java.util.LinkedHashMap">
+		/* QualityInspectionJobDao.selectQualityInspectionJobListByExcelDown */
+		<choose>
+			<when test="searchKey != null and (searchKey eq '1'.toString())">
+				<include refid="selectQualityInspectionJobListRefId"/>
+			</when>
+			<when test="searchKey != null and (searchKey eq '2'.toString())">
+				<include refid="selectQualityInspectionJobResultListRefId"/>
+			</when>
+		</choose>
+	</select>
+	
+	<select id="getQualityInspectionJob" parameterType="openmQaindi" resultType="openmQaindi">
+		/* QualityInspectionJobDao.getQualityInspectionJob */
+				<include refid="getQualityInspectionJobRefId"/>
+	</select>
+	
+	<select id="getQualityInspectionJobByExcelDown" parameterType="openmQaindi" resultType="java.util.LinkedHashMap">
+		/* QualityInspectionJobDao.getQualityInspectionJobByExcelDown */
+			
+			WITH OPENQ_ERR_CNT AS (
+			    SELECT ERR_TYPE_CD AS QTY_CHK_IDT_CD
+			         , SUM(CASE WHEN ERR_TYPE_CD = '100' THEN NVL(ENT_CNT,0) + NVL(ATT_CNT,0) ELSE ERR_CNT END) AS QTY_INSPECTION_CNT
+			      FROM TB_OPENQ_ERR_CNT A
+			     WHERE A.EXTRAC_DT = TRUNC(SYSDATE)
+			       AND A.PROJECT_ID = #{project_id}
+			     GROUP BY
+			           ERR_TYPE_CD
+			)
+			SELECT --A.QTY_CHK_TG_YN
+			      (SELECT PROJECT_NM FROM PROJECT WHERE PROJECT_ID = #{project_id})  AS PROJECT_NM   -- 프로젝트
+			     , A.MDI_PCS_CD ||'-'||A.QTY_CHK_IDT_CD AS QTY_CHK_IDT
+			     , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM
+				  -- , D.QTY_INSPECTION_CNT AS QTY_INSPECTION_CNT
+					
+				 , CASE WHEN D.QTY_INSPECTION_CNT IS NULL AND A.QTY_CHK_IDT_CD != '001'
+                        THEN '0'
+                   ELSE
+						TO_CHAR(QTY_INSPECTION_CNT)
+                   END AS QTY_INSPECTION_CNT
+                   
+			     -- , A.OUTPUT_START_ROW AS OUTPUT_START_ROW
+                 , CASE WHEN A.OUTPUT_START_ROW IS NULL 
+                 		THEN '0' 
+                 ELSE 
+                 		TO_CHAR(A.OUTPUT_START_ROW) 
+                 END AS OUTPUT_START_ROW
+
+			     , A.QTY_CHK_IDT_CD||REPLACE(A.QTY_CHK_IDT_NM,' ','') AS QTY_RESULT_SHEET_NM
+			     , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD
+			     , A.MDI_PCS_CD AS MDI_PCS_CD
+			     , A.QTY_CHK_RESULT_TBL_NM AS QTY_CHK_RESULT_TBL_NM
+			     , NVL(A.EXCEL_OUTPUT_YN, 'N') AS EXCEL_OUTPUT_YN
+			     , NVL(C.DML_YN, 'Y') AS DML_YN
+			  FROM TB_OPENM_QAINDI A
+			     , TB_OPENM_PROJECT_QTY_CHK_SQL B
+			     , TB_OPENM_QTY_CHK_SQL C
+			     , OPENQ_ERR_CNT D
+			 WHERE A.QTY_CHK_TP_CD = '1'
+			   AND A.QTY_CHK_TG_YN = 'Y'
+			   AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+			   AND B.PROJECT_ID(+) = #{project_id}
+			   AND A.QTY_CHK_IDT_CD = C.QTY_CHK_IDT_CD
+			   AND A.QTY_CHK_IDT_CD = D.QTY_CHK_IDT_CD(+)
+			 ORDER BY
+			       A.SRT_ORD
+	</select>
+	
+	
+	<select id="selectQualityInspectionJobSheetHeadTitleList" parameterType="openmQaindi" resultType="openmQaindi">
+		/* QualityInspectionJobDao.selectQualityInspectionJobSheetHeadTitleList */
+		SELECT A.MDI_PCS_CD AS MDI_PCS_CD
+			, SUM(CASE WHEN NVL(A.QTY_CHK_TG_YN,'N') = 'Y' THEN 1 ELSE 0 END) OVER (PARTITION BY A.MDI_PCS_CD) AS MDI_PCS_CD_CNT
+			, A.MDI_PCS_CD || '_' || A.QTY_CHK_IDT_CD || '_CNT' AS QTY_CHK_IDT_CD
+			, A.QTY_CHK_IDT_CD || '&lt;br&gt;' || REPLACE(A.QTY_CHK_IDT_NM,' ','&lt;br&gt;') AS QTY_CHK_IDT_NM
+			, A.QTY_CHK_TG_YN AS QTY_CHK_TG_YN
+		FROM TB_OPENM_QAINDI A
+			, TB_OPENM_PROJECT_QTY_CHK_SQL B 
+		WHERE A.QTY_CHK_TP_CD = '1'
+		AND A.EXCEL_OUTPUT_YN = 'Y'
+		AND A.OUTPUT_START_COL > 0
+		AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+		AND B.PROJECT_ID = #{project_id}
+		ORDER BY A.SRT_ORD
+	</select>
+
+	<select id="selectOpenqErrCntLibNmList" parameterType="openqErrCnt" resultType="openqErrCnt">
+		/* QualityInspectionJobDao.selectOpenqErrCntLibNmList */
+		SELECT DISTINCT LIB_NM, LIB_NM AS LIB_CD
+		  FROM PROJECT_CHK_TARGET A 
+		 WHERE A.PROJECT_ID = #{project_id}
+		   AND A.PROJECT_CHECK_TARGET_TYPE_CD = '1'
+		ORDER BY A.LIB_NM  
+	</select>
+
+	<select id="selectOpenqErrCntModelNmList" parameterType="openqErrCnt" resultType="openqErrCnt">
+		/* QualityInspectionJobDao.selectOpenqErrCntModelNmList */
+		SELECT MODEL_NM, MODEL_NM AS MODEL_CD
+		  FROM PROJECT_CHK_TARGET A
+		 WHERE A.PROJECT_ID = #{project_id}
+		   AND A.PROJECT_CHECK_TARGET_TYPE_CD = '1'
+		   AND A.LIB_NM = #{lib_nm}
+		ORDER BY A.MODEL_NM
+	</select>
+</mapper>

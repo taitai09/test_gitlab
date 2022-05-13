@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.23	이원식	OPENPOP V2 최초작업	
+-->
+<mapper namespace="omc.spop.dao.SelfTuningDao">	
+	<select id="selfTuningList" parameterType="apmApplSql" resultType="apmApplSql">
+		/* omc.spop.dao.SelfTuningDao.selfTuningList */
+		SELECT B.APPL_NAME, C.DBIO, A.EXEC_CNT, A.ELAPSED_TIME, C.SQL_TEXT
+		FROM APM_APPL_SQL A, APM_APPL B, APM_SQL C
+    WHERE A.WRKJOB_CD = B.WRKJOB_CD
+    AND A.APPL_HASH = B.APPL_HASH
+		AND A.WRKJOB_CD = C.WRKJOB_CD
+		AND A.SQL_HASH = C.SQL_HASH
+		AND A.WRKJOB_CD IN ( SELECT WRKJOB_CD
+                               FROM WRKJOB_CD
+                              START WITH WRKJOB_CD = #{wrkjob_cd}
+                            CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)
+		<choose>
+			<when test="(searchKey != null and (searchKey eq '01'.toString()))">
+				AND UPPER(B.APPL_NAME) LIKE UPPER('%' || #{searchValue} || '%')
+			</when>
+			<when test="(searchKey != null and (searchKey eq '02'.toString()))">
+				AND UPPER(C.DBIO) LIKE UPPER('%' || #{searchValue} || '%')
+			</when>	
+		</choose>
+	</select>
+	
+	<select id="databaseListOfWrkjobCd" parameterType="apmApplSql" resultType="apmApplSql">
+		/* omc.spop.dao.SelfTuningDao.databaseListOfWrkjobCd */
+		SELECT C.DBID
+			, C.DB_NAME
+			, CD1.CD_NM AS DB_OPERATE_TYPE_NM
+			, DECODE(C.DB_OPERATE_TYPE_CD, S.SELFTEST_TARGET_DB, 'Y', 'N') DEFAULT_YN
+		FROM (
+			SELECT NVL(A.PREF_VALUE, B.DEFAULT_PREF_VALUE) SELFTEST_TARGET_DB
+			FROM (
+				SELECT *
+				FROM (
+					SELECT WRKJOB_CD, PREF_ID, PREF_VALUE, PREF_SEQ, MAX(PREF_SEQ) OVER(PARTITION BY WRKJOB_CD) MAX_PREF_SEQ
+					FROM WRKJOB_PREFERENCES 
+					WHERE PREF_ID = 12005
+					AND WRKJOB_CD = #{wrkjob_cd}  --> 선택한 업무코드
+				)
+				WHERE PREF_SEQ = MAX_PREF_SEQ
+			) A
+			, SPOP_PREFERENCES B
+			WHERE A.PREF_ID(+) = B.PREF_ID
+			AND B.PREF_ID = 12005
+		) S
+		, WRKJOB_CD A
+		, WRKJOB_DB B
+		, DATABASE C
+		, CD CD1
+		WHERE A.WRKJOB_CD = B.WRKJOB_CD
+		AND B.DBID = C.DBID
+		AND C.DB_OPERATE_TYPE_CD = CD1.CD
+		AND C.DB_OPERATE_TYPE_CD = S.SELFTEST_TARGET_DB
+		AND CD1.GRP_CD_ID = '1019'
+		AND A.WRKJOB_CD = #{wrkjob_cd}   --> 선택한 업무코드
+		AND C.USE_YN = 'Y'
+		AND A.USE_YN = 'Y'
+		AND C.DBID IN (
+			SELECT DBID
+			FROM USER_DB_PRIVILEGE
+			WHERE USER_ID = #{user_id}   --> 로그인사용자 ID
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN PRIVILEGE_START_DAY AND PRIVILEGE_END_DAY
+		)
+		ORDER BY C.DB_OPERATE_TYPE_CD
+	</select>
+	
+	<select id="getMaxSelftunQuerySeq" parameterType="apmApplSql" resultType="string">
+		/* omc.spop.dao.SelfTuningDao.getMaxSelftunQuerySeq */
+		SELECT NVL(MAX(SELFTUN_QUERY_SEQ) + 1, 1) SELFTUN_QUERY_SEQ 
+		FROM SELFTUN_SQL
+		WHERE DBID = #{dbid}
+	</select>	
+	<!-- WRKJOB_CD 저장 추가 2019-04-25 -->
+	<insert id="insertSelftunQuery" parameterType="selftunSql">
+		/* omc.spop.dao.SelfTuningDao.insertSelftunQuery */
+		INSERT INTO SELFTUN_SQL(DBID, SELFTUN_QUERY_SEQ, SQL_TEXT, UUID, REG_DT, WRKJOB_CD, REG_ID)
+		VALUES(#{dbid}, #{selftun_query_seq}, #{sql_text}, #{uuid}, SYSDATE, #{wrkjob_cd}, #{reg_id})
+	</insert>	
+	
+	<select id="idxAdMstList" parameterType="idxAdMst" resultType="idxAdMst">
+		/* omc.spop.dao.SelfTuningDao.idxAdMstList */
+		SELECT A.IDX_AD_NO, TABLE_NAME, 
+			ROW_NUMBER() OVER(ORDER BY TABLE_NAME, ACCESS_PATH_COLUMN_LIST) SEQ, 
+			RECOMMEND_TYPE, 
+			ACCESS_PATH_COLUMN_LIST, 
+			SOURCE_INDEX_NAME,
+			SOURCE_INDEX_COLUMN_LIST
+		FROM  IDX_AD_MST A, IDX_AD_RECOMMEND_INDEX B
+		WHERE A.IDX_AD_NO =  B.IDX_AD_NO
+		AND A.DBID = #{dbid}
+		AND A.IDX_AD_NO = #{idx_ad_no}
+	</select>	
+	<select id="excelDownloadIdxAdMstList" parameterType="idxAdMst" resultType="java.util.LinkedHashMap">
+		/* omc.spop.dao.SelfTuningDao.excelDownloadIdxAdMstList */
+		SELECT A.IDX_AD_NO, TABLE_NAME, 
+			ROW_NUMBER() OVER(PARTITION BY TABLE_NAME ORDER BY ACCESS_PATH_COLUMN_LIST) SEQ, 
+			RECOMMEND_TYPE, 
+			ACCESS_PATH_COLUMN_LIST, 
+			SOURCE_INDEX_NAME,
+			SOURCE_INDEX_COLUMN_LIST
+		FROM  IDX_AD_MST A, IDX_AD_RECOMMEND_INDEX B
+		WHERE A.IDX_AD_NO =  B.IDX_AD_NO
+		AND A.DBID = #{dbid}
+		AND A.IDX_AD_NO = #{idx_ad_no}
+	</select>
+	<!-- 2019-04-26 삭제예정, 사용안함 -->	
+	<insert id="insertSelftunSqlStatistics" parameterType="selftunSqlStatistics">
+		/* omc.spop.dao.SelfTuningDao.insertSelftunSqlStatistics */
+		INSERT INTO SELFTUN_SQL_STATISTICS(DBID, SELFTUN_QUERY_SEQ, SQL_ID, PLAN_HASH_VALUE, PARSE_CALLS, BUFFER_GETS, 
+			ROWS_PROCESSED, ELAPSED_TIME, CPU_TIME, USER_IO_WAIT_TIME, FETCHES, DISK_READS, DIRECT_WRITES)
+		VALUES(#{dbid}, #{selftun_query_seq}, #{sql_id}, #{plan_hash_value}, #{parse_calls}, #{buffer_gets},
+			#{rows_processed}, #{elapsed_time}, #{cpu_time}, #{user_io_wait_time}, #{fetches}, #{disk_reads}, #{direct_writes})
+	</insert>
+	
+	<insert id="insertSelftunSqlBind" parameterType="selftunSqlBind">
+		/* omc.spop.dao.SelfTuningDao.insertSelftunSqlBind */
+		INSERT INTO SELFTUN_SQL_BIND(DBID, SELFTUN_QUERY_SEQ, BIND_SEQ, BIND_VAR_NM, BIND_VAR_VALUE, BIND_VAR_TYPE)
+		VALUES(#{dbid}, #{selftun_query_seq}, #{bind_seq}, #{bind_var_nm}, #{bind_var_value}, #{bind_var_type})
+	</insert>	
+	
+	<select id="accpathList" parameterType="dbaTables" resultType="accPathExec">
+		/* omc.spop.dao.SelfTuningDao.accpathList */
+		SELECT ROWNUM RNUM, ACCESS_PATH AS ACCESS_PATH_VALUE, ACCESS_PATH_COUNT
+		FROM (
+			SELECT ACCESS_PATH, COUNT(DISTINCT SQL_ID || TO_CHAR(PLAN_HASH_VALUE)) ACCESS_PATH_COUNT
+			FROM (
+				SELECT C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME, LISTAGG(ACCESS_PATH, ', ') WITHIN GROUP(ORDER BY ORDERED, ACCESS_PATH) ACCESS_PATH 
+				FROM ACC_PATH_EXEC A, (
+					SELECT DBID, EXEC_SEQ, SNAP_NO, QUERY_SEQ, QBLOCK_NAME, ACCESS_PATH, ORDERED
+					FROM ACC_PATH
+					WHERE DBID = #{dbid}
+					AND TABLE_OWNER = #{owner}
+					AND TABLE_NAME = #{table_name}
+				) B, VSQL_TEXT C
+				WHERE A.DBID = B.DBID
+				AND A.EXEC_SEQ = B.EXEC_SEQ
+				AND B.DBID = C.DBID
+				AND B.SNAP_NO = C.SNAP_NO
+				AND B.QUERY_SEQ = C.QUERY_SEQ
+				AND A.ACCESS_PATH_TYPE = 'VSQL'
+				AND A.DBID = #{dbid}
+				AND A.EXEC_SEQ = (SELECT MAX(EXEC_SEQ) FROM ACC_PATH_EXEC WHERE ACCESS_PATH_TYPE = 'VSQL' AND DBID = #{dbid})
+				GROUP BY C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME
+			)
+			GROUP BY ACCESS_PATH
+			ORDER BY ACCESS_PATH_COUNT DESC, ACCESS_PATH ASC
+		)	
+	</select>
+	
+	<select id="columnHistoryList" parameterType="dbaTables" resultType="dbTabColumnHistory">
+		/* omc.spop.dao.SelfTuningDao.columnHistoryList */
+		SELECT B.CD_NM CHANGE_TYPE,
+			A.BASE_DAY CHANGE_DAY, 
+			A.COLUMN_NAME,
+			A.DATA_TYPE, 
+			A.DATA_LENGTH, 
+			A.DATA_PRECISION, 
+			A.DATA_SCALE, 
+			A.NULLABLE
+		FROM DB_TAB_COLUMN_HISTORY  A, CD B
+		WHERE A.OBJECT_CHANGE_TYPE_CD = B.CD 
+		AND A.DBID = #{dbid}
+		AND A.OWNER = #{owner}
+		AND A.TABLE_NAME = #{table_name}
+		AND B.GRP_CD_ID = '1038'	
+	</select>
+	
+	<select id="indexHistoryList" parameterType="dbaTables" resultType="dbIndexHistory">
+		/* omc.spop.dao.SelfTuningDao.indexHistoryList */
+		SELECT C.CD_NM CHANGE_TYPE, A.BASE_DAY, A.INDEX_NAME, A.INDEX_TYPE, A.TABLESPACE_NAME, B.INDEX_COLUMN
+		FROM DB_INDEX_HISTORY A, (
+			SELECT DBID, INDEX_OWNER, INDEX_NAME, BASE_DAY,
+				LISTAGG(COLUMN_NAME, ', ') WITHIN GROUP(ORDER BY COLUMN_POSITION) INDEX_COLUMN
+			FROM DB_IND_COLUMN_HISTORY
+			GROUP BY DBID, INDEX_OWNER, INDEX_NAME, BASE_DAY
+		) B, CD C
+		WHERE A.DBID = B.DBID
+		AND A.OWNER = B.INDEX_OWNER
+		AND A.INDEX_NAME = B.INDEX_NAME
+		AND A.BASE_DAY = B.BASE_DAY
+		AND A.OBJECT_CHANGE_TYPE_CD = C.CD 
+		AND C.GRP_CD_ID = '1038'
+		AND A.DBID = #{dbid}
+		AND A.OWNER = #{owner}
+		AND A.TABLE_NAME = #{table_name}
+		ORDER BY A.DBID, A.OWNER, A.INDEX_NAME	
+	</select>
+	
+	<select id="explainPlanStatisticsPopup" parameterType="dbaObjects" resultType="dbaObjects">
+		/* omc.spop.dao.SelfTuningDao.explainPlanStatisticsPopup */
+		SELECT OWNER, TABLE_NAME, SAVTIME, ROWCNT, BLKCNT, AVGRLN, SAMPLESIZE, ANALYZETIME
+		FROM (
+			SELECT 
+				OWNER,
+				TABLE_NAME,
+				TO_CHAR(SAVTIME, 'YYYY/MM/DD HH24:MI:SS') AS SAVTIME, 
+				ROWCNT, 
+				BLKCNT, 
+				AVGRLN, 
+				SAMPLESIZE, 
+				ANALYZETIME,
+	            ROW_NUMBER() OVER(PARTITION BY ANALYZETIME ORDER BY SAVTIME DESC) RNUM
+			FROM ODS_TAB_STAT_LOG
+			WHERE DBID = #{dbid}
+			AND OWNER = #{owner}
+			AND TABLE_NAME = #{table_name}
+		    AND ANALYZETIME IS NOT NULL
+		)
+		 WHERE RNUM = 1
+		ORDER BY SAVTIME DESC
+	</select>
+	
+	<select id="getSelftunSql" parameterType="selftunSql" resultType="selftunSql">
+		/* omc.spop.dao.SelfTuningDao.getSelftunSql */
+		SELECT SELFTUN_QUERY_SEQ, SQL_TEXT 
+		FROM SELFTUN_SQL
+		WHERE DBID = #{dbid}
+		AND SELFTUN_QUERY_SEQ = #{selftun_query_seq}
+	</select>
+	
+	<select id="selectSelftunSqlBindList" parameterType="selftunSql" resultType="selftunSqlBind">
+		/* omc.spop.dao.SelfTuningDao.selectSelftunSqlBindList */
+		SELECT BIND_SEQ, BIND_VAR_NM, BIND_VAR_VALUE, BIND_VAR_TYPE
+		FROM SELFTUN_SQL_BIND
+		WHERE DBID = #{dbid}
+		AND SELFTUN_QUERY_SEQ = #{selftun_query_seq}
+	</select>
+
+	<select id="selectPerfCheckResultList" parameterType="selftunExecutionPlan" resultType="selftunExecutionPlan">
+		/* omc.spop.dao.SelfTuningDao.selectPerfCheckResultList */
+		SELECT /* DISPLAY */    
+		       ROWNUM NO                   -- NO
+		     , PERF_CHECK_RESULT_DIV_NM    -- 점검결과
+		     , PROGRAM_EXEC_DT             -- 성능점검시간
+		     , PARSING_SCHEMA_NAME         -- 파싱스키마
+		     , ELAPSED_TIME                -- SQL수행시간(초)
+		     , BUFFER_GETS                 -- 블럭수
+		     , ROWS_PROCESSED              -- 처리건수
+		     , MEMORY_USED                 -- 메모리사용량(MB)
+		     
+		       /* HIDDEN */
+		     , DBID                        -- DBID
+		     , SELFTUN_QUERY_SEQ           -- 셀프튜닝쿼리일련번호
+		     , SQL_ID                      -- SQL ID
+		FROM (
+		    SELECT  A.DBID 
+		          , A.SELFTUN_QUERY_SEQ                                            -- 셀프튜닝쿼리일련번호 
+		          , CD1.CD_NM AS PERF_CHECK_RESULT_DIV_NM                          -- 점검결과
+		          , TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI:SS') AS PROGRAM_EXEC_DT  -- 프로그램수행일시
+		          , A.PARSING_SCHEMA_NAME AS PARSING_SCHEMA_NAME                   -- 파싱스키마명
+		          , B.BUFFER_GETS
+		          , TO_CHAR(ROUND(B.ELAPSED_TIME/1000000, 4), 'FM999990.999') ELAPSED_TIME
+		          , B.ROWS_PROCESSED
+		          , C.MEMORY_USED
+		          , B.SQL_ID
+		      FROM  SELFTUN_SQL A              -- 셀프튜닝_SQL내역
+		           ,SELFTUN_SQL_STATISTICS B   -- 셀프튜닝_SQL성능내역
+		           ,(SELECT DBID
+		                  , SELFTUN_QUERY_SEQ
+		                  , ROUND(NVL(MAX(A.LAST_MEMORY_USED)/1024/1024, 0), 2) AS MEMORY_USED
+		               FROM  SELFTUN_EXECUTION_PLAN A    -- 셀프튜닝_실행플랜내역(TABLE)
+		              GROUP BY DBID, SELFTUN_QUERY_SEQ
+		            ) C
+		           ,CD CD1
+		     WHERE A.DBID = B.DBID(+)
+		       AND A.SELFTUN_QUERY_SEQ = B.SELFTUN_QUERY_SEQ(+)
+		       AND A.DBID = C.DBID(+)
+		       AND A.SELFTUN_QUERY_SEQ = C.SELFTUN_QUERY_SEQ(+)
+		       AND A.PERF_CHECK_RESULT_DIV_CD = CD1.CD
+		       AND CD1.GRP_CD_ID = '1055'
+		       /*UUID*/
+		       AND A.UUID = #{uuid}
+		    ORDER BY A.REG_DT DESC
+		    ) A
+	</select>
+	
+	<!--11) QUERY_11 : 성능점검결과 탭  -->
+	<!-- .1 : 점검결과..  -->
+	<select id="selectDeployPerfChkDetailResultList"  parameterType="selftunExecutionPlan" resultType="performanceCheckMng">
+		/* omc.spop.dao.SelfTuningDao.selectDeployPerfChkDetailResultList */
+		/* 
+		    PARAMETER : DBID, SELFTUN_QUERY_SEQ
+		*/
+		SELECT  /* DISPLAY */
+		        B.PERF_CHECK_INDC_NM                        -- 점검지표
+		       -- 적합
+		      , CASE WHEN INSTR(A.INDC_PASS_MAX_VALUE,'.',1) > 0 THEN TO_CHAR(A.INDC_PASS_MAX_VALUE, 'FM999990.9999') ELSE TO_CHAR(A.INDC_PASS_MAX_VALUE) END INDC_PASS_MAX_VALUE
+		        -- 성능점검결과값
+		      , CASE WHEN INSTR(A.EXEC_RESULT_VALUE,'.',1) > 0 THEN TO_CHAR(A.EXEC_RESULT_VALUE, 'FM999990.9999') ELSE TO_CHAR(A.EXEC_RESULT_VALUE) END EXEC_RESULT_VALUE
+		      , CD2.CD_NM AS PERF_CHECK_RESULT_DIV_NM       -- 성능점검결과
+		      
+		        /* HIDDEN */
+		      , A.INDC_YN_DECIDE_DIV_CD                     -- 지표여부값판정구분코드
+		      , A.PERF_CHECK_INDC_ID                        -- 성능점검지표ID 
+		      , A.PERF_CHECK_RESULT_DIV_CD                  -- 성능점검결과구분코드 
+		      , B.PERF_CHECK_METH_CD                        -- 성능점검방법코드 
+		      , CD1.CD_NM AS PERF_CHECK_METH_NM             -- 성능점검방법
+		      , A.PERF_CHECK_RESULT_DESC                    -- 성능점검결과설명
+		   FROM SELFTUN_PERF_CHK_RESULT A                   -- 셀프튜닝_성능점검결과내역
+		       ,DEPLOY_PERF_CHK_INDC B                      -- 배포성능점검지표기본
+		       ,CD CD1 
+		       ,CD CD2
+		  WHERE A.PERF_CHECK_INDC_ID = B.PERF_CHECK_INDC_ID
+		    AND B.PERF_CHECK_METH_CD = CD1.CD
+		    AND CD1.GRP_CD_ID = '1059'
+		    AND A.PERF_CHECK_RESULT_DIV_CD = CD2.CD
+		    AND CD2.GRP_CD_ID = '1055'
+		    AND A.DBID = #{dbid}
+		    <!-- 셀프튜닝쿼리일련번호 -->
+		    AND A.SELFTUN_QUERY_SEQ = #{selftun_query_seq}
+		ORDER BY A.PERF_CHECK_INDC_ID ASC
+	</select>
+	
+	<select id="selectImprovementGuideList"  parameterType="selftunExecutionPlan" resultType="performanceCheckMng">
+		/* omc.spop.dao.SelfTuningDao.selectImprovementGuideList */
+		/* 
+		    PARAMETER : DBID, SELFTUN_QUERY_SEQ
+		*/
+		SELECT /* DISPLAY */
+		       B.PERF_CHECK_INDC_NM            -- 점검지표
+		     , B.PERF_CHECK_INDC_DESC          -- 지표설명
+		     , B.PERF_CHECK_FAIL_GUIDE_SBST    -- 개선가이드
+		  FROM SELFTUN_PERF_CHK_RESULT A       -- 셀프튜닝_성능점검결과내역
+		     , DEPLOY_PERF_CHK_INDC B          -- 배포성능점검지표기본
+		WHERE A.PERF_CHECK_INDC_ID = B.PERF_CHECK_INDC_ID                      -- 성능점검지표ID 
+		AND A.DBID = #{dbid}                          -- DBID
+		AND A.SELFTUN_QUERY_SEQ = #{selftun_query_seq}                   -- 셀프튜닝쿼리일련번호
+		ORDER BY A.PERF_CHECK_INDC_ID ASC
+	</select>
+	
+	<select id="selectPerfCheckResultBasisWhy"  parameterType="selftunExecutionPlan" resultType="performanceCheckMng">
+		/* omc.spop.dao.SelfTuningDao.selectPerfCheckResultBasisWhy */
+		/* 
+		    PARAMETER : DBID, SELFTUN_QUERY_SEQ
+		*/
+		SELECT /* DISPLAY */
+		       A.PERF_CHECK_RESULT_BASIS_WHY1 AS PERF_CHECK_RESULT_BASIS_WHY1 -- 근거사유1
+		     , A.PERF_CHECK_RESULT_BASIS_WHY2 AS PERF_CHECK_RESULT_BASIS_WHY2 -- 근거사유2
+		     , A.EXEC_PLAN AS EXEC_PLAN                                       -- 실행계획
+		  FROM SELFTUN_SQL A    -- 셀프튜닝_SQL내역
+		 WHERE A.DBID = #{dbid}                          -- DBID
+		   AND A.SELFTUN_QUERY_SEQ = #{selftun_query_seq}                   -- 셀프튜닝쿼리일련번호
+	</select>
+	
+	<select id="executionPlan1" parameterType="selftunExecutionPlan1" resultType="selftunExecutionPlan1">
+		/* omc.spop.dao.SelfTuningDao.executionExplain1 */
+		SELECT "A-Time Activity(%)" as "a_time_activity"
+			, "Buffers Activity(%)" as "buffers_activity"
+			, ID AS "selftun_id"
+			, LPAD(' ',2*(LEVEL-1)) || "Operation" AS "operation"
+			, "Name" as "name"
+			, "Starts" as "starts"
+			, "A-Rows" as "a_rows"
+			, "A-Time" as "a_time"
+			, "Buffers" as "buffers"
+			, "Reads" as "reads"
+			, "Memory(Max)" as "memory"
+			, "Temp(Max)" as "temp"
+			, TABLE_OWNER as "table_owner"
+			, TABLE_NAME as "table_name"
+			-- LEAF 노드이면(자식이 없으면) MY성능, LEAF 노드가 아니면(자식이 존재하면) MY성능 - 자식성능
+			, (CASE WHEN CONNECT_BY_ISLEAF = 1 THEN MY_ELAPSED_TIME ELSE (MY_ELAPSED_TIME - CHILDS_ELAPSED_TIME) END) DELTA_ELAPSED_TIME -- 현재 오퍼레이션의 수행시간
+			, (CASE WHEN CONNECT_BY_ISLEAF = 1 THEN MY_BUFFER_GETS ELSE (MY_BUFFER_GETS - CHILDS_BUFFER_GETS) END) DELTA_BUFFER_GETS     -- 현재 오퍼레이션의 블럭수
+			-- DELTA값 역순으로 RANK 부여, 동일한 값이면 같은 RANKING 이 부여됨
+			, RANK() OVER(ORDER BY (CASE WHEN CONNECT_BY_ISLEAF = 1 THEN MY_ELAPSED_TIME ELSE (MY_ELAPSED_TIME - CHILDS_ELAPSED_TIME) END) DESC) RANK_ELAPSED_TIME  -- 수행시간 순위
+			, RANK() OVER(ORDER BY (CASE WHEN CONNECT_BY_ISLEAF = 1 THEN MY_BUFFER_GETS ELSE (MY_BUFFER_GETS - CHILDS_BUFFER_GETS) END) DESC) RANK_BUFFER_GETS      -- 블럭수 순위
+			-- HIDDEN
+			, MY_ELAPSED_TIME
+			, MY_BUFFER_GETS
+			, CHILDS_ELAPSED_TIME
+			, CHILDS_BUFFER_GETS
+     			
+		FROM (SELECT A.ID
+				, (CASE WHEN ID = 0 THEN NULL ELSE A.PARENT_ID END) PARENT_ID
+				, A.OPERATION || ' ' || A.OPTIONS AS "Operation"
+				, (CASE 
+						WHEN TRIM(A.OBJECT_OWNER) IS NOT NULL THEN TRIM(A.OBJECT_OWNER) || '.'  
+						ELSE '' 
+					END) || 
+					(CASE 
+						WHEN A.OBJECT_NAME IS NOT NULL THEN A.OBJECT_NAME 
+						ELSE ''
+					END) AS "Name"
+				, (CASE 
+					WHEN A.STARTS <![CDATA[<]]> 1000*100 THEN TO_CHAR(A.STARTS)
+						WHEN A.STARTS <![CDATA[<]]> 1000*1000*100 THEN ROUND(A.STARTS/1000) || 'K'
+						WHEN A.STARTS <![CDATA[<]]> 1000*1000*1000*100 THEN ROUND(A.STARTS/1000/1000) || 'M'
+						WHEN A.STARTS >= 1000*1000*1000*100 THEN ROUND(A.STARTS/1000/1000/1000) || 'G'
+						ELSE TO_CHAR(A.STARTS)
+					END) AS "Starts"
+				, (CASE 
+					WHEN A.OUTPUT_ROWS <![CDATA[<]]> 1000*100 THEN TO_CHAR(A.OUTPUT_ROWS)
+						WHEN A.OUTPUT_ROWS <![CDATA[<]]> 1000*1000*100 THEN ROUND(A.OUTPUT_ROWS/1000) || 'K'
+						WHEN A.OUTPUT_ROWS <![CDATA[<]]> 1000*1000*1000*100 THEN ROUND(A.OUTPUT_ROWS/1000/1000) || 'M'
+						WHEN A.OUTPUT_ROWS >= 1000*1000*1000*100 THEN ROUND(A.OUTPUT_ROWS/1000/1000/1000) || 'G'
+						ELSE TO_CHAR(A.OUTPUT_ROWS)
+					END) AS "A-Rows"
+				, (CASE 
+					WHEN (A.CR_BUFFER_GETS + A.CU_BUFFER_GETS) <![CDATA[<]]> 1000*100 THEN TO_CHAR(ROUND(A.CR_BUFFER_GETS + A.CU_BUFFER_GETS))
+						WHEN (A.CR_BUFFER_GETS + A.CU_BUFFER_GETS) <![CDATA[<]]> 1000*1000*100 THEN ROUND((A.CR_BUFFER_GETS + A.CU_BUFFER_GETS)/1000) || 'K'
+						WHEN (A.CR_BUFFER_GETS + A.CU_BUFFER_GETS) <![CDATA[<]]> 1000*1000*1000*100 THEN ROUND((A.CR_BUFFER_GETS + A.CU_BUFFER_GETS)/1000/1000) || 'M'
+						WHEN (A.CR_BUFFER_GETS + A.CU_BUFFER_GETS) >= 1000*1000*1000*100 THEN ROUND((A.CR_BUFFER_GETS + A.CU_BUFFER_GETS)/1000/1000/1000) || 'G'
+						ELSE TO_CHAR(A.CR_BUFFER_GETS + A.CU_BUFFER_GETS)
+					END) AS "Buffers"
+				, DECODE(ROUND(A.ELAPSED_TIME/1000000, 4), 0, 0.0001, ROUND(A.ELAPSED_TIME/1000000, 4))  AS "A-Time"
+				, (CASE 
+					WHEN A.DISK_READS <![CDATA[<]]> 1000*100 THEN TO_CHAR(ROUND(A.DISK_READS))
+						WHEN A.DISK_READS <![CDATA[<]]> 1000*1000*100 THEN ROUND(A.DISK_READS/1000) || 'K'
+						WHEN A.DISK_READS <![CDATA[<]]> 1000*1000*1000*100 THEN ROUND(A.DISK_READS/1000/1000) || 'M'
+						WHEN A.DISK_READS >= 1000*1000*1000*100 THEN ROUND(A.DISK_READS/1000/1000/1000) || 'G'
+						ELSE TO_CHAR(A.DISK_READS)
+					END) AS "Reads"
+				, (CASE 
+						WHEN LAST_MEMORY_USED <![CDATA[<]]> 1024*100 THEN TO_CHAR(LAST_MEMORY_USED)
+						WHEN LAST_MEMORY_USED <![CDATA[<]]> 1024*1024*100 THEN ROUND(LAST_MEMORY_USED/1024) || 'KB'
+						WHEN LAST_MEMORY_USED <![CDATA[<]]> 1024*1024*1024*100 THEN ROUND(LAST_MEMORY_USED/1024/1024) || 'MB'
+						WHEN LAST_MEMORY_USED >= 1024*1024*1024*100 THEN ROUND(LAST_MEMORY_USED/1024/1024/1024) || 'GB'
+						ELSE TO_CHAR(LAST_MEMORY_USED)
+					END) AS "Memory(Max)"
+				, (CASE 
+						WHEN MAX_TEMPSEG_SIZE <![CDATA[<]]> 1024*100 THEN TO_CHAR(MAX_TEMPSEG_SIZE)
+						WHEN MAX_TEMPSEG_SIZE <![CDATA[<]]> 1024*1024*100 THEN ROUND(MAX_TEMPSEG_SIZE/1024) || 'KB'
+						WHEN MAX_TEMPSEG_SIZE <![CDATA[<]]> 1024*1024*1024*100 THEN ROUND(MAX_TEMPSEG_SIZE/1024/1024) || 'MB'
+						WHEN MAX_TEMPSEG_SIZE >= 1024*1024*1024*100 THEN ROUND(MAX_TEMPSEG_SIZE/1024/1024/1024) || 'GB'
+						ELSE TO_CHAR(MAX_TEMPSEG_SIZE)
+					END) AS "Temp(Max)"
+				, ROUND((A.CR_BUFFER_GETS + A.CU_BUFFER_GETS)/B.BUFFER_GETS*100, 2) "Buffers Activity(%)"
+				, ROUND(A.ELAPSED_TIME/B.ELAPSED_TIME*100, 2) "A-Time Activity(%)"
+				, (CASE 
+						WHEN SUBSTR(A.OBJECT_TYPE, 1, 5) = 'INDEX' THEN 
+							(SELECT TABLE_OWNER
+								FROM ODS_INDEXES C
+								WHERE DBID = #{dbid}
+								AND A.OBJECT_OWNER = C.OWNER
+								AND A.OBJECT_NAME = C.INDEX_NAME
+								AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_INDEXES S WHERE S.DBID = C.DBID)
+							)
+						ELSE TRIM(A.OBJECT_OWNER) 
+					END) AS TABLE_OWNER
+				, (CASE 
+						WHEN SUBSTR(A.OBJECT_TYPE, 1, 5) = 'INDEX' THEN --C.TABLE_NAME 
+							(SELECT TABLE_NAME
+								FROM ODS_INDEXES C
+								WHERE DBID = #{dbid}
+								AND A.OBJECT_OWNER = C.OWNER
+								AND A.OBJECT_NAME = C.INDEX_NAME
+								AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_INDEXES S WHERE S.DBID = C.DBID)
+							)
+						ELSE TRIM(A.OBJECT_NAME) 
+					END) AS TABLE_NAME
+				, A.ELAPSED_TIME MY_ELAPSED_TIME
+				, (A.CR_BUFFER_GETS + A.CU_BUFFER_GETS) MY_BUFFER_GETS
+				, C.CHILDS_ELAPSED_TIME
+				, C.CHILDS_BUFFER_GETS
+			FROM SELFTUN_EXECUTION_PLAN A
+				, (SELECT DECODE(MAX(CU_BUFFER_GETS) + MAX(CR_BUFFER_GETS), 0, 1, MAX(CU_BUFFER_GETS) + MAX(CR_BUFFER_GETS)) AS BUFFER_GETS
+						, DECODE(MAX(ELAPSED_TIME), 0, 0.0001, MAX(ELAPSED_TIME)) AS ELAPSED_TIME
+						, DECODE(MAX(DISK_READS), 0, 1, MAX(DISK_READS)) AS DISK_READS
+					FROM SELFTUN_EXECUTION_PLAN
+					WHERE DBID = #{dbid}
+					AND SELFTUN_QUERY_SEQ = #{selftun_query_seq}) B
+				, (SELECT (CASE WHEN ID = 0 THEN NULL ELSE PARENT_ID END) PARENT_ID
+						, SUM(NVL(ELAPSED_TIME, 0)) CHILDS_ELAPSED_TIME
+						, SUM(NVL((CU_BUFFER_GETS+CR_BUFFER_GETS), 0)) CHILDS_BUFFER_GETS
+					FROM SELFTUN_EXECUTION_PLAN
+					WHERE DBID = #{dbid}
+					AND SELFTUN_QUERY_SEQ = #{selftun_query_seq}
+					GROUP BY (CASE WHEN ID = 0 THEN NULL ELSE PARENT_ID END)) C
+			WHERE 1 = 1
+			AND A.ID = C.PARENT_ID(+)
+			AND A.DBID = #{dbid}
+			AND A.SELFTUN_QUERY_SEQ = #{selftun_query_seq}
+			AND A.CHILD_NUMBER = (SELECT MAX(CHILD_NUMBER) 
+									FROM SELFTUN_EXECUTION_PLAN S
+									WHERE S.DBID = A.DBID
+									AND A.SELFTUN_QUERY_SEQ = S.SELFTUN_QUERY_SEQ)
+		) 
+		CONNECT BY PRIOR ID = PARENT_ID
+		START WITH ID = 0
+		ORDER BY ID
+	</select>
+</mapper>

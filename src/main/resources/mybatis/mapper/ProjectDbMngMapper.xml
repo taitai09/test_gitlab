@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.spop.dao.ProjectDbMngDao">
+	
+	<sql id="getProjectDbListRefId">
+		/* ProjectDbMngDao.getProjectDbListRefId */
+		SELECT A.PROJECT_ID
+		     , B.PROJECT_NM
+		     , DB1.DB_NAME AS PERF_CHECK_ORIGINAL_DB_NAME
+		     , DB2.DB_NAME AS PERF_CHECK_TARGET_DB_NAME
+<!-- 		     , A.PARSING_SCHEMA_NAME -->
+		     , A.PERF_CHECK_TARGET_YN
+		     , A.PERF_CHECK_ORIGINAL_DBID
+		     , A.PERF_CHECK_TARGET_DBID
+		FROM   PROJECT_DB A
+		     , PROJECT B
+		     , DATABASE DB1
+		     , DATABASE DB2
+		WHERE  A.PROJECT_ID               = B.PROJECT_ID
+		AND    A.PERF_CHECK_ORIGINAL_DBID = DB1.DBID
+		AND    A.PERF_CHECK_TARGET_DBID   = DB2.DBID
+		AND A.PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+        ORDER BY DB1.ORDERING		
+	</sql>
+
+<!-- 	<select id="getProjectDbList" parameterType="projectDb" resultType="projectDb"> -->
+<!-- 		/* ProjectDbMngDao.getProjectDbList */ -->
+<!-- 		SELECT * -->
+<!-- 		FROM ( -->
+<!-- 		    SELECT ROWNUM RNUM, A.* -->
+<!-- 		    FROM ( -->
+<!-- 				<include refid="getProjectDbListRefId"/> -->
+<!-- 		    ) A -->
+<!-- 		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1) -->
+<!-- 		) A -->
+<!-- 		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1) -->
+<!-- 	</select>   	 -->
+	<select id="getProjectDbList" parameterType="projectDb" resultType="projectDb">
+		/* ProjectDbMngDao.getProjectDbList */
+		<include refid="getProjectDbListRefId"/>
+	</select>   	
+
+	<select id="excelDownload" parameterType="projectDb" resultType="java.util.LinkedHashMap">
+		/* ProjectDbMngDao.excelDownload */
+		<include refid="getProjectDbListRefId"/>
+	</select>
+
+	<select id="getDupCnt" parameterType="projectDb" resultType="int">
+		/* ProjectDbMngDao.getDupCnt */
+		SELECT COUNT(*) AS DUB_CNT
+		  FROM PROJECT_DB A                                                    -- 프로젝트업무관계(TABLE)
+		 WHERE A.PROJECT_ID = #{project_id}                                       -- 프로젝트ID
+		   AND PERF_CHECK_ORIGINAL_DBID = #{perf_check_original_dbid}
+		   AND PERF_CHECK_TARGET_DBID = #{perf_check_target_dbid}
+	</select>
+	
+	<insert id="insertProjectDb" parameterType="projectDb">
+		/* ProjectDbMngDao.insertProjectDb */
+		INSERT
+		INTO   PROJECT_DB
+		       (
+		              PROJECT_ID
+		            , PERF_CHECK_ORIGINAL_DBID
+		            , PERF_CHECK_TARGET_DBID
+		            , PERF_CHECK_TARGET_YN
+		            , PARSING_SCHEMA_NAME
+		       )
+		       VALUES
+		       (
+		              #{project_id}
+		            , #{perf_check_original_dbid}
+		            , #{perf_check_target_dbid}
+		            , 'Y'
+		            , 'N'
+		       ) 
+    </insert> 
+    
+    <update id="updateProjectDb" parameterType="projectDb">
+    	/* ProjectDbMngDao.updateProjectDb */
+		UPDATE PROJECT_DB
+		   SET PERF_CHECK_TARGET_DBID = #{perf_check_target_dbid}
+		WHERE PROJECT_ID = #{project_id}
+		AND PERF_CHECK_ORIGINAL_DBID = #{perf_check_original_dbid}
+	</update>
+    
+	<select id="validationCheckProjectDb" parameterType="projectDb" resultType="int">
+		/* ProjectDbMngDao.validationCheckProjectDb */
+		SELECT (CASE
+					 WHEN A.CNT = 1 AND B.CNT = 0 AND C.CNT = 0 THEN 0
+					 WHEN A.CNT = 1 AND (B.CNT > 0 OR C.CNT > 0) THEN 1
+					 WHEN A.CNT > 1 AND B.CNT = 0 AND C.CNT = 0 THEN 0
+					 WHEN A.CNT > 1 AND B.CNT > 0 AND C.CNT = 0 THEN 1
+					 WHEN A.CNT > 1 AND B.CNT = 0 AND C.CNT > 0 THEN 0
+					 ELSE 1
+				END) AS CNT
+		  FROM (
+				SELECT COUNT(*) CNT
+				  FROM PROJECT_DB
+				 WHERE PROJECT_ID = #{project_id}
+				   AND PERF_CHECK_ORIGINAL_DBID = #{perf_check_original_dbid}
+				   AND PERF_CHECK_TARGET_YN = 'Y'
+			   ) A
+			 , (
+				SELECT COUNT(*) CNT
+				  FROM SQL_AUTO_PERF_CHK
+				 WHERE PROJECT_ID = #{project_id}
+				   AND ORIGINAL_DBID = #{perf_check_original_dbid}
+				   AND PERF_CHECK_TARGET_DBID = #{perf_check_target_dbid}
+			   ) B
+			 , (
+				SELECT COUNT(*) CNT
+				  FROM PROJECT_CHK_TARGET
+				 WHERE PROJECT_ID = #{project_id}
+				   AND PROJECT_CHECK_TARGET_TYPE_CD = '3'
+				   AND DBID = #{perf_check_original_dbid}
+			   ) C
+	</select>
+	
+	<delete id="deleteProjectDb" parameterType="projectDb">
+		/* ProjectDbMngDao.deleteProjectDb */
+		DELETE FROM PROJECT_DB 
+		WHERE PROJECT_ID = #{project_id}
+		AND PERF_CHECK_ORIGINAL_DBID = #{perf_check_original_dbid}
+		AND PERF_CHECK_TARGET_DBID  = #{perf_check_target_dbid}
+    </delete>
+	
+</mapper>

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+	<div class="content-body">
+		<h1>10.2. 종합 진단</h1>
+		<h2>10.2.2 SQL 품질 진단 </h2>
+		<div>
+			<h4>개요</h4>
+			<p>주간 및 월간 단위로 실행된 SQL에 대한 표준을 일괄 점검한다. 등록된 스케줄러에 의해 SQL 이 수집되고, 점검을 진행하며 표준 점검 결과에 대한 집계 정보 및 표준 미준수 SQL의 상세 정보를 제공한다.</p>
+			<h4>화면 구성</h4>
+			<p>화면은 다음과 같은 탭으로 구성되어 있다.</p>
+			<div>
+				<table class="text-center">
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<tr>
+						<th scope="col">Tab 명</th>
+						<th scope="col">Tab 설명</th>
+					</tr>
+					<tr>
+						<td class="text-left">스케줄러 관리</td>
+						<td class="text-left">•	SQL 품질 진단을 수행할 스케줄을 등록/수정/삭제한다.</td>
+					</tr>
+					<tr>
+						<td class="text-left">SQL 품질 진단 현황</td>
+						<td class="text-left">•	DB별, 스케줄러 별 품질 진단 결과에 대한 집계 정보가 조회된다.</td>
+					</tr>
+					<tr>
+						<td class="text-left">SQL 품질 진단 결과</td>
+						<td class="text-left">•	SQL에 대한 품질 진단 결과를 조회한다. 점검 수행은 등록된 스케줄에 의해 자동 실행된다. <br>•	SQL 품질 진단 수행 결과에 대한 집계 정보 및 미준수 SQL의 상세한 정보를 엑셀로 다운로드 받을 수 있다.</td>
+					</tr>
+					
+				</table>
+				
+				<div style="width:1000px; border:5px solid #b1b1b1; padding:10px;">
+					<p style="font-size:20px; font-weight:800; color:#0093ff">NOTE</p>
+					<p style="margin-bottom:0px;">품질 진단 수행 시 특정 사유로 인해 비정상 종료되더라도, 종료 시점까지 수행된 SQL들에 대해서는 진단 결과가 조회된다. </p>
+				</div>			
+				
+				
+			</div>
+			<div class="tapScroll">
+				<h5> [스케줄러 관리] 탭</h5>
+				<p>SQL 품질 진단을 수행할 스케줄을 등록/수정/삭제한다.</p>
+				<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/174-1.jpg"></p>
+				<br>
+				<h4>검색 조건</h4>
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">검색 조건</th>
+							<th scope="col">검색 조건 설명</th>
+						</tr>
+						<tr>
+							<td class="text-left">품질진단DB</td>
+							<td class="text-left">•	품질 진단 DB를 선택한다.</td>
+						</tr>
+					</table>
+				</div>
+				
+				<h4>그리드 Area</h4>
+				<h2 style="margin-top:0px;">그리드 컬럼</h2>
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">컬럼</th>
+							<th scope="col">컬럼 설명</th>
+						</tr>
+						<tr>
+							<td class="text-left">품질진단DB</td>
+							<td class="text-left">•	SQL 수집 대상 DB</td>
+						</tr>
+						<tr>
+							<td class="text-left">스케줄러명</td>
+							<td class="text-left">•	스케줄러 명</td>
+						</tr>
+						<tr>
+							<td class="text-left">스케줄러 시작일자</td>
+							<td class="text-left">•	스케줄을 시작하는 일자</td>
+						</tr>
+						<tr>
+							<td class="text-left">스케줄러 종료일자</td>
+							<td class="text-left">•	스케줄이 종료되는 일자</td>
+						</tr>
+						<tr>
+							<td class="text-left">실행주기</td>
+							<td class="text-left">•	스케줄을 실행하는 주기 <br>&nbsp;&nbsp; - 일 : 매일 수행 , 주 : 매주 수행 , 월 : 매월 수행</td>
+						</tr>
+						<tr>
+							<td class="text-left">스케줄러 설명</td>
+							<td class="text-left">•	스케줄러에 대한 설명</td>
+						</tr>
+						<tr>
+							<td class="text-left">SQL 소스</td>
+							<td class="text-left">•	점검 대상 SQL을 수집하는 기준</td>
+						</tr>
+						<tr>
+							<td class="text-left">수집기간</td>
+							<td class="text-left">•	SQL을 수집할 기간</td>
+						</tr>
+						<tr>
+							<td class="text-left">TABLE_OWNER</td>
+							<td class="text-left">•	SQL 수집 대상 OWNER</td>
+						</tr>
+						<tr>
+							<td class="text-left">MODULE</td>
+							<td class="text-left">•	SQL 수집 대상 Module</td>
+						</tr>
+						<tr>
+							<td class="text-left">FILTER SQL</td>
+							<td class="text-left">• SQL 수집 조건</td>
+						</tr>
+					</table>
+				</div>
+				
+				<h2>그리드 Clcik</h2>
+				<ul style="list-style-type : decimal">
+					<li>
+						<p>&nbsp;&nbsp;그리드 행을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-2.jpg"></p>
+					</li>
+					<li>
+						<p>&nbsp;&nbsp;선택된 행의 값이 조회되며, 수정/삭제가 가능하다.</p>
+					</li>
+				</ul>
+				
+				<h4>등록/수정/삭제 Area</h4>
+				<h2 style="margin-top:0px;">등록</h2>
+				
+				<ul style="list-style-type : decimal">
+					<li>
+						<p>&nbsp;&nbsp;초기화 버튼을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-3.jpg"></p>
+					</li>
+					<li>
+						<p>&nbsp;&nbsp;관련 정보를 입력하고 [저장] 버튼을 클릭한다.</p>
+					</li>
+				</ul>
+			
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">컬럼</th>
+							<th scope="col">컬럼 설명</th>
+						</tr>
+						<tr>
+							<td class="text-left" colspan='2'>스케줄러 설정</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;스케줄러명</td>
+							<td class="text-left">•	스케줄러 명</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;스케줄러 시작일자</td>
+							<td class="text-left">•	스케줄을 시작하는 일자</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;스케줄러 종료일자</td>
+							<td class="text-left">•	스케줄을 종료하는 일자</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;실행주기</td>
+							<td class="text-left">•	스케줄을 실행하는 주기 <br>&nbsp;&nbsp; - 일: 매일 수행, 주 : 매주 수행, 월 : 매월 수행</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;스케줄러 설명</td>
+							<td class="text-left">•	스케줄러에 대한 설명</td>
+						</tr>
+						<tr>
+							<td class="text-left" colspan='2'>SQL 점검 대상 설정</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;품질 진단 DB</td>
+							<td class="text-left">•	SQL 수집 대상 DB</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;SQL 소스</td>
+							<td class="text-left">•	점검 대상 SQL을 수집하는 기준<br>
+													&nbsp;&nbsp; - TOP: AWR을 대상으로 SQL 수집<br>
+													&nbsp;&nbsp; - 전체SQL: V$를 대상으로 SQL 수집
+							</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;수집기간</td>
+							<td class="text-left">•	SQL을 수집할 기간<br>
+													&nbsp;&nbsp; - 주기<br>
+													&nbsp;&nbsp;&nbsp;&nbsp; 일: D-1 수집<br>
+													&nbsp;&nbsp;&nbsp;&nbsp; 주: D-1 ~ 이전 1 주일 <br>
+													&nbsp;&nbsp;&nbsp;&nbsp; 월: D-1 ~ 이전 1 개월<br>
+													&nbsp;&nbsp; - 기간: 사용자가 직접 수집 시작일자와 수집 종료일자를 입력
+							</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;Table Owner in</td>
+							<td class="text-left">•	특정 OWNER에 대한 수집이 필요한 경우 입력한다.
+													<br>•	N개의 OWNER를 입력할 경우 콤마(,)로 분리하며 대소문자는 구분하지 않으며 최대 100개까지 입력 가능하다. <br>&nbsp;&nbsp; 
+													예) ORACLE, OpenPOP, orange
+													<br>•	입력된 OWNER와 동일한 SQL에 대해서만 수집한다.  입력된 OWNER는 내부적으로 아래와 같은 조건으로 필터링에 포함된다.
+													<br>•	 WHERE UPEER(OWNER) IN (‘ORACLE’, ‘OPENPOP’, ORANGE’)
+							</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;Module like</td>
+							<td class="text-left">•	소스 DB에서 특정 MODULE에 대한 수집이 필요한 경우 입력한다.<br>
+													•	N개의 MODULE을 입력할 경우 콤마(,)로 분리하며 대소문자는 구분하지 않으며 최대 100개까지 입력 가능하다. 
+													<br>&nbsp;&nbsp; 예) JDBC, dbsnmp
+													•	입력된 MODULE이 포함된 SQL에 대해서만 수집한다. 입력된 MODULE은 내부적으로 아래와 같은 조건으로 필터링에 포함된다.<br>&nbsp;&nbsp; 
+													WHERE (UPEER(MODULE) LIKE ‘%JDBC%’ OR <br>
+													•	UPEER(MODULE) LIKE ‘%DNSMP%’)
+							</td>
+						</tr>
+						<tr>
+							<td class="text-left">&nbsp;&nbsp;Filter SQL</td>
+							<td class="text-left"><h2 style="margin-top:0px;">FilterSQL</h2>
+												&nbsp;&nbsp; •	[Filter SQL] 버튼을 클릭한다.
+												<br><p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-4.jpg"></p>
+												&nbsp;&nbsp; •	Filter SQL 팝업 창이 뜨고, Module, Action, Parsing Schema Name, SQL_TEXT, SQL ID 항목에 대한 SQL을 추가한 후 [저장]버튼을 클릭한다.<br>
+												<br><p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-5.jpg"></p>
+												&nbsp;&nbsp; •	저장된 내용이 [Filter SQL] 버튼 옆에 보여진다.<br>
+												<br><p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-6.jpg"></p>
+												&nbsp;&nbsp; •	SQL_TEXT 선택 시 LIKE , NOT LIKE 만 선택 가능하다.
+							</td>
+						</tr>
+					</table>
+				</div>
+			
+				<h2> 수정 </h2>
+				<ul style="list-style-type : decimal">
+					<li>
+						<p>&nbsp;&nbsp;수정하고자 하는 행을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-7.jpg"></p>
+					</li>
+					<li>
+						<p>&nbsp;&nbsp;선택된 값이 조회되며, 변경할 값을 입력하고 [저장] 버튼을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-8.jpg"></p>
+						
+					</li>
+				</ul>
+				
+				<h2> 삭제 </h2>
+				<ul style="list-style-type : decimal">
+					<li>
+						<p>&nbsp;&nbsp;삭제하고자 하는 행을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-9.jpg"></p>
+					</li>
+					<li>
+						<p>&nbsp;&nbsp;선택된 값이 조회되며, [삭제] 버튼을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-10.jpg"></p>
+						
+					</li>
+				</ul>
+			</div>
+			
+						<div class="tapScroll">
+				<h5> [SQL 품질 진단 현황] 탭</h5>
+				<p> 품질진단 DB, 스케줄러 별 품질 진단 결과에 대한 집계 정보가 조회된다.</p>
+				<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/174-11.jpg"></p>
+				<br>
+				<h4>검색 조건</h4>
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">검색 조건</th>
+							<th scope="col">검색 조건 설명</th>
+						</tr>
+						<tr>
+							<td class="text-left">품질진단DB</td>
+							<td class="text-left">•	품질 진단 DB를 선택한다.</td>
+						</tr>
+					</table>
+				</div>
+				
+				<h4>그리드 Area</h4>
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">컬럼</th>
+							<th scope="col">컬럼 설명</th>
+						</tr>
+						<tr>
+							<td class="text-left">품질 진단 DB</td>
+							<td class="text-left">•	품질진단 DB</td>
+						</tr>
+						<tr>
+							<td class="text-left">스케줄러</td>
+							<td class="text-left">•	스케줄러 명</td>
+						</tr>
+						<tr>
+							<td class="text-left">진단일시</td>
+							<td class="text-left">•	SQL 품질 진단을 실행한 일시</td>
+						</tr>
+						<tr>
+							<td class="text-left">진행 상태</td>
+							<td class="text-left">•	SQL 품질 진단의 수행 상태를 표시한다.
+												<br>&nbsp;&nbsp;- 수행완료 : 품질 진단이 정상적으로 수행 완료된 상태
+												<br>&nbsp;&nbsp;- CI-AGENT장애: CI-AGENT장애로 인해 비정상 종료
+												<br>&nbsp;&nbsp;- CI-AGENT/MASTER장애: CI-AGENT/MASTER 장애로 인해 비정상 종료  
+							</td>						
+						</tr>
+						<tr>
+							<td class="text-left">미준수 SQL 합계</td>
+							<td class="text-left">•	표준을 미 준수한 distinct한 SQL_ID 건수
+												<br>&nbsp;&nbsp;•	하나의 SQL_ID가 여러 개의 표준을 미준수 할 수 있으므로 품질진단 표준항목의 합과는 다를 수 있다.
+							</td>
+						</tr>
+						<tr>
+							<td class="text-left">품질 진단 표준 항목 </td>
+							<td class="text-left">•	품질 진단 지표별 미준수한 SQL 건수</td>
+						</tr>
+						<tr>
+							<td class="text-left">수집기간</td>
+							<td class="text-left">•	SQL 수집 기간</td>
+						</tr>
+					</table>
+				</div>
+				
+				<h2>그리드 Clcik</h2>
+				<ul style="list-style-type : decimal">
+					<li>
+						<p>&nbsp;&nbsp;그리드 행을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-12.jpg"></p>
+					</li>
+					<li>
+						<p>&nbsp;&nbsp;클릭한 행의 품질진단DB, 스케줄러 조건으로 [SQL 품질 진단 결과] 탭 화면이 실행된다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/174-13.jpg"></p>
+						
+					</li>
+				</ul>
+
+			<div class="tapScroll">
+				<h5> [SQL 품질 진단 결과] 탭</h5>
+				<p>스케줄러에 의해 실행된 SQL에 대한 품질 진단 진행 상황을 조회한다. 결과에 대한 진행 상황을 조회하며 집계 정보 및 미준수 SQL 의 상세한 정보를 엑셀로 다운로드 받을 수 있다.</p>
+				<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/161-1.jpg"></p>
+				<br>
+				<h4>검색 조건</h4>
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">검색 조건</th>
+							<th scope="col">검색 조건 설명</th>
+						</tr>
+						<tr>
+							<td class="text-left">품질진단DB</td>
+							<td class="text-left">•	품질 진단 DB를 선택한다.</td>
+						</tr>
+						<tr>
+							<td class="text-left">스케줄러</td>
+							<td class="text-left">•	조회할 스케줄러를 선택한다.</td>
+						</tr>
+					</table>
+				</div>
+				
+				<h4>진단상태</h4>
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">컬럼</th>
+							<th scope="col">컬럼 설명</th>
+						</tr>
+						<tr>
+							<td class="text-left">진단상태</td>
+							<td class="text-left">•	SQL 품질 진단의 수행 상태를 표시한다.
+												<br>&nbsp;&nbsp;- 수행중 : 품질 진단을 수행중인 상태
+												<br>&nbsp;&nbsp;- 수행완료 : 품질 진단이 정상적으로 수행 완료된 상태
+												<br>&nbsp;&nbsp;- 미수행 : 품질 단이 수행되지 않은 상태
+							</td>
+						</tr>
+						<tr>
+							<td class="text-left">진단결과</td>
+							<td class="text-left">•	품질 진단 수행중인 SQL 수 / 품질 진단 대상 전체 SQL 수</td>
+						</tr>
+						<tr>
+							<td class="text-left">진단일시</td>
+							<td class="text-left">•	SQL 품질 진단을 실행한 일시</td>
+						</tr>
+						<tr>
+							<td class="text-left">수집기간</td>
+							<td class="text-left">•	SQL을 수집한 기간</td>
+						</tr>
+					</table>
+				</div>
+				
+				<h4>진단상태</h4>
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">품질 진단 표준 항목 </th>
+							<th scope="col">품질 진단시 표준을 미준수한 SQL 건수</th>
+						</tr>
+					</table>
+				</div>
+				
+				<h2>그리드 Clcik</h2>
+				<ul style="list-style-type : decimal">
+					<li>
+						<p>&nbsp;&nbsp;그리드 행을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/161-2.jpg"></p>
+					</li>
+					<li>
+						<p>&nbsp;&nbsp;선택한 표준 항목 미준수 SQL만 조회하여 볼 수 있다.</p>
+					</li>
+				</ul>
+				
+				<h4>진단 결과 상세</h4>
+				<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/161-3.jpg"></p>
+				<div>
+					<table class="text-center">
+						<colgroup>
+							<col style="width: 20%;">
+							<col style="width: 80%;">
+						</colgroup>
+						<tr>
+							<th scope="col">컬럼</th>
+							<th scope="col">컬럼 설명</th>
+						</tr>
+						<tr>
+							<td class="text-left">SQL ID</td>
+							<td class="text-left">•	SQL ID</td>
+						</tr>
+						<tr>
+							<td class="text-left">SQL 품질 점검 진단 항목</td>
+							<td class="text-left">•	SQL 품질 점검 진단 표준 항목</td>
+						</tr>
+						<tr>
+							<td class="text-left">SQL TEXT</td>
+							<td class="text-left">•	SQL 품질 점검 진단 SQL문</td>
+						</tr>
+					</table>
+				</div>
+				
+				<h2>그리드 Clcik</h2>
+				<ul style="list-style-type : decimal">
+					<li>
+						<p>&nbsp;&nbsp;그리드 행을 클릭한다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/161-4.jpg"></p>
+					</li>
+					<li>
+						<p>&nbsp;&nbsp;선택한 표준 항목에 대한 SQL 문을 볼 수 있다.</p>
+						<p class="imagebox-c"><img src="/resources/images/menual/bgimg_renewal/161-5.jpg"></p>
+					</li>
+				</ul>
+				
+				<h2>엑셀 다운로드 Click</h2>
+				<div style="width:1000px; border:5px solid #b1b1b1; padding:10px;">
+					<p style="font-size:20px; font-weight:800; color:#0093ff">NOTE</p>
+					<p style="margin-bottom:0px;">진단 결과 요약 영역에서 선택한 표준 항목과 상관 없이 항상 미준수 SQL 전체에 대한 정보를 다운로드 받는다.</p>
+				</div>			
+				
+			</div>
+		</div>
+	</div>
+</body>
+</html>

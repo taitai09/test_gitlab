@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.09.05	임호경	최초작성
+-->
+<mapper namespace="omc.spop.dao.PartitionManagementDao">	
+	
+	<select id="getPartitionList" resultType="partitionTableManagement" parameterType="partitionTableManagement">
+		SELECT A.TABLE_NAME, A.PARTITION_WORK_TYPE_CD, B.CD_NM AS PARTITION_WORK_TYPE_CD_NM, 
+		A.PARTITION_INTERVAL, A.PARTITION_INTERVAL_TYPE_CD, C.CD_NM AS PARTITION_INTERVAL_TYPE_CD_NM, A.COMPRESS_YN, A.SHELF_LIFE_CNT, 
+        A.SHELF_LIFE_TYPE_CD, D.CD_NM AS SHELF_LIFE_TYPE_CD_NM,
+		A.PARTITION_KEY_COMPOSITE_VALUE, A.SPARE_PARTITION_CNT
+		FROM PARTITION_TABLE_MANAGEMENT A 
+        INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID='1030') B ON A.PARTITION_WORK_TYPE_CD = B.CD
+		INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID='1029') C ON A.PARTITION_INTERVAL_TYPE_CD = C.CD
+        INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID='1028') D ON A.SHELF_LIFE_TYPE_CD = D.CD
+			WHERE 1=1
+			<choose>
+				<when test="searchKey != null and searchValue != '' and (searchKey eq '01'.toString())">
+					AND A.TABLE_NAME LIKE '%' || #{searchValue} || '%'
+				</when>
+				<when test="searchKey != null and searchValue != '' and (searchKey eq '02'.toString())">
+					AND A.PARTITION_KEY_COMPOSITE_VALUE LIKE '%' || #{searchValue} || '%'
+				</when>
+			</choose>	
+			ORDER BY TABLE_NAME
+	</select>
+	
+	<select id="selectTableName" resultType="partitionTableManagement" parameterType="partitionTableManagement">
+		SELECT TABLE_NAME
+		FROM USER_TABLES
+		WHERE 1 = 1
+		<!-- AND PARTITIONED = 'YES' --> <!-- 나중에 추가 해야함 -->
+		AND TABLE_NAME NOT IN (
+		    SELECT TABLE_NAME FROM PARTITION_TABLE_MANAGEMENT)
+		    ORDER BY TABLE_NAME
+	</select>
+	<select id="selectType" resultType="partitionTableManagement" parameterType="partitionTableManagement">
+		SELECT CD, CD_NM FROM CD WHERE grp_cd_id = #{grp_cd_id}
+	</select>
+	
+	
+		<select id="checkTableName" resultType="int" parameterType="partitionTableManagement">
+			SELECT COUNT(TABLE_NAME) FROM PARTITION_TABLE_MANAGEMENT
+			WHERE TABLE_NAME = #{table_name}
+		</select>
+	
+		<update id="updatePartitionTable" parameterType="partitionTableManagement">
+			UPDATE PARTITION_TABLE_MANAGEMENT 
+			
+			<trim prefix="SET" suffixOverrides=",">
+				<if test="table_name != null and table_name != ''">
+					TABLE_NAME = #{table_name},
+				</if>
+				<if test="partition_work_type_cd != null and partition_work_type_cd != ''">
+					PARTITION_WORK_TYPE_CD = #{partition_work_type_cd},
+				</if>
+				<if test="partition_interval != null and partition_interval != ''">
+					PARTITION_INTERVAL = #{partition_interval},
+				</if>
+				<if test="partition_interval_type_cd != null and partition_interval_type_cd != ''">
+					PARTITION_INTERVAL_TYPE_CD = #{partition_interval_type_cd},
+				</if>
+				<if test="compress_yn != null and compress_yn != ''">
+					COMPRESS_YN = #{compress_yn},
+				</if>
+				<if test="shelf_life_cnt != null and shelf_life_cnt != ''">
+					SHELF_LIFE_CNT = #{shelf_life_cnt},
+				</if>
+				<if test="shelf_life_type_cd != null and shelf_life_type_cd != ''">
+					SHELF_LIFE_TYPE_CD = #{shelf_life_type_cd},
+				</if>
+					PARTITION_KEY_COMPOSITE_VALUE = #{partition_key_composite_value},
+				<if test="spare_partition_cnt != null and spare_partition_cnt != ''">
+					SPARE_PARTITION_CNT = #{spare_partition_cnt}
+				</if>
+			</trim>
+			WHERE 
+			TABLE_NAME = #{table_name} 
+		</update>
+		
+		
+		
+	
+		<insert id="insertPartitionTable" parameterType="partitionTableManagement">
+			INSERT INTO PARTITION_TABLE_MANAGEMENT 
+			(TABLE_NAME,PARTITION_WORK_TYPE_CD,PARTITION_INTERVAL,PARTITION_INTERVAL_TYPE_CD,COMPRESS_YN,SHELF_LIFE_CNT,
+			SHELF_LIFE_TYPE_CD,PARTITION_KEY_COMPOSITE_VALUE,SPARE_PARTITION_CNT, PARTITION_TYPE)
+			VALUES(#{table_name},#{partition_work_type_cd},#{partition_interval},#{partition_interval_type_cd},
+			#{compress_yn},#{shelf_life_cnt},#{shelf_life_type_cd},#{partition_key_composite_value},#{spare_partition_cnt}, 'TEST')
+		</insert>
+		
+		<delete id="deletePartitionTable" parameterType="partitionTableManagement">
+			DELETE PARTITION_TABLE_MANAGEMENT 
+			WHERE 
+			TABLE_NAME = #{table_name} 
+		</delete>
+	
+
+</mapper> 

@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.23	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.TuningHistoryDao">
+	<select id="tuningHistoryCount" resultType="int">
+		/* TuningHistoryDao.tuningHistoryCount */
+		SELECT COUNT(*)
+		FROM TUNING_TARGET_SQL A, CD CD1
+		WHERE A.TUNING_STATUS_CD = CD1.CD
+		AND CD1.GRP_CD_ID = '1004'
+		AND REF_VL_1 = 'Y'
+		AND DBID = #{dbid}
+		AND UPPER(DBIO) = UPPER(#{dbio})		
+	</select>
+	
+	<select id="tuningHistoryList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* TuningHistoryDao.tuningHistoryList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="tuningHistoryListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	<select id="tuningHistoryList4Excel" parameterType="tuningTargetSql" resultType="java.util.LinkedHashMap">
+		/* TuningHistoryDao.tuningHistoryList4Excel */
+		<include refid="tuningHistoryListRefId"/>
+	</select>
+	<sql id="tuningHistoryListRefId">
+		SELECT TUNING_NO
+	     ,DB_NAME
+	     ,TR_CD
+	     ,DBIO
+	     ,MODULE
+	     ,TO_CHAR(TUNING_REQUEST_DT,'YYYY-MM-DD HH24:MI:SS') TUNING_REQUEST_DT
+	     ,EXEC_CNT
+	     ,WRKJOB_MGR_NM
+	     ,WRKJOB_MGR_WRKJOB_NM
+	     ,CHOICE_DIV_CD_NM
+	     ,TO_CHAR(TUNING_COMPLETE_DT,'YYYY-MM-DD HH24:MI:SS') TUNING_COMPLETE_DT
+	     ,PERFR_NM
+	     ,TUNING_STATUS_NM
+	     ,TUNING_COMPLETE_WHY_NM
+	     ,PROGRAM_TYPE_NM
+         
+         ,PROJECT_NM
+         ,TUNING_PRGRS_STEP_NM
+          --HIDDEN
+         ,PROJECT_ID
+         ,TUNING_PRGRS_STEP_SEQ
+      
+         ,ALL_TUNING_END_YN
+         -- , CASE WHEN ALL_TUNING_END_YN IS NULL THEN 'N' ELSE 'Y' END AS ALL_TUNING_END_YN
+         
+	     
+	FROM (
+			SELECT A.TUNING_NO
+				,DB.DB_NAME
+				,A.TR_CD
+				,A.DBIO
+				,A.MODULE
+				,A.EXEC_CNT
+				,U1.USER_NM AS WRKJOB_MGR_NM
+				,W1.WRKJOB_CD_NM AS WRKJOB_MGR_WRKJOB_NM
+				,CD1.CD_NM AS CHOICE_DIV_CD_NM
+				,U2.USER_NM AS PERFR_NM
+				,CD2.CD_NM AS TUNING_STATUS_NM
+				,CD3.CD_NM AS TUNING_COMPLETE_WHY_NM
+				,CD4.CD_NM AS PROGRAM_TYPE_NM
+		       	,A.TUNING_REQUEST_DT
+		        ,A.TUNING_RCESS_DT
+		        ,B.TUNING_COMPLETE_DT
+		        ,B.TUNING_APPLY_RCESS_DT
+		        ,B.TUNING_END_DT
+		        ,B.ALL_TUNING_END_YN
+		        
+            
+            , C.PROJECT_NM AS PROJECT_NM
+            , C.TUNING_PRGRS_STEP_NM
+            -- HIDDEN
+            , C.PROJECT_ID
+            , C.TUNING_PRGRS_STEP_SEQ              
+            
+			FROM TUNING_TARGET_SQL A, SQL_TUNING B, DATABASE DB, USERS U1, USERS U2, WRKJOB_CD W1, CD CD1, CD CD2, CD CD3, CD CD4
+           , (SELECT A.PROJECT_ID
+                    , A.PROJECT_NM
+                    , B.TUNING_PRGRS_STEP_SEQ
+                    , B.TUNING_PRGRS_STEP_NM
+                 FROM PROJECT A
+                    , PROJECT_TUNING_PRGRS_STEP B
+                WHERE A.PROJECT_ID = B.PROJECT_ID
+              ) C  
+			WHERE A.TUNING_NO = B.TUNING_NO(+)
+			AND A.DBID = DB.DBID(+)
+			AND A.WRKJOB_MGR_ID = U1.USER_ID(+)
+			AND A.PERFR_ID = U2.USER_ID(+)
+			AND A.WRKJOB_MGR_WRKJOB_CD = W1.WRKJOB_CD(+)
+			AND A.CHOICE_DIV_CD = CD1.CD(+)
+			AND CD1.GRP_CD_ID(+) = '1003'
+	<!-- 		AND A.TUNING_STATUS_CD IN ('6', '8') -->
+			AND A.TUNING_STATUS_CD = CD2.CD(+)
+			AND CD2.GRP_CD_ID(+) = '1004'
+			AND B.TUNING_COMPLETE_WHY_CD = CD3.CD(+)
+			AND CD3.GRP_CD_ID(+) = '1008'
+			AND A.PROGRAM_TYPE_CD = CD4.CD(+)
+			AND CD4.GRP_CD_ID(+) = '1005'
+			AND A.DBID = #{dbid}
+			
+     	   AND A.PROJECT_ID = C.PROJECT_ID(+)       
+           AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+)
+			<if test="project_id != null and project_id != ''">
+	         -- 프로젝트가 선택되면
+	         AND A.PROJECT_ID = #{project_id}
+	        </if>
+			<if test="tuning_prgrs_step_seq != null and tuning_prgrs_step_seq != ''">
+	         -- 튜닝진행단계가 선택되면
+	         AND A.TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}          
+	        </if>
+         
+			<!-- 튜닝no를 넘겨 튜팅 이력이 몇건인지 조회하기 위해... -->
+			<if test="tuning_no != null and tuning_no != ''">
+				-- 튜닝넘버가 들어왔을때
+				AND A.TUNING_NO = #{tuning_no}
+			</if>		
+			
+			
+			<if test="program_type_cd != null and program_type_cd != ''">
+				-- program_type_cd 가 들어왔을때
+				AND A.PROGRAM_TYPE_CD = #{program_type_cd}
+			</if>
+			<!-- 검색조건 [진행상태] 추가, 2019-01-03 -->
+			<if test="tuning_status_cd != null and tuning_status_cd != ''">
+				-- tuning_status_cd 가 들어왔을때
+				AND A.TUNING_STATUS_CD = #{tuning_status_cd}
+			</if>
+			<if test="searchValue != null and searchValue != ''">
+				<if test="searchKey != null and searchKey != ''">
+					<choose>
+						<when test="searchKey eq '01'">
+					         --> ③-1 튜닝담당자 
+					          AND UPPER(U2.USER_NM) LIKE '%' || UPPER(#{searchValue}) || '%'
+						</when>
+						<when test="searchKey eq '02'">
+					         --> ③-2 업무담당자 
+					          AND UPPER(U1.USER_NM) LIKE '%' || UPPER(#{searchValue}) || '%'
+						</when>
+						<when test="searchKey eq '03'">
+					         --> ③-3 소스파일명(Full Path)
+					          AND UPPER(A.TR_CD) LIKE '%' || UPPER(#{searchValue}) || '%'
+						</when>
+						<when test="searchKey eq '04'">
+					         --> ③-4 SQL식별자(DBIO)
+					          AND UPPER(A.DBIO) LIKE '%' || UPPER(#{searchValue}) || '%'
+						</when>
+						<when test="searchKey eq '05'">
+					         --> ③-5 인덱스명  
+					         AND EXISTS (
+					                     SELECT 'Y'
+					                       FROM SQL_TUNING_INDEX_HISTORY Z
+					                      WHERE UPPER(Z.INDEX_NAME) LIKE '%' || UPPER(#{searchValue}) || '%'
+					                        AND Z.TUNING_NO = A.TUNING_NO
+					                    )
+						</when>
+						<when test="searchKey eq '06'">
+					         --> ③-6 MODULE 
+					         AND UPPER(A.MODULE) LIKE '%'||UPPER(#{searchValue})||'%'
+						</when>
+						<when test="searchKey eq '07'">
+					         --> ③-7 담당업무 
+					         AND UPPER(W1.WRKJOB_CD_NM) LIKE '%'||UPPER(#{searchValue})||'%'
+						</when>
+						<when test="searchKey eq '08'">
+					         --> ③-8 SQLTEXT 테이블명
+				             AND UPPER(A.SQL_TEXT) LIKE '%'||UPPER(#{searchValue})||'%' 
+						</when>
+						<when test="searchKey eq '09'">
+					         --> ③-9 인덱스 테이블명
+	                          AND A.TUNING_NO IN (SELECT TUNING_NO
+	                                              FROM SQL_TUNING_INDEX_HISTORY C                  
+	                              WHERE  UPPER(C.TABLE_NAME) LIKE '%'||UPPER(#{searchValue})||'%')
+						</when>
+					</choose>
+				</if>		
+			</if>
+			ORDER BY TUNING_NO
+				)  
+			<choose>
+				<when test="(start_tuning_complete_dt != null and start_tuning_complete_dt != '') and (end_tuning_complete_dt == null or end_tuning_complete_dt == '')">
+					--날짜기간조회1
+					WHERE TUNING_COMPLETE_DT BETWEEN TO_DATE(#{start_tuning_complete_dt} || '00:00:00', 'YYYY-MM-DD HH24:MI:SS')	AND TO_DATE(#{start_tuning_complete_dt} || '23:59:59', 'YYYY-MM-DD HH24:MI:SS') 
+				</when>
+				<when test="(start_tuning_complete_dt != null and start_tuning_complete_dt != '') and (end_tuning_complete_dt != null and end_tuning_complete_dt != '')">
+					--날짜기간조회2
+					WHERE (TUNING_RCESS_DT BETWEEN TO_DATE(#{start_tuning_complete_dt} || '00:00:00', 'YYYY-MM-DD HH24:MI:SS')	AND TO_DATE(#{end_tuning_complete_dt} || '23:59:59', 'YYYY-MM-DD HH24:MI:SS') 
+					OR	TUNING_COMPLETE_DT BETWEEN TO_DATE(#{start_tuning_complete_dt} || '00:00:00', 'YYYY-MM-DD HH24:MI:SS')	AND TO_DATE(#{end_tuning_complete_dt} || '23:59:59', 'YYYY-MM-DD HH24:MI:SS') 
+					OR	TUNING_APPLY_RCESS_DT BETWEEN TO_DATE(#{start_tuning_complete_dt} || '00:00:00', 'YYYY-MM-DD HH24:MI:SS')	AND TO_DATE(#{end_tuning_complete_dt} || '23:59:59', 'YYYY-MM-DD HH24:MI:SS') 
+					OR	TUNING_END_DT BETWEEN TO_DATE(#{start_tuning_complete_dt} || '00:00:00', 'YYYY-MM-DD HH24:MI:SS')	AND TO_DATE(#{end_tuning_complete_dt} || '23:59:59', 'YYYY-MM-DD HH24:MI:SS'))
+				</when>
+			</choose>  	
+	</sql>
+
+	<select id="readSqlDetail" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* TuningHistoryDao.readSqlDetail */
+		SELECT A.TUNING_NO
+		     , A.TUNING_REQUEST_DT
+		     , A.CHOICE_DIV_CD
+		     , CD3.CD_NM AS CHOICE_DIV_CD_NM
+		     , U1.USER_NM AS WRKJOB_MGR_NM
+		     , W1.WRKJOB_CD_NM AS WRKJOB_MGR_WRKJOB_NM
+		     , WRKJOB_MGR_TEL_NUM
+		     , CD1.CD_NM AS PROGRAM_TYPE_CD_NM
+		     , CD2.CD_NM AS BATCH_WORK_DIV_CD_NM
+		     , DB.DB_NAME
+		     , A.TR_CD
+		     , A.DBIO
+		     , A.PARSING_SCHEMA_NAME
+		     , U2.USER_NM AS PERFR_NM
+		     , B.TUNING_COMPLETE_DT
+		     , A.WRKJOB_PECULIAR_POINT
+		     , A.REQUEST_WHY
+		     , A.SQL_DESC
+		     , A.SQL_TEXT
+		     , NVL(FN_NUM_TO_CHAR_FORMAT(IMPRB_ELAP_TIME), '0') AS IMPRB_ELAP_TIME
+		     , IMPRB_BUFFER_CNT
+		     , IMPRB_PGA_USAGE
+		     , NVL(FN_NUM_TO_CHAR_FORMAT(IMPRA_ELAP_TIME), '0') AS IMPRA_ELAP_TIME
+		     , IMPRA_BUFFER_CNT
+		     , IMPRA_PGA_USAGE
+		     , NVL(FN_NUM_TO_CHAR_FORMAT(ELAP_TIME_IMPR_RATIO), '0') AS ELAP_TIME_IMPR_RATIO
+		     , BUFFER_IMPR_RATIO
+		     , PGA_IMPR_RATIO
+		     , CONTROVERSIALIST
+		     , IMPR_SBST
+		     , IMPR_SQL_TEXT
+		     , IMPRB_EXEC_PLAN
+		     , IMPRA_EXEC_PLAN
+		  FROM TUNING_TARGET_SQL A
+		     , SQL_TUNING B
+		     , DATABASE DB
+		     , CD CD1
+		     , CD CD2
+		     , CD CD3
+		     , USERS U1
+		     , USERS U2
+		     , WRKJOB_CD W1
+		 WHERE A.TUNING_NO = B.TUNING_NO(+)
+		   AND A.DBID = DB.DBID(+)
+		   AND A.PROGRAM_TYPE_CD = CD1.CD(+)
+		   AND CD1.GRP_CD_ID(+) = '1005'
+		   AND A.PROGRAM_TYPE_CD = CD2.CD(+)
+		   AND CD2.GRP_CD_ID(+) = '1006'
+		   AND A.CHOICE_DIV_CD = CD3.CD(+)
+		   AND CD3.GRP_CD_ID(+) = '1003'
+		   AND A.WRKJOB_MGR_ID = U1.USER_ID(+)
+		   AND A.PERFR_ID = U2.USER_ID(+)
+		   AND A.WRKJOB_MGR_WRKJOB_CD = W1.WRKJOB_CD(+)
+		   AND A.TUNING_NO = #{tuning_no}	
+	</select>
+	
+	<select id="bindSetList" parameterType="tuningTargetSql" resultType="tuningTargetSqlBind">
+		/* TuningHistoryDao.bindSetList */
+		SELECT DISTINCT BIND_SET_SEQ
+		FROM TUNING_TARGET_SQL_BIND
+		WHERE TUNING_NO = #{tuning_no}
+		ORDER BY BIND_SET_SEQ
+	</select>
+
+	<select id="sqlBindList" parameterType="tuningTargetSql" resultType="tuningTargetSqlBind">
+		/* TuningHistoryDao.sqlBindList */
+		SELECT BIND_SET_SEQ, BIND_SEQ, BIND_VAR_NM, BIND_VAR_VALUE, BIND_VAR_TYPE, MANDATORY_YN
+		FROM TUNING_TARGET_SQL_BIND
+		WHERE TUNING_NO = #{tuning_no}
+		ORDER BY BIND_SET_SEQ, BIND_SEQ	
+	</select>
+	
+	<select id="sqlTuningIndexHistoryList"  parameterType="tuningTargetSql" resultType="sqlTuningIndexHistory">
+		/* ImprovementManagementDao.sqlTuningIndexHistoryList */
+		SELECT A.TUNING_NO
+		     , A.UPDATE_DT
+		     , A.INDEX_TUNING_SEQ
+		     , A.INDEX_IMPR_TYPE_CD
+		     , CD1049.CD_NM as INDEX_IMPR_TYPE_NM
+		     , A.TABLE_NAME
+		     , A.INDEX_NAME
+		     , A.INDEX_COLUMN_NAME
+		     , A.BEFORE_INDEX_COLUMN_NAME
+		  FROM SQL_TUNING_INDEX_HISTORY A
+		     , CD CD1049
+		 WHERE 1=1
+		   AND A.TUNING_NO = #{tuning_no}
+		   AND A.INDEX_IMPR_TYPE_CD = CD1049.CD
+		   AND CD1049.GRP_CD_ID(+) = '1049'
+		   AND A.UPDATE_DT = (SELECT MAX(UPDATE_DT) FROM SQL_TUNING_INDEX_HISTORY WHERE TUNING_NO = #{tuning_no})
+	</select>
+	
+</mapper>

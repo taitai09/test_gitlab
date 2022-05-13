@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.spop.dao.ProjectSqlQtyChkIdxMngDao">
+	
+	<sql id="getProjectSqlQtyChkIdxListRefId">
+		/* ProjectSqlQtyChkIdxMngDao.getProjectSqlQtyChkIdxListRefId */
+	SELECT 
+		CASE WHEN B.PROJECT_ID IS NULL THEN '미적용' ELSE '적용' END AS APPLY_YN --적용여부
+       ,(SELECT PROJECT_NM FROM PROJECT WHERE PROJECT_ID = #{project_id})  AS PROJECT_NM 
+       , A.QTY_CHK_IDT_CD AS QTY_CHK_IDT_CD                             -- 품질점검지표코드
+       , A.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM                             -- 품질점검지표명
+       , A.QTY_CHK_IDT_YN AS QTY_CHK_IDT_YN                             -- 품질점검지표여부
+       , A.SRT_ORD AS SRT_ORD                                           -- 정렬순서
+       , A.QTY_CHK_CONT AS QTY_CHK_CONT                                 -- 품질점검내용
+       , A.SLV_RSL_CONT AS SLV_RSL_CONT                                 -- 해결방안내용
+       , #{project_id} AS PROJECT_ID                                     -- 프로젝트
+    FROM SQL_STD_QTY_IDT_BASE A
+       , PROJECT_SQL_STD_QTY_CHK_SQL B
+	WHERE A.QTY_CHK_IDT_YN = 'Y'
+		AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD(+)
+		AND B.PROJECT_ID(+) = #{project_id}
+     <if test="apply_yn != null and apply_yn eq 'Y'.toString()">
+     -- 적용여부: Y
+	     AND B.PROJECT_ID IS NOT NULL
+     </if>
+     <if test="apply_yn != null and apply_yn eq 'N'.toString()">
+     -- 적용여부: N
+	     AND NOT EXISTS (SELECT 'Y'
+                       FROM PROJECT_SQL_STD_QTY_CHK_SQL C
+                      WHERE 1=1
+					  <if test="project_id != null and project_id != ''">
+                	      AND C.PROJECT_ID = #{project_id}
+				     </if>
+                        AND C.QTY_CHK_IDT_CD = A.QTY_CHK_IDT_CD
+                     )
+	</if>
+	ORDER BY A.SRT_ORD
+	</sql>
+
+<!-- 	<select id="getProjectSqlQtyChkIdxList" parameterType="projectSqlQtyChkIdx" resultType="projectSqlQtyChkIdx"> -->
+<!-- 		/* ProjectSqlQtyChkIdxMngDao.getProjectSqlQtyChkIdxList */ -->
+<!-- 		SELECT * -->
+<!-- 		FROM ( -->
+<!-- 		    SELECT ROWNUM RNUM, A.* -->
+<!-- 		    FROM ( -->
+<!-- 				<include refid="getProjectSqlQtyChkIdxListRefId"/> -->
+<!-- 		    ) A -->
+<!-- 		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1) -->
+<!-- 		) A -->
+<!-- 		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1) -->
+<!-- 	</select> -->
+	
+	<select id="getProjectSqlQtyChkIdxList" parameterType="projectSqlQtyChkIdx" resultType="projectSqlQtyChkIdx">
+		/* ProjectSqlQtyChkIdxMngDao.getProjectSqlQtyChkIdxList */
+		<include refid="getProjectSqlQtyChkIdxListRefId"/>
+	</select>
+	
+	<select id="excelDownload" parameterType="projectSqlQtyChkIdx" resultType="java.util.LinkedHashMap">
+		/* ProjectSqlQtyChkIdxMngDao.excelDownload */
+		<include refid="getProjectSqlQtyChkIdxListRefId"/>
+	</select>   	
+   	 
+   	<select id="countProjectSqlStdQtyChkSql" parameterType="projectSqlQtyChkIdx" resultType="int">
+		/* ProjectSqlQtyChkIdxMngDao.countProjectSqlStdQtyChkSql */
+		SELECT COUNT(*) AS CNT
+		FROM PROJECT_SQL_STD_QTY_CHK_SQL A
+		, SQL_STD_QTY_IDT_BASE B
+		WHERE A.PROJECT_ID = #{project_id}
+		AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+		AND B.QTY_CHK_IDT_YN = 'Y'
+		AND ROWNUM = 1   	
+   	</select>
+   	
+    <insert id="insertProjectSqlQtyChkIdxApply" parameterType="projectSqlQtyChkIdx" useGeneratedKeys="false">
+		/* ProjectSqlQtyChkIdxMngDao.insertProjectSqlQtyChkIdxApply */
+		INSERT INTO   
+		PROJECT_SQL_STD_QTY_CHK_SQL     -- 프로젝트별SQL표준품질점검SQL(TABLE)
+				( PROJECT_ID                                                  -- 프로젝트ID
+				, QTY_CHK_IDT_CD                                              -- 품질점검지표코드
+				)
+		SELECT #{project_id}
+			 , QTY_CHK_IDT_CD
+		FROM SQL_STD_QTY_IDT_BASE
+		WHERE QTY_CHK_IDT_YN = 'Y'
+	</insert>
+
+    <insert id="insertProjectSqlQtyChkIdx" parameterType="projectSqlQtyChkIdx">
+		/* ProjectSqlQtyChkIdxMngDao.insertProjectSqlQtyChkIdx */
+		INSERT INTO   PROJECT_SQL_STD_QTY_CHK_SQL     -- 프로젝트별SQL표준품질점검지표_점검SQL(TABLE)
+		( 
+			PROJECT_ID                                                  -- 프로젝트ID
+			, QTY_CHK_IDT_CD                                              -- 품질점검지표코드
+		) VALUES 
+		(  
+			  #{project_id}                                                 -- 프로젝트ID
+			, #{qty_chk_idt_cd}                                             -- 품질점검지표코드
+		) 
+    </insert> 
+    
+    <update id="updateProjectSqlQtyChkIdx" parameterType="projectSqlQtyChkIdx">
+    	/* ProjectSqlQtyChkIdxMngDao.updateProjectSqlQtyChkIdx */
+    	<!-- SQL 품질 점검 시 오류 발생으로 플랜 생성이 안되는 문제로 주석문만 업데이트 합니다. -->
+	</update>
+    
+    <delete id="deleteProjectSqlQtyChkIdx" parameterType="projectSqlQtyChkIdx">
+    	/* ProjectSqlQtyChkIdxMngDao.deleteProjectSqlQtyChkIdx */
+		DELETE PROJECT_SQL_STD_QTY_CHK_SQL       -- 프로젝트별SQL표준품질점검지표_점검SQL(TABLE)
+		WHERE PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+		AND QTY_CHK_IDT_CD = #{qty_chk_idt_cd}                            -- 품질점검지표코드
+    </delete>
+	
+</mapper>

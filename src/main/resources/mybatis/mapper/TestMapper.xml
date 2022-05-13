@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2017.11.10	이원식	최초작성	
+	2018.04.09	이원식	OPENPOP V2 최초작업  (오픈메이드 관리자 메뉴로 분리)
+-->
+<mapper namespace="omc.spop.dao.TestDao">	
+	<insert id="urlTest" useGeneratedKeys="false">
+		INSERT INTO URL_TEST(SEQ) 
+		SELECT SQ_URL_TEST.NEXTVAL
+		FROM DUAL
+	</insert>
+</mapper>

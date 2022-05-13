@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.spop.dao.ProjectWrkjobMngDao">
+	
+	<sql id="getProjectWrkjobListRefId">
+		/* ProjectWrkjobMngDao.getProjectWrkjobListRefId */
+		SELECT B.PROJECT_NM AS PROJECT_NM                                    -- 프로젝트
+		     , C.WRKJOB_CD_NM AS WRKJOB_CD_NM                                      -- 업무
+		     , A.SQL_STD_QTY_TARGET_YN AS SQL_STD_QTY_TARGET_YN              -- SQL표준점검대상여부
+		   --  HIDDEN
+		     , A.PROJECT_ID AS PROJECT_ID                                    -- 프로젝트ID
+		     , A.WRKJOB_CD AS WRKJOB_CD                                      -- 업무코드     
+		  FROM PROJECT_WRKJOB A    -- 프로젝트업무관계(TABLE)
+		     , PROJECT B 
+		     , WRKJOB_CD C
+		 WHERE A.PROJECT_ID = B.PROJECT_ID
+			AND A.WRKJOB_CD = C.WRKJOB_CD
+			AND A.PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+		ORDER BY B.PROJECT_NM, C.WRKJOB_CD_NM     
+	</sql>
+
+	<select id="getProjectWrkjobList" parameterType="projectWrkjob" resultType="projectWrkjob">
+		/* ProjectWrkjobMngDao.getProjectWrkjobList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="getProjectWrkjobListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>   	
+
+	<select id="excelDownload" parameterType="projectWrkjob" resultType="java.util.LinkedHashMap">
+		/* ProjectWrkjobMngDao.excelDownload */
+		<include refid="getProjectWrkjobListRefId"/>
+	</select>
+
+	<select id="getDupCnt" parameterType="projectWrkjob" resultType="int">
+		/* ProjectWrkjobMngDao.getDupCnt */
+		SELECT COUNT(*) AS DUB_CNT
+		FROM PROJECT_WRKJOB A                                                    -- 프로젝트업무관계(TABLE)
+		WHERE A.PROJECT_ID = #{project_id}                                       -- 프로젝트ID
+		   AND A.WRKJOB_CD = #{wrkjob_cd}                                        -- 업무코드
+	</select>
+	   	 
+    <insert id="insertProjectWrkjob" parameterType="projectWrkjob">
+		/* ProjectWrkjobMngDao.insertProjectWrkjob */
+		INSERT INTO   PROJECT_WRKJOB     -- 프로젝트업무관계(TABLE)
+		(
+		          PROJECT_ID                                                  -- 프로젝트ID
+		        , WRKJOB_CD                                                   -- 업무코드
+		        , SQL_STD_QTY_TARGET_YN                                       -- SQL표준점검대상여부
+		) VALUES (
+				  #{project_id}                                                 -- 프로젝트ID
+		        , #{wrkjob_cd}                                                  -- 업무코드
+		        , 'Y'                                      -- SQL표준점검대상여부
+		)  
+    </insert> 
+    
+    <update id="updateProjectWrkjob" parameterType="projectWrkjob">
+    	/* ProjectWrkjobMngDao.updateProjectWrkjob */
+		UPDATE PROJECT_WRKJOB       -- 프로젝트업무관계(TABLE)
+		SET PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+		     , WRKJOB_CD = #{wrkjob_cd}                                      -- 업무코드
+		WHERE PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+			AND WRKJOB_CD = #{wrkjob_cd}                                      -- 업무코드 
+	</update>
+    
+    <delete id="deleteProjectWrkjob" parameterType="projectWrkjob">
+    	/* ProjectWrkjobMngDao.deleteProjectWrkjob */
+		DELETE PROJECT_WRKJOB A     -- 프로젝트업무관계(TABLE)
+		WHERE A.PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+			AND A.WRKJOB_CD = #{wrkjob_cd}                                      -- 업무코드
+    </delete>
+	
+</mapper>

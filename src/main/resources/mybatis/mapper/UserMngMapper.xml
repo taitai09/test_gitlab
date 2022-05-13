@@ -1,0 +1,1085 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="omc.spop.dao.UserMngDao">
+    
+    <select id="usersList_old" parameterType="users" resultType="users">
+      /* UserMngMapper.usersList */
+      SELECT U1.USER_ID, U1.USER_NM, U1.PASSWORD, U1.EXT_NO, U1.HP_NO, U1.EMAIL, 
+             NVL(U1.DEFAULT_PASSWORD_YN,'Y') AS DEFAULT_PASSWORD_YN, TO_CHAR(U1.PASSWORD_CHG_DT, 'YYYY-MM-DD HH24:MI:SS') AS PASSWORD_CHG_DT, 
+             NVL(U1.APPROVE_YN,'N') AS APPROVE_YN, TO_CHAR(U1.APPROVE_DT, 'YYYY-MM-DD HH24:MI:SS') AS APPROVE_DT, U1.APPROVE_ID, 
+             U2.USER_NM AS APPROVE_NM, TO_CHAR(U1.REG_DT, 'YYYY-MM-DD HH24:MI:SS') AS REG_DT, U1.USE_YN
+        FROM USERS U1, USERS U2 
+       WHERE 1=1
+         AND U1.APPROVE_ID = U2.USER_ID(+)
+      <choose>
+        <when test="searchKey != null and (searchKey eq '01'.toString())">
+          AND U1.USER_NM LIKE '%' || #{searchValue} || '%'
+        </when>
+        <when test="searchKey != null and (searchKey eq '02'.toString())">
+          AND U1.USER_ID LIKE '%' || #{searchValue} || '%'
+        </when>
+        <when test="(searchKey == null or searchKey == '') and (searchValue != null and searchValue != '')">
+          AND (U1.USER_NM LIKE '%' || #{searchValue} || '%' OR U1.USER_ID LIKE '%' || #{searchValue} || '%')
+        </when>
+      </choose>
+      <if test="use_yn != null and use_yn != ''">
+        AND U1.USE_YN = #{use_yn}
+      </if>
+      <if test="approve_yn != null and approve_yn != ''">
+        AND U1.APPROVE_YN = #{approve_yn}
+      </if>
+      ORDER BY U1.USER_ID ASC
+    </select>
+    
+    <sql id="usersListRefId" >
+      /* UserMngDao.usersListRefId */
+      SELECT U1.USER_ID
+           , U1.USER_NM
+           , U1.PASSWORD
+           , CASE WHEN
+                  LENGTH(U1.EXT_NO) = 9 AND INSTR(U1.EXT_NO,'-',1) = 0 
+                  THEN SUBSTR(U1.EXT_NO,1,2) || '-' || SUBSTR(U1.EXT_NO,3,3) || '-' || SUBSTR(U1.EXT_NO,6,10)
+              WHEN
+                  LENGTH(U1.EXT_NO) = 10 AND INSTR(U1.EXT_NO,'-',1) = 0 
+                  THEN SUBSTR(U1.EXT_NO,1,2) || '-' || SUBSTR(U1.EXT_NO,3,4) || '-' || SUBSTR(U1.EXT_NO,7,11)
+              WHEN
+                  LENGTH(U1.EXT_NO) = 11 AND INSTR(U1.EXT_NO,'-',1) = 0 
+                  THEN SUBSTR(U1.EXT_NO,1,3) || '-' || SUBSTR(U1.EXT_NO,4,4) || '-' || SUBSTR(U1.EXT_NO,8,11)
+              ELSE
+                  U1.EXT_NO
+              END AS EXT_NO
+           , CASE WHEN
+                  LENGTH(U1.HP_NO) = 9 AND INSTR(U1.HP_NO,'-',1) = 0 
+                  THEN SUBSTR(U1.HP_NO,1,2) || '-' || SUBSTR(U1.HP_NO,3,3) || '-' || SUBSTR(U1.HP_NO,6,10)
+              WHEN
+                  LENGTH(U1.HP_NO) = 10 AND INSTR(U1.HP_NO,'-',1) = 0 
+                  THEN SUBSTR(U1.HP_NO,1,2) || '-' || SUBSTR(U1.HP_NO,3,4) || '-' || SUBSTR(U1.HP_NO,7,11)
+              WHEN
+                  LENGTH(U1.HP_NO) = 11 AND INSTR(U1.HP_NO,'-',1) = 0 
+                  THEN SUBSTR(U1.HP_NO,1,3) || '-' || SUBSTR(U1.HP_NO,4,4) || '-' || SUBSTR(U1.HP_NO,8,11)
+              ELSE
+                  U1.HP_NO
+              END AS HP_NO
+           , U1.EMAIL AS EMAIL
+           , NVL(U1.DEFAULT_PASSWORD_YN,'Y') AS DEFAULT_PASSWORD_YN
+           , TO_CHAR(U1.PASSWORD_CHG_DT, 'YYYY-MM-DD HH24:MI:SS') AS PASSWORD_CHG_DT
+           , NVL(U1.APPROVE_YN,'N') AS APPROVE_YN
+           , TO_CHAR(U1.APPROVE_DT
+           , 'YYYY-MM-DD HH24:MI:SS') AS APPROVE_DT
+           , U1.APPROVE_ID
+           , U2.USER_NM AS APPROVE_NM
+           , TO_CHAR(U1.REG_DT, 'YYYY-MM-DD HH24:MI:SS') AS REG_DT
+           , U1.USE_YN
+           , U1.DEFAULT_WRKJOB_CD
+           , U1.DEFAULT_AUTH_GRP_ID
+           , WR.WRKJOB_CD_NM AS DEFAULT_WRKJOB_CD_NM
+           , AU.AUTH_NM AS DEFAULT_AUTH_GRP_ID_NM
+           , AU.AUTH_ID
+           , CASE WHEN
+                  U1.PASSWORD_ERROR_CNT <![CDATA[>=]]> 5
+                  THEN 'Y'
+                  ELSE 'N'
+              END AS USER_LOCKED_YN
+        -- , NVL(UW.LEADER_YN,'N') AS LEADER_YN
+      FROM USERS U1
+         , USERS U2 
+         , WRKJOB_CD WR
+         , AUTH AU
+      -- , USER_WRKJOB UW
+      <if test="search_dbid != null and search_dbid != ''">
+      -- DBID가 입력되면
+        , (
+           SELECT *
+             FROM USER_DB_PRIVILEGE 
+            WHERE DBID = #{search_dbid} 
+          ) C
+      </if>
+      WHERE U1.APPROVE_ID = U2.USER_ID(+)
+        AND U1.DEFAULT_WRKJOB_CD = WR.WRKJOB_CD(+)
+        AND U1.DEFAULT_AUTH_GRP_ID = AU.AUTH_ID(+)
+      <if test="user_auth_id != '9'.toString()">
+        AND NVL(AU.AUTH_ID,0) <![CDATA[<>]]> 9 
+      </if>
+      <choose>
+        <when test="searchKey != null and (searchKey eq '01'.toString())">
+          -- 사용자명이 입력되었을때
+          AND U1.USER_NM LIKE '%' || #{searchValue} || '%'
+        </when>
+        <when test="searchKey != null and (searchKey eq '02'.toString())">
+          -- 사용자ID가 입력되었을때
+          AND U1.USER_ID LIKE '%' || #{searchValue} || '%'
+        </when>
+        <when test="(searchKey == null or searchKey == '') and (searchValue != null and searchValue != '')">
+          -- 사용자이름이나 ID둘중 하나 입력되었을떄
+          AND (U1.USER_NM LIKE '%' || #{searchValue} || '%' OR U1.USER_ID LIKE '%' || #{searchValue} || '%')
+        </when>
+        <otherwise>
+        </otherwise>
+      </choose>
+      <if test="search_approve_yn != null and search_approve_yn != ''">
+        -- 승인여부가 입력되었을때
+        AND U1.APPROVE_YN = #{search_approve_yn}
+      </if>
+      <if test="search_use_yn != null and search_use_yn != ''">
+        -- 사용여부가 입력되었을때
+        AND U1.USE_YN = #{search_use_yn}
+      </if>
+      <if test="search_dbid != null and search_dbid != ''">
+        AND C.USER_ID(+) = U1.USER_ID
+      <choose>
+        <when test="chk_dbAuth != null and chk_dbAuth == 'Y'.toString()">
+          -- DB 권한부여 체크되면
+          AND C.DBID IS NOT NULL
+        </when>
+        <otherwise>
+          -- DB 권한부여 체크되지 않으면
+          AND C.DBID IS NULL
+        </otherwise>
+        </choose>
+      </if>
+      ORDER BY U1.USER_ID ASC
+    </sql>
+    
+    <select id="usersList" parameterType="users" resultType="users">
+      /* UserMngDao.usersList */
+      SELECT *
+      FROM (
+            SELECT ROWNUM RNUM, AA.*
+             FROM (
+                 <include refid="usersListRefId"/>
+             ) AA
+             WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) AA
+      WHERE AA.RNUM <![CDATA[>]]> (${pagePerCount} * (${currentPage}-1))
+    </select>
+    
+    <select id="getUsersListByExcelDown" parameterType="users" resultType="java.util.LinkedHashMap">
+      /* UserMngDao.getUsersListByExcelDown */
+      <include refid="usersListRefId"/>
+    </select>
+    
+    <select id="checkUserId" parameterType="users" resultType="users">
+      /* UserMngMapper.checkUserId */
+      SELECT USER_ID, USER_NM
+      FROM USERS
+      WHERE USER_ID = #{user_id}
+    </select>
+    
+    <update id="saveUsers" parameterType="users">
+      /* UserMngMapper.saveUsers */
+      MERGE INTO USERS 
+          USING DUAL ON (USER_ID = #{user_id})
+      WHEN MATCHED THEN
+          UPDATE SET
+              USER_NM = #{user_nm},
+              EXT_NO = #{ext_no},
+              HP_NO = #{hp_no},
+              EMAIL = #{email},
+              USE_YN = #{use_yn},
+              APPROVE_YN = #{approve_yn}
+      WHEN NOT MATCHED THEN
+          INSERT (USER_ID, USER_NM, PASSWORD, EXT_NO, HP_NO, EMAIL, USE_YN, APPROVE_YN, DEFAULT_PASSWORD_YN, REG_DT)
+          VALUES (#{user_id}, #{user_nm}, #{password}, #{ext_no}, #{hp_no}, #{email}, 'Y', #{approve_yn}, 'Y', SYSDATE)
+    </update>
+    
+    <update id="insertUsers" parameterType="users">
+      /* UserMngMapper.saveUsers */
+      INSERT INTO USERS(USER_ID, USER_NM, PASSWORD, EXT_NO, HP_NO, EMAIL, USE_YN, APPROVE_YN, DEFAULT_PASSWORD_YN, REG_DT)
+      VALUES (#{user_id}, #{user_nm}, #{password}, #{ext_no}, #{hp_no}, #{email}, 'Y', #{approve_yn}, 'Y', SYSDATE)
+    </update>
+    
+    <update id="insertUsersBySHA256" parameterType="users">
+      /* UserMngMapper.insertUsersBySHA256 */
+      INSERT INTO USERS(USER_ID, USER_NM, PASSWORD, EXT_NO, HP_NO, EMAIL, USE_YN, APPROVE_YN, DEFAULT_PASSWORD_YN, REG_DT, PASSWORD_CHG_DT, SALT_VALUE)
+      VALUES (#{user_id}, #{user_nm}, #{password}, #{ext_no}, #{hp_no}, #{email}, 'Y', #{approve_yn}, 'Y', SYSDATE, SYSDATE, #{salt_value})
+    </update>
+    
+    <update id="updateUsers" parameterType="users">
+      /* UserMngMapper.updateUsers */
+      UPDATE USERS SET 
+             USER_NM = #{user_nm},
+             EXT_NO = #{ext_no},
+             HP_NO = #{hp_no},
+             EMAIL = #{email},
+             USE_YN = #{use_yn},
+             APPROVE_YN = #{approve_yn}
+      WHERE USER_ID = #{user_id}
+    </update>
+    
+    <update id="saveUsers_old" parameterType="users">
+      MERGE INTO USERS 
+          USING DUAL ON (USER_ID = #{user_id})
+      WHEN MATCHED THEN
+          UPDATE SET 
+              USER_NM = #{user_nm},
+              EXT_NO = #{ext_no},
+              HP_NO = #{hp_no},
+              EMAIL = #{email},
+              USE_YN = #{use_yn},
+              APPROVE_YN = #{approve_yn}
+      WHEN NOT MATCHED THEN
+          INSERT (USER_ID, USER_NM, PASSWORD, EXT_NO, HP_NO, EMAIL, USE_YN, DEFAULT_PASSWORD_YN, REG_DT, APPROVE_YN, APPROVE_DT, APPROVE_ID)
+          VALUES (#{user_id}, #{user_nm}, #{password}, #{ext_no}, #{hp_no}, #{email}, 'Y', 'Y', SYSDATE, 'Y', SYSDATE, #{approve_id})
+    </update>
+    
+    <update id="saveUserApprove" parameterType="users">
+      UPDATE USERS
+      <trim prefix="SET" suffixOverrides=",">
+        <if test="approve_yn != null and approve_yn != ''">
+          APPROVE_YN = #{approve_yn},
+        </if>
+        APPROVE_DT = SYSDATE
+      </trim>
+      WHERE USER_ID = #{user_id}
+    </update>
+    
+    <insert id="insertUserAuth" parameterType="userAuth">
+      INSERT INTO USER_AUTH (USER_ID, AUTH_GRP_ID, AUTH_START_DAY, AUTH_END_DAY)
+      VALUES (#{user_id}, #{auth_grp_id}, #{auth_start_day}, '99991231')
+    </insert>
+    
+    <update id="updateUsersDefaultAuth" parameterType="userAuth">
+      UPDATE USERS
+          SET 
+      <choose>
+        <when test="auth_grp_id != null and auth_grp_id !=''">
+          DEFAULT_AUTH_GRP_ID = #{auth_grp_id}
+        </when>
+        <when test="auth_grp_id == null or auth_grp_id ==''">
+          DEFAULT_AUTH_GRP_ID = #{auth_grp_id}
+        </when>
+      </choose>
+      WHERE USER_ID = #{user_id}
+    </update>
+    
+    <insert id="insertUserWrkJob" parameterType="userWrkjob">
+      INSERT INTO USER_WRKJOB (USER_ID, WRKJOB_CD, WORKJOB_START_DAY, WORKJOB_END_DAY, LEADER_YN)
+      VALUES (#{user_id}, #{wrkjob_cd}, #{workjob_start_day}, '99991231', #{leader_yn})
+    </insert>
+    
+    <update id="approveUser" parameterType="users">
+    /* UsersMngDao.approveUser */
+      UPDATE USERS SET APPROVE_YN = #{approve_yn},
+          APPROVE_DT = SYSDATE,
+          APPROVE_ID = #{approve_id}
+      WHERE USER_ID = #{user_id}
+    </update>
+    
+    <update id="updateUserAuthForApprove" parameterType="userAuth">
+      /* UsersMngDao.updateUserAuthForApprove */
+      UPDATE USER_AUTH SET AUTH_START_DAY = #{auth_start_day}
+      WHERE USER_ID = #{user_id} AND AUTH_END_DAY = '99991231'
+    </update>
+    
+    <update id="updateUserAuth" parameterType="userAuth">
+      /* UsersMngDao.updateUserAuth */
+      UPDATE USER_AUTH 
+          SET
+               AUTH_GRP_ID = #{auth_grp_id}
+             , AUTH_START_DAY = #{auth_start_day}
+             , AUTH_END_DAY = #{auth_end_day}
+      WHERE USER_ID = #{user_id} AND AUTH_GRP_ID = #{old_auth_grp_id}
+    </update>
+    
+    <update id="updateUserWrkJob" parameterType="userWrkjob">
+      /* UsersMngDao.updateUserWrkJob */
+      UPDATE USER_WRKJOB SET WORKJOB_START_DAY = #{workjob_start_day}
+      WHERE USER_ID = #{user_id} AND WORKJOB_END_DAY = '99991231'
+    </update>
+    
+    <update id="resetUserPassword" parameterType="users">
+      /* UsersMngDao.resetUserPassword */
+      UPDATE USERS SET 
+             PASSWORD = #{password}
+           , SALT_VALUE = NULL
+           , DEFAULT_PASSWORD_YN = 'Y'
+           , PASSWORD_CHG_DT = NULL
+           , PASSWORD_ERROR_CNT = NULL
+      WHERE USER_ID = #{user_id}
+    </update>
+    
+    <update id="resetUserPasswordBySHA256" parameterType="users">
+      /* UsersMngDao.resetUserPasswordBySHA256 */
+      UPDATE USERS SET PASSWORD = #{password}
+           , DEFAULT_PASSWORD_YN = 'Y'
+           , SALT_VALUE = #{salt_value}
+           , PASSWORD_CHG_DT = SYSDATE
+           , PASSWORD_ERROR_CNT = NULL
+      WHERE USER_ID = #{user_id}
+    </update>
+    
+    <select id="usersAuthList" parameterType="userAuth" resultType="userAuth">
+      /* UserMngMapper.usersAuthList */
+      SELECT A.USER_ID
+           , A.AUTH_GRP_ID
+           , B.AUTH_CD
+           , B.AUTH_NM
+           , A.AUTH_START_DAY
+           , A.AUTH_END_DAY
+           , U.DEFAULT_AUTH_GRP_ID
+           , CASE WHEN U.DEFAULT_AUTH_GRP_ID IS NULL THEN 'N'
+                  WHEN U.DEFAULT_AUTH_GRP_ID = A.AUTH_GRP_ID THEN 'Y'
+                  ELSE 'N' END DEFAULT_AUTH_YN
+      FROM USER_AUTH A, AUTH B, USERS U
+      WHERE A.AUTH_GRP_ID = B.AUTH_ID
+        AND A.USER_ID = U.USER_ID
+      AND A.USER_ID = #{user_id}
+      ORDER BY A.AUTH_START_DAY DESC
+    </select>
+    
+    <update id="saveUsersAuth" parameterType="userAuth">
+      /* UserMngMapper.saveUsersAuth */
+      MERGE INTO USER_AUTH
+          USING DUAL ON (USER_ID = #{user_id})
+      WHEN MATCHED THEN
+          UPDATE SET
+              AUTH_GRP_ID = #{auth_grp_id},
+              AUTH_START_DAY = #{auth_start_day},
+              AUTH_END_DAY = #{auth_end_day}
+      WHEN NOT MATCHED THEN
+          INSERT (USER_ID, AUTH_GRP_ID, AUTH_START_DAY, AUTH_END_DAY)
+          VALUES (#{user_id}, #{auth_grp_id}, #{auth_start_day}, #{auth_end_day})
+    </update>
+    
+    <select id="checkForSaveUserAuth" parameterType="userWrkjob" resultType="int">
+      /* UserMngMapper.checkForSaveUserAuth */
+      SELECT COUNT(USER_ID) FROM USER_AUTH WHERE AUTH_GRP_ID = #{auth_grp_id} AND USER_ID = #{user_id}
+    </select>
+    
+    <delete id="deleteUsersAuth" parameterType="userAuth">
+      /* UserMngMapper.deleteUsersAuth */
+      DELETE USER_AUTH WHERE USER_ID = #{user_id} and AUTH_GRP_ID = #{old_auth_grp_id} 
+    </delete>
+    
+    <update id="updatePastUsersAuth" parameterType="userAuth">
+      /* UserMngMapper.updatePastUsersAuth */
+      UPDATE USER_AUTH SET AUTH_END_DAY = #{auth_end_day}
+      WHERE USER_ID = #{user_id} AND AUTH_START_DAY = #{auth_start_day}
+    </update>
+    
+    <select id="usersWrkJobList" parameterType="userWrkjob" resultType="userWrkjob">
+      /* UserMngMapper.usersWrkJobList */
+      SELECT A.USER_ID
+           , A.WRKJOB_CD
+           , B.WRKJOB_CD_NM AS WRKJOB_NM
+           , A.WORKJOB_START_DAY
+           , A.WORKJOB_END_DAY
+           , A.LEADER_YN
+           , U.DEFAULT_WRKJOB_CD
+           , CASE WHEN U.DEFAULT_WRKJOB_CD IS NULL THEN 'N'
+                  WHEN U.DEFAULT_WRKJOB_CD = A.WRKJOB_CD THEN 'Y'
+                  ELSE 'N' END AS DEFAULT_WRKJOB_YN
+        FROM USER_WRKJOB A, WRKJOB_CD B, USERS U
+       WHERE A.WRKJOB_CD = B.WRKJOB_CD
+         AND A.USER_ID(+) = U.USER_ID
+         AND A.USER_ID = #{user_id}
+      ORDER BY A.WORKJOB_START_DAY DESC
+    </select>
+<!--     <update id="saveUsersWrkJob" parameterType="userWrkjob"> -->
+<!--         /* UserMngMapper.saveUsersWrkJob */ -->
+<!--         MERGE INTO USER_WRKJOB  -->
+<!--             USING DUAL ON (USER_ID = #{user_id} AND WRKJOB_CD = #{wrkjob_cd} AND WORKJOB_START_DAY = #{workjob_start_day}) -->
+<!--         WHEN MATCHED THEN -->
+<!--             UPDATE SET  -->
+<!--                 WORKJOB_END_DAY = #{workjob_end_day}, -->
+<!--                 LEADER_YN = #{leader_yn} -->
+<!--         WHEN NOT MATCHED THEN -->
+<!--             INSERT (USER_ID, WRKJOB_CD, WORKJOB_START_DAY, WORKJOB_END_DAY, LEADER_YN) -->
+<!--             VALUES (#{user_id}, #{wrkjob_cd}, #{workjob_start_day}, #{workjob_end_day}, #{leader_yn}) -->
+<!--     </update> -->
+    <update id="saveUsersWrkJob" parameterType="userWrkjob">
+      /* UserMngMapper.saveUsersWrkJob */
+      MERGE INTO USER_WRKJOB 
+          USING DUAL ON (USER_ID = #{user_id})
+      WHEN MATCHED THEN
+          UPDATE SET 
+              WRKJOB_CD = #{wrkjob_cd},
+              WORKJOB_START_DAY = #{workjob_start_day},
+              WORKJOB_END_DAY = #{workjob_end_day},
+              LEADER_YN = #{leader_yn}
+      WHEN NOT MATCHED THEN
+          INSERT (USER_ID, WRKJOB_CD, WORKJOB_START_DAY, WORKJOB_END_DAY, LEADER_YN)
+          VALUES (#{user_id}, #{wrkjob_cd}, #{workjob_start_day}, #{workjob_end_day}, #{leader_yn})
+    </update>
+    <update id="updateUsersWrkJob" parameterType="userWrkjob">
+      /* UserMngMapper.updateUsersWrkJob */
+      UPDATE USER_WRKJOB
+      SET
+          WRKJOB_CD = #{wrkjob_cd},
+          WORKJOB_START_DAY = #{workjob_start_day},
+          WORKJOB_END_DAY = #{workjob_end_day},
+          LEADER_YN = #{leader_yn}
+      WHERE
+      USER_ID = #{user_id} AND WRKJOB_CD = #{old_wrkjob_cd}
+    </update>
+    <insert id="insertUsersWrkJob" parameterType="userWrkjob">
+      /* UserMngMapper.insertUsersWrkJob */
+      INSERT INTO USER_WRKJOB(USER_ID, WRKJOB_CD, WORKJOB_START_DAY, WORKJOB_END_DAY, LEADER_YN)
+      VALUES (#{user_id}, #{wrkjob_cd}, #{workjob_start_day}, #{workjob_end_day}, #{leader_yn})
+    </insert>
+    <select id="checkUsersWrkjobCd" parameterType="userWrkjob" resultType="int">
+      /* UserMngMapper.checkUsersWrkjobCd */
+      SELECT COUNT(USER_ID) FROM USER_WRKJOB WHERE USER_ID = #{user_id} AND WRKJOB_CD = #{wrkjob_cd}
+    </select>
+    <update id="updateUsersDefaultWrkjobCd" parameterType="userWrkjob">
+      /* UserMngMapper.updateUsersDefaultWrkjobCd */
+      UPDATE USERS 
+          SET
+      <choose>
+        <when test="wrkjob_cd != null and wrkjob_cd !=''">
+          DEFAULT_WRKJOB_CD = #{wrkjob_cd}
+        </when>
+        <when test="wrkjob_cd == null or wrkjob_cd ==''">
+          DEFAULT_WRKJOB_CD = ''
+        </when>
+      </choose>
+      WHERE USER_ID = #{user_id}
+    </update>
+    <update id="updateUsersWrkJobLeader" parameterType="userWrkjob">
+      /* UserMngMapper.updateUsersWrkJobLeader */
+      UPDATE USER_WRKJOB
+         SET LEADER_YN = 'N'
+      WHERE WRKJOB_CD = #{wrkjob_cd}
+    </update>
+    
+    <delete id="deleteUsersWrkJob" parameterType="userWrkjob">
+      /* UserMngMapper.deleteUsersWrkJob */
+      DELETE USER_WRKJOB WHERE USER_ID = #{user_id} AND WRKJOB_CD = #{old_wrkjob_cd}
+    </delete>
+    
+    <update id="updatePastUsersWrkJob" parameterType="userWrkjob">
+      UPDATE USER_WRKJOB SET WORKJOB_END_DAY = #{workjob_end_day}
+      WHERE USER_ID = #{user_id} AND WORKJOB_START_DAY = #{workjob_start_day}
+    </update>
+    
+    <select id="checkWorkJobLeader" parameterType="userWrkjob" resultType="userWrkjob">
+      /* UserMngMapper.checkWorkJobLeader */
+      SELECT A.WRKJOB_CD, C.WRKJOB_CD_NM AS WRKJOB_NM, B.USER_ID, B.USER_NM
+      FROM USER_WRKJOB A, USERS B, WRKJOB_CD C
+      WHERE A.WRKJOB_CD = #{wrkjob_cd}
+      AND A.WRKJOB_CD = C.WRKJOB_CD
+      AND A.USER_ID = B.USER_ID
+      AND A.LEADER_YN = 'Y'
+    </select>
+    
+    <select id="cntWorkJobLeader" parameterType="userWrkjob" resultType="int">
+      /* UserMngMapper.checkWorkJobLeader */
+      SELECT COUNT(A.WRKJOB_CD) FROM USER_WRKJOB A, USERS B, WRKJOB_CD C
+      WHERE A.WRKJOB_CD = #{wrkjob_cd}
+      AND A.WRKJOB_CD = C.WRKJOB_CD
+      AND A.USER_ID = B.USER_ID
+      AND A.LEADER_YN = 'Y'
+    </select>
+    
+    <select id="checkDefaultWrkjob" parameterType="userWrkjob" resultType="int">
+      /* UserMngMapper.checkDefaultWrkjob */
+      SELECT COUNT(USER_ID) FROM USERS
+       WHERE USER_ID = #{user_id} AND DEFAULT_WRKJOB_CD = #{wrkjob_cd}
+    </select>
+    <select id="checkDefaultAuth" parameterType="userAuth" resultType="int">
+      /* UserMngMapper.checkDefaultAuth */
+      SELECT COUNT(USER_ID) FROM USERS
+       WHERE USER_ID = #{user_id} AND DEFAULT_AUTH_GRP_ID = #{old_auth_grp_id}
+    </select>
+    
+    <!-- <select id="usersDeptList" parameterType="userDept" resultType="userDept">
+        SELECT A.USER_ID, A.DEPT_CD, B.DEPT_NM, A.WORK_START_DAY, A.WORK_END_DAY
+        FROM USER_DEPT A, DEPT B
+        WHERE A.DEPT_CD = B.DEPT_CD
+        AND A.USER_ID = #{user_id}
+        ORDER BY A.WORK_START_DAY DESC
+    </select> -->
+    
+    <!-- <update id="saveUsersDept" parameterType="userDept">
+        MERGE INTO USER_DEPT 
+            USING DUAL ON (USER_ID = #{user_id} AND DEPT_CD = #{dept_cd} AND WORK_START_DAY = #{work_start_day})
+        WHEN MATCHED THEN
+            UPDATE SET 
+                WORK_END_DAY = #{work_end_day}
+        WHEN NOT MATCHED THEN
+            INSERT (USER_ID, DEPT_CD, WORK_START_DAY, WORK_END_DAY)
+            VALUES (#{user_id}, #{dept_cd}, #{work_start_day}, #{work_end_day})
+    </update> -->
+    
+    <!-- <update id="updatePastUsersDept" parameterType="userDept">
+        UPDATE USER_DEPT SET WORK_END_DAY = #{work_end_day}
+        WHERE USER_ID = #{user_id} AND WORK_START_DAY = #{work_start_day}
+    </update> -->
+    
+    <select id="authList" parameterType="auth" resultType="auth">
+      /* UserMngMapper.authList */
+      SELECT AUTH_ID, AUTH_NM, AUTH_CD, USE_YN
+      FROM AUTH
+      WHERE 1=1
+      <choose>
+        <when test="searchKey != null and (searchKey eq '01'.toString())">
+          AND AUTH_NM LIKE '%' || #{searchValue} || '%'
+        </when>
+        <when test="searchKey != null and (searchKey eq '02'.toString())">
+          AND AUTH_CD LIKE '%' || #{searchValue} || '%'
+        </when>
+      </choose>
+      ORDER BY AUTH_ID ASC
+    </select>
+    
+    <select id="getMaxAuthId" parameterType="auth" resultType="string">
+      /* UserMngMapper.getMaxAuthId */
+      SELECT NVL(MAX(AUTH_ID) + 1, 1) AUTH_ID
+      FROM AUTH
+    </select>
+    
+    <update id="saveAuth" parameterType="auth">
+      MERGE INTO AUTH 
+          USING DUAL ON (AUTH_ID = #{auth_id})
+      WHEN MATCHED THEN
+          UPDATE SET 
+              AUTH_NM = #{auth_nm},
+              AUTH_CD = #{auth_cd},
+              USE_YN = #{use_yn}
+      WHEN NOT MATCHED THEN
+          INSERT (AUTH_ID, AUTH_NM, AUTH_CD, USE_YN)
+          VALUES (#{auth_id}, #{auth_nm}, #{auth_cd}, #{use_yn})
+    </update>
+    
+    <!-- <select id="departmentList" parameterType="dept" resultType="dept">
+        SELECT A.DEPT_CD, A.DEPT_NM, A.DEPT_DESC, A.UPPER_DEPT_CD, B.DEPT_NM AS UPPER_DEPT_NM, A.USE_YN
+        FROM DEPT A, DEPT B
+        WHERE A.UPPER_DEPT_CD = B.DEPT_CD(+)
+        <choose>
+            <when test="searchKey != null and (searchKey eq '01'.toString())">
+                AND A.DEPT_NM LIKE '%' || #{searchValue} || '%'
+            </when>
+            <when test="searchKey != null and (searchKey eq '02'.toString())">
+                AND A.DEPT_CD LIKE '%' || #{searchValue} || '%'
+            </when>
+        </choose>
+        ORDER BY A.DEPT_CD ASC
+    </select> -->
+    
+    <!-- <update id="saveDepartment" parameterType="dept">
+        MERGE INTO DEPT
+            USING DUAL ON (DEPT_CD = #{dept_cd})
+        WHEN MATCHED THEN
+            UPDATE SET
+                DEPT_NM = #{dept_nm},
+                DEPT_DESC = #{dept_desc},
+                UPPER_DEPT_CD = #{upper_dept_cd},
+                USE_YN = #{use_yn}
+        WHEN NOT MATCHED THEN
+            INSERT (DEPT_CD, DEPT_NM, DEPT_DESC, UPPER_DEPT_CD, USE_YN)
+            VALUES (#{dept_cd}, #{dept_nm}, #{dept_desc}, #{upper_dept_cd}, #{use_yn})
+    </update> -->
+    
+    <!-- <select id="departmentTreeList" parameterType="dept" resultType="dept">
+        SELECT DEPT_CD AS ID, NVL(UPPER_DEPT_CD,'-1') AS PARENT_ID, DEPT_NM AS TEXT, DEPT_NM, DEPT_DESC, USE_YN
+        FROM DEPT
+        START WITH UPPER_DEPT_CD IS NULL
+        CONNECT BY PRIOR DEPT_CD = UPPER_DEPT_CD
+        ORDER SIBLINGS BY DEPT_CD
+    </select> -->
+    
+    <!-- <select id="departmentDBAuthList" parameterType="deptDBPrivilege" resultType="deptDBPrivilege">
+        SELECT A.DBID, A.DB_NAME,
+            NVL(B.PRIVILEGE_START_DAY,'') AS PRIVILEGE_START_DAY,
+            NVL(B.PRIVILEGE_END_DAY,'') AS PRIVILEGE_END_DAY,
+            CASE WHEN B.DEPT_CD IS NULL THEN 'N' ELSE 'Y' END USE_FLAG
+        FROM DATABASE A,
+        (SELECT *
+            FROM DEPT_DB_PRIVILEGE A
+               WHERE PRIVILEGE_START_DAY = (SELECT MAX(PRIVILEGE_START_DAY) FROM DEPT_DB_PRIVILEGE B WHERE A.DEPT_CD = B.DEPT_CD AND A.DBID = B.DBID)
+         ) B
+        WHERE A.DBID = B.DBID(+)
+        AND B.DEPT_CD(+) = #{dept_cd}
+        ORDER BY A.ORDERING
+    </select> -->
+    
+    <!-- <update id="saveDepartmentDBAuth" parameterType="deptDBPrivilege">
+        MERGE INTO DEPT_DB_PRIVILEGE 
+            USING DUAL ON (DEPT_CD = #{dept_cd} AND DBID = #{dbid} AND PRIVILEGE_START_DAY = #{privilege_start_day})
+        WHEN MATCHED THEN
+            UPDATE SET 
+                PRIVILEGE_END_DAY = #{privilege_end_day}
+        WHEN NOT MATCHED THEN
+            INSERT (DEPT_CD, DBID, PRIVILEGE_START_DAY, PRIVILEGE_END_DAY)
+            VALUES (#{dept_cd}, #{dbid}, #{privilege_start_day}, #{privilege_end_day})
+    </update> -->
+    
+    <!-- <select id="departmentDBAuthHistoryList" parameterType="deptDBPrivilege" resultType="deptDBPrivilege">
+        SELECT A.DBID, C.DB_NAME, A.DEPT_CD, B.DEPT_NM, A.PRIVILEGE_START_DAY, A.PRIVILEGE_END_DAY
+        FROM DEPT_DB_PRIVILEGE A, DEPT B, DATABASE C
+        WHERE A.DEPT_CD = #{dept_cd}
+        AND A.DEPT_CD = B.DEPT_CD
+        AND A.DBID = #{dbid}
+        AND A.DBID = C.DBID
+        ORDER BY A.PRIVILEGE_START_DAY DESC
+    </select> -->
+    <!-- 
+    <select id="workJobTreeList" parameterType="wrkJobCd" resultType="wrkJobCd">
+        /* UserMngMapper.workJobTreeList */
+          SELECT A.WRKJOB_CD AS ID
+               , NVL(A.UPPER_WRKJOB_CD,'-1') AS PARENT_ID
+               , A.WRKJOB_CD_NM AS TEXT
+               , A.WRKJOB_CD_NM
+               , A.WRKJOB_DIV_CD
+               , A.DEPLOY_CHECK_TARGET_YN
+               , A.USE_YN
+            FROM WRKJOB_CD A
+          START WITH A.UPPER_WRKJOB_CD IS NULL
+          CONNECT BY PRIOR A.WRKJOB_CD = A.UPPER_WRKJOB_CD
+          ORDER SIBLINGS BY A.WRKJOB_CD
+    </select>    
+     -->
+    <select id="workJobTreeList" parameterType="wrkJobCd" resultType="wrkJobCd">
+      /* UserMngMapper.workJobTreeList */
+      SELECT *
+      FROM(
+          SELECT 
+              A.WRKJOB_CD AS ID
+            , NVL(A.UPPER_WRKJOB_CD,'-1') AS PARENT_ID
+            , A.WRKJOB_CD_NM AS TEXT
+            , A.WRKJOB_CD_NM
+            , A.WRKJOB_DIV_CD
+            , A.DEPLOY_CHECK_TARGET_YN
+            , A.USE_YN
+            , B.DBID
+            , B.DB_NAME
+            , B.RNUM
+          FROM
+              WRKJOB_CD A,
+              (SELECT A.WRKJOB_CD
+                    , A.DBID
+                    , B.DB_NAME
+                    , ROW_NUMBER() OVER(PARTITION BY A.WRKJOB_CD ORDER BY B.DB_OPERATE_TYPE_CD, B.DB_NAME) RNUM
+                 FROM WRKJOB_DB A, DATABASE B
+                WHERE A.DBID = B.DBID
+              ) B
+          WHERE A.WRKJOB_CD = B.WRKJOB_CD(+)
+      )
+      PIVOT (
+          MAX(DBID) AS ID, MAX(DB_NAME) AS NAME
+          FOR RNUM
+           IN ('1' AS "DB1"
+              ,'2' AS "DB2"
+              ,'3' AS "DB3")
+      )
+      START WITH PARENT_ID = '-1'
+      CONNECT BY PRIOR ID = PARENT_ID
+      ORDER SIBLINGS BY ID
+    </select>
+    
+    <sql id="workJobUsersListRefId">
+      /* UserMngMapper.workJobUsersListRefId */
+      SELECT A.USER_ID, B.USER_NM, B.EXT_NO, B.HP_NO, B.USE_YN, A.WRKJOB_CD, A.WORKJOB_START_DAY, A.LEADER_YN
+      FROM USER_WRKJOB A, USERS B
+      WHERE A.WRKJOB_CD = #{wrkjob_cd}
+      AND A.USER_ID = B.USER_ID
+      ORDER BY USER_ID
+    </sql>
+    
+    <select id="workJobUsersList" parameterType="users" resultType="users">
+      /* UserMngMapper.workJobUsersList */
+      SELECT *
+      FROM (
+          SELECT ROWNUM RNUM, AA.*
+          FROM (
+              <include refid="workJobUsersListRefId"/>
+          ) AA
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) AA
+      WHERE AA.RNUM <![CDATA[>]]> ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="workJobUsersListByExcelDown" parameterType="users" resultType="java.util.LinkedHashMap">
+      /* UserMngMapper.workJobUsersListByExcelDown */
+      <include refid="workJobUsersListRefId"/>
+    </select>
+    
+    <select id="getMaxWrkJobCd" parameterType="wrkJobCd" resultType="string">
+      /* UserMngMapper.getMaxWrkJobCd */
+      SELECT NVL(MAX(WRKJOB_CD) + 1, 10000) WRKJOB_CD
+      FROM WRKJOB_CD
+    </select>
+    
+    <update id="saveWrkJobCd" parameterType="wrkJobCd">
+      /* UserMngMapper.saveWrkJobCd */
+      MERGE INTO WRKJOB_CD 
+          USING DUAL ON (WRKJOB_CD = #{wrkjob_cd})
+      WHEN MATCHED THEN
+          UPDATE SET 
+              WRKJOB_CD_NM = #{wrkjob_cd_nm},
+              UPPER_WRKJOB_CD = #{upper_wrkjob_cd},
+              USE_YN = #{use_yn},
+              DEPLOY_CHECK_TARGET_YN = #{deploy_check_target_yn},
+              WRKJOB_DIV_CD = #{wrkjob_div_cd}
+      WHEN NOT MATCHED THEN
+          INSERT (
+              WRKJOB_CD, WRKJOB_CD_NM, UPPER_WRKJOB_CD, WRKJOB_DIV_CD, USE_YN, DEPLOY_CHECK_TARGET_YN
+          )
+          VALUES (
+              #{wrkjob_cd}, #{wrkjob_cd_nm}, #{upper_wrkjob_cd}, #{wrkjob_div_cd}, #{use_yn}, #{deploy_check_target_yn}
+          )
+    </update>
+    
+    <delete id="deleteWrkJobCd" parameterType="wrkJobCd">
+      /* UserMngMapper.deleteWrkJobCd */
+      DELETE FROM WRKJOB_CD WHERE WRKJOB_CD= #{wrkjob_cd}
+    </delete>
+    
+    <update id="updateUserWrkJobLeader" parameterType="userWrkjob">
+      /* UserMngMapper.updateUserWrkJobLeader */
+      UPDATE USER_WRKJOB SET LEADER_YN = #{leader_yn}
+      WHERE WRKJOB_CD = #{wrkjob_cd}
+      <if test="user_id != null and user_id != ''">
+        AND USER_ID = #{user_id}
+      </if>
+      <if test="workjob_start_day != null and workjob_start_day != ''">
+        AND WORKJOB_START_DAY = #{workjob_start_day}
+      </if>
+    </update>
+    
+    <select id="userDBAuthList" parameterType="userDBPrivilege" resultType="userDBPrivilege">
+      /* UserMngMapper.userDBAuthList */
+      SELECT A.DBID, A.DB_NAME, 
+             NVL(B.PRIVILEGE_START_DAY, TO_CHAR(SYSDATE,'YYYYMMDD')) AS PRIVILEGE_START_DAY,
+             NVL(B.PRIVILEGE_END_DAY,TO_CHAR(SYSDATE+(1*365),'YYYYMMDD')) AS PRIVILEGE_END_DAY,
+             CASE WHEN B.USER_ID IS NULL THEN 'N' ELSE 'Y' END USE_FLAG
+      FROM DATABASE A, 
+      (SELECT *
+           FROM USER_DB_PRIVILEGE A
+           WHERE PRIVILEGE_START_DAY = (SELECT MAX(PRIVILEGE_START_DAY) FROM USER_DB_PRIVILEGE B WHERE A.USER_ID = B.USER_ID AND A.DBID = B.DBID)
+      ) B
+      WHERE A.DBID = B.DBID(+)
+      AND B.USER_ID(+) = #{user_id}
+      ORDER BY A.ORDERING
+    </select>
+    
+    <update id="saveUserDBAuth" parameterType="userDBPrivilege">
+      /* UserMngMapper.saveUserDBAuth */
+      MERGE INTO USER_DB_PRIVILEGE 
+          USING DUAL ON (USER_ID = #{user_id} AND DBID = #{dbid})
+      WHEN MATCHED THEN
+          UPDATE SET 
+              PRIVILEGE_START_DAY = #{privilege_start_day},
+              PRIVILEGE_END_DAY = #{privilege_end_day}
+      WHEN NOT MATCHED THEN
+          INSERT (USER_ID, DBID, PRIVILEGE_START_DAY, PRIVILEGE_END_DAY)
+          VALUES (#{user_id}, #{dbid}, #{privilege_start_day}, #{privilege_end_day})
+    </update>
+    
+    <delete id="deleteUserDbAuth" parameterType="userDBPrivilege">
+      /* UserMngMapper.deleteUserDbAuth */
+      DELETE USER_DB_PRIVILEGE WHERE USER_ID = #{user_id}
+    </delete>
+    
+    <select id="userDBAuthHistoryList" parameterType="userDBPrivilege" resultType="userDBPrivilege">
+      /* UserMngMapper.userDBAuthHistoryList */
+      SELECT A.DBID, C.DB_NAME, A.USER_ID, B.USER_NM, A.PRIVILEGE_START_DAY, A.PRIVILEGE_END_DAY
+      FROM USER_DB_PRIVILEGE A, USERS B, DATABASE C
+      WHERE A.USER_ID = #{user_id}
+      AND A.USER_ID = B.USER_ID
+      AND A.DBID = #{dbid}
+      AND A.DBID = C.DBID
+      ORDER BY A.PRIVILEGE_START_DAY DESC
+    </select>
+    
+    <select id="performanceTunerList" parameterType="users" resultType="users">
+      /* UserMngMapper.performanceTunerList */
+      SELECT A.USER_ID, A.USER_NM, A.EXT_NO, A.HP_NO, A.USE_YN
+      FROM USERS A, USER_AUTH B, AUTH C
+      WHERE A.USER_ID = B.USER_ID
+      AND B.AUTH_GRP_ID = C.AUTH_ID
+      AND C.AUTH_ID = '3'
+      AND SYSDATE BETWEEN TO_DATE(B.auth_START_DAY, 'YYYY-MM-DD') AND TO_DATE(B.auth_END_DAY, 'YYYY-MM-DD')
+      <choose>
+        <when test="searchKey != null and (searchKey eq '01'.toString())">
+          AND A.USER_NM LIKE '%' || #{searchValue} || '%'
+        </when>
+        <when test="searchKey != null and (searchKey eq '02'.toString())">
+          AND A.USER_ID LIKE '%' || #{searchValue} || '%'
+        </when>
+      </choose>
+      ORDER BY USER_ID ASC
+    </select>
+    
+    <select id="performanceOfficerList" parameterType="databaseTuner" resultType="databaseTuner">
+      /* UserMngMapper.performanceOfficerList */
+      SELECT A.DBID, A.DB_NAME,
+          NVL(B.TUN_START_DAY,TO_CHAR(SYSDATE,'YYYYMMDD')) AS TUN_START_DAY,
+          NVL(B.TUN_END_DAY,TO_CHAR(SYSDATE+(1*365),'YYYYMMDD')) AS TUN_END_DAY,
+          CASE WHEN B.TUNER_ID IS NULL THEN 'N' ELSE 'Y' END USE_FLAG
+      FROM DATABASE A,
+      (SELECT *
+          FROM DATABASE_TUNER A
+          WHERE TUN_START_DAY = (SELECT MAX(TUN_START_DAY) FROM DATABASE_TUNER B WHERE A.TUNER_ID = B.TUNER_ID AND A.DBID = B.DBID)
+      ) B
+      WHERE A.DBID = B.DBID(+)
+      AND B.TUNER_ID(+) = #{tuner_id}
+      ORDER BY A.DB_NAME, A.DBID
+    </select>
+    
+    <delete id="deletePerformanceOfficer" parameterType="String">
+      /* UserMngMapper.deletePerformanceOfficer */
+      DELETE DATABASE_TUNER
+      WHERE TUNER_ID = #{tuner_id} 
+    </delete>
+    <update id="savePerformanceOfficer" parameterType="databaseTuner">
+      /* UserMngMapper.savePerformanceOfficer */
+      MERGE INTO DATABASE_TUNER 
+          USING DUAL ON (TUNER_ID = #{tuner_id} AND DBID = #{dbid})
+      WHEN MATCHED THEN
+          UPDATE SET 
+              TUN_START_DAY = #{tun_start_day},
+              TUN_END_DAY = #{tun_end_day}
+      WHEN NOT MATCHED THEN
+          INSERT (TUNER_ID, DBID, TUN_START_DAY, TUN_END_DAY)
+          VALUES (#{tuner_id}, #{dbid}, #{tun_start_day}, #{tun_end_day})
+    </update>
+    
+    <select id="performanceOfficerHistoryList" parameterType="databaseTuner" resultType="databaseTuner">
+      /* UserMngMapper.performanceOfficerHistoryList */
+      SELECT A.DBID, C.DB_NAME, A.TUNER_ID, B.USER_NM, A.TUN_START_DAY, A.TUN_END_DAY
+      FROM DATABASE_TUNER A, USERS B, DATABASE C
+      WHERE A.TUNER_ID = #{tuner_id}
+      AND A.TUNER_ID = B.USER_ID
+      AND A.DBID = #{dbid}
+      AND A.DBID = C.DBID
+      ORDER BY A.TUN_START_DAY DESC
+    </select>
+    
+    <update id="saveAuthBundle" parameterType="auth">
+      /* UserMngMapper.saveAuthBundle */
+      UPDATE USER_AUTH SET 
+          AUTH_START_DAY=#{auth_start_day}
+         ,AUTH_END_DAY=#{auth_end_day}
+      WHERE
+          USER_ID = #{user_id} AND AUTH_GRP_ID = #{auth_id}
+    </update>
+    
+    <update id="saveUserByExcelUpload" parameterType="users" useGeneratedKeys="false">
+      /* UserMngMapper.saveUserByExcelUpload */
+      INSERT INTO USERS(
+          USER_ID
+        , USER_NM
+        , PASSWORD
+        , EXT_NO
+        , HP_NO
+        , EMAIL
+        , USE_YN
+        , DEFAULT_PASSWORD_YN
+        , PASSWORD_CHG_DT
+        , REG_DT
+        , APPROVE_YN
+        , APPROVE_DT
+        , APPROVE_ID
+        <if test="default_wrkjob_cd != null and default_wrkjob_cd != ''">
+          , DEFAULT_WRKJOB_CD
+        </if>
+        <if test="default_auth_grp_id != null and default_auth_grp_id != ''">
+          , DEFAULT_AUTH_GRP_ID
+        </if>
+      )
+      VALUES(
+          #{user_id}
+        , #{user_nm}
+        , #{password}
+        , #{ext_no}
+        , #{hp_no}
+        , #{email}
+        , 'Y'
+        , 'Y'
+        , NULL
+        , SYSDATE
+        , 'Y'
+        , SYSDATE
+        , #{approve_id}
+        <if test="default_wrkjob_cd != null and default_wrkjob_cd != ''">
+          <!-- , #{default_wrkjob_cd} -->
+          , NVL((SELECT WRKJOB_CD FROM WRKJOB_CD WHERE WRKJOB_DIV_CD = #{wrkjob_cd} AND USE_YN = 'Y'),'')
+        </if>
+        <if test="default_auth_grp_id != null and default_auth_grp_id != ''">
+          , #{default_auth_grp_id}
+        </if>
+      )
+    </update>
+    
+    <update id="saveUserByExcelUploadBySHA256" parameterType="users" useGeneratedKeys="false">
+      /* UserMngMapper.saveUserByExcelUpload */
+      INSERT INTO USERS(
+          USER_ID
+        , USER_NM
+        , PASSWORD
+        , EXT_NO
+        , HP_NO
+        , EMAIL
+        , USE_YN
+        , DEFAULT_PASSWORD_YN
+        , PASSWORD_CHG_DT
+        , REG_DT
+        , APPROVE_YN
+        , APPROVE_DT
+        , APPROVE_ID
+        <if test="default_wrkjob_cd != null and default_wrkjob_cd != ''">
+          , DEFAULT_WRKJOB_CD
+        </if>
+        <if test="default_auth_grp_id != null and default_auth_grp_id != ''">
+          , DEFAULT_AUTH_GRP_ID
+        </if>
+        <if test="salt_value != null and salt_value != ''">
+          , SALT_VALUE
+        </if>
+      ) 
+      VALUES(
+          #{user_id}
+        , #{user_nm}
+        , #{password}
+        , #{ext_no}
+        , #{hp_no}
+        , #{email}
+        , 'Y'
+        , 'Y'
+        , SYSDATE    <!-- BY SHA 256 -->
+        , SYSDATE
+        , 'Y'
+        , SYSDATE
+        , #{approve_id}
+        <if test="default_wrkjob_cd != null and default_wrkjob_cd != ''">
+          <!-- , #{default_wrkjob_cd} -->
+        , NVL((SELECT WRKJOB_CD FROM WRKJOB_CD WHERE WRKJOB_DIV_CD = #{wrkjob_cd} AND USE_YN = 'Y'),'')
+        </if>
+        <if test="default_auth_grp_id != null and default_auth_grp_id != ''">
+          , #{default_auth_grp_id}
+        </if>
+        <if test="salt_value != null and salt_value != ''">
+        , #{salt_value}
+        </if>
+      )
+    </update>
+    
+    <select id="cntkUserId" parameterType="string" resultType="int">
+      /* UserMngMapper.cntkUserId */
+      SELECT COUNT(USER_ID) FROM USERS WHERE USER_ID = #{user_id}
+    </select>
+    
+    <select id="cntAuthId" parameterType="string" resultType="int">
+      /* UserMngMapper.cntAuthId */
+      SELECT COUNT(AUTH_ID) FROM AUTH WHERE AUTH_ID = #{auth_id}
+    </select>
+    
+    <select id="cntWrkjobCd" parameterType="string" resultType="int">
+      /* UserMngMapper.cntWrkjobCd */
+      SELECT COUNT(WRKJOB_DIV_CD) FROM WRKJOB_CD WHERE WRKJOB_DIV_CD = #{wrkjob_cd}
+    </select>
+    
+    <update id="saveUserAuthByExcelUpload" parameterType="users">
+      /* UserMngMapper.saveUserAuthByExcelUpload */
+      INSERT INTO USER_AUTH(USER_ID, AUTH_GRP_ID, AUTH_START_DAY, AUTH_END_DAY)
+      VALUES(#{user_id}, #{auth_grp_id}, #{auth_start_day}, #{auth_end_day})
+    </update>
+    <update id="saveUserWrkjobByExcelUpload" parameterType="users" useGeneratedKeys="false">
+      /* UserMngMapper.saveUserWrkjobByExcelUpload */
+      INSERT INTO USER_WRKJOB(USER_ID, WRKJOB_CD, WORKJOB_START_DAY, WORKJOB_END_DAY, LEADER_YN )
+      VALUES(#{user_id}, NVL((SELECT WRKJOB_CD FROM WRKJOB_CD WHERE WRKJOB_DIV_CD = #{wrkjob_cd} AND USE_YN = 'Y'),''), #{workjob_start_day}, #{workjob_end_day}, 'N' )    
+    </update>
+    
+    <update id="saveUserWrkjobByExcelUpload_bak" parameterType="users">
+      /* UserMngMapper.saveUserWrkjobByExcelUpload */
+      INSERT INTO USER_WRKJOB(USER_ID, WRKJOB_CD, WORKJOB_START_DAY, WORKJOB_END_DAY, LEADER_YN )
+      VALUES(#{user_id}, #{wrkjob_cd}, #{workjob_start_day}, #{workjob_end_day}, 'N' )
+    </update>
+    
+    <select id="getAuthUserNameByExcelDown" parameterType="users" resultType="java.util.LinkedHashMap">
+      /* UserMngMapper.getAuthUserNameByExcelDown */
+      SELECT A.USER_ID,A.USER_NM,C.AUTH_ID, C.AUTH_NM 
+           , TO_CHAR(TO_DATE(B.AUTH_START_DAY,'YYYYMMDD'),'YYYY-MM-DD') AUTH_START_DAY
+           , TO_CHAR(TO_DATE(B.AUTH_END_DAY,'YYYYMMDD'),'YYYY-MM-DD') AUTH_END_DAY
+        FROM USERS A, USER_AUTH B, AUTH C
+       WHERE A.USER_ID = B.USER_ID
+         AND B.AUTH_GRP_ID = C.AUTH_ID
+      <if test="auth_id != null and auth_id != ''">
+        AND B.AUTH_GRP_ID = #{auth_id}
+      </if>
+      <if test="searchValue != null and searchValue != ''">
+        AND A.USER_NM LIKE '%'||#{searchValue}||'%'
+      </if>
+    </select>
+    
+    <select id="usersDbAuth" parameterType="userDBPrivilege" resultType="userDBPrivilege">
+      /* UserMngMapper.usersDbAuth */
+      SELECT DB.DB_NAME, A.PRIVILEGE_START_DAY, A.PRIVILEGE_END_DAY, DB.DBID
+        FROM USER_DB_PRIVILEGE A, DATABASE DB
+       WHERE A.DBID = DB.DBID
+         AND A.USER_ID = #{user_id}
+         AND DB.USE_YN = 'Y'
+      ORDER BY DB.ORDERING
+    </select>
+    
+    <select id="checkForUserDBAuth2" parameterType="userDBPrivilege" resultType="int">
+      /* UserMngMapper.checkForUserDBAuth2 */
+      SELECT COUNT(DBID) FROM USER_DB_PRIVILEGE WHERE USER_ID = #{user_id} AND DBID = #{dbid}
+    </select>
+    
+    <insert id="insertUserDBAuth2" parameterType="userDBPrivilege">
+      /* UserMngMapper.insertUserDBAuth2 */
+      INSERT INTO USER_DB_PRIVILEGE
+      VALUES(#{user_id},#{dbid},#{privilege_start_day},#{privilege_end_day})    
+    </insert>
+    
+    <update id="updateUserDBAuth2" parameterType="userDBPrivilege">
+      /* UserMngMapper.updateUserDBAuth2 */
+      UPDATE USER_DB_PRIVILEGE
+          SET
+          USER_ID = #{user_id}
+             , DBID = #{dbid}
+             , PRIVILEGE_START_DAY = #{privilege_start_day}
+             , PRIVILEGE_END_DAY = #{privilege_end_day}
+      WHERE USER_ID = #{user_id} AND DBID = #{old_dbid}
+    </update>
+    
+    <delete id="deleteUserDBAuth2" parameterType="userDBPrivilege">
+      /* UserMngMapper.deleteUserDBAuth2 */
+      DELETE USER_DB_PRIVILEGE WHERE USER_ID = #{user_id} AND DBID = #{old_dbid}
+    </delete>
+    
+    <select id="getWrkjobCdList" parameterType="String" resultType="String">
+      /* UserMngMapper.getWrkjobDivCdList */
+      SELECT WRKJOB_CD FROM WRKJOB_CD WHERE UPPER_WRKJOB_CD = #{wrkjob_cd}
+    </select>
+    
+    <select id="checkWrkjobDivCd" parameterType="String" resultType="wrkJobCd">
+      /* UserMngMapper.checkWrkjobDivCd */
+      SELECT WRKJOB_CD_NM FROM WRKJOB_CD WHERE WRKJOB_DIV_CD = #{wrkjob_div_cd}
+    </select>
+    
+<!--     <select id="checkUnderWrkjobCd" parameterType="java.util.List" resultType="int">
+        /* UserMngMapper.checkUnderWrkjobCd */
+        SELECT COUNT(WRKJOB_CD) FROM WRKJOB_CD WHERE UPPER_WRKJOB_CD IN
+        <foreach item="item" collection="finalUpperWrkjobCdList" index="index" separator="," open="(" close=")"> 
+             #{item}
+        </foreach>
+    </select> -->
+    
+    <select id="getWrkjobCdIncludeChild" parameterType="String" resultType="String">
+      /* UserMngMapper.getWrkjobCdIncludeChild */
+      SELECT A.WRKJOB_CD, level lvl, WRKJOB_DIV_CD
+        FROM WRKJOB_CD A
+      START WITH A.WRKJOB_CD = #{wrkjob_cd}
+      CONNECT BY PRIOR A.WRKJOB_CD = A.UPPER_WRKJOB_CD
+      ORDER SIBLINGS BY A.WRKJOB_CD
+    </select>
+    
+    <delete id="deletePreData" parameterType="java.util.Arrays">
+      /* UserMngMapper.deletePreData */
+      DELETE FROM WRKJOB_DB
+      WHERE WRKJOB_CD IN
+      <foreach collection="array" item="target" separator="," open="(" close=")">
+        #{target}
+      </foreach>
+    </delete>
+    
+    <insert id="saveWrkJobDb" parameterType="map">
+      /* UserMngMapper.saveWrkJobDb */
+      INSERT INTO WRKJOB_DB
+      VALUES( #{wrkjob_cd}, #{dbid} )
+    </insert>
+</mapper>

@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+ * 2018.09.17 	임호경	 최초작성
+-->
+<mapper namespace="omc.spop.dao.JobSchedulerDao">
+
+	<select id="getJobSchedulerList" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+       	SELECT B.CD AS JOB_SCHEDULER_TYPE_CD, B.CD_NM AS JOB_SCHEDULER_TYPE_CD_NM, 
+       	A.JOB_SCHEDULER_NM, A.JOB_SCHEDULER_DESC, A.JOB_SCHEDULER_EXEC_TYPE_CD, 
+       	C.CD_NM AS JOB_SCHEDULER_EXEC_TYPE_CD_NM, 
+		A.DEFAULT_EXEC_CYCLE, A.USE_YN, A.UPD_DT, A.UPD_ID
+		FROM JOB_SCHEDULER_BASE A RIGHT OUTER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1020') B ON A.JOB_SCHEDULER_TYPE_CD = B.CD 
+		LEFT OUTER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1045') C ON C.CD = A.JOB_SCHEDULER_EXEC_TYPE_CD 
+
+		<trim prefix="WHERE" prefixOverrides="AND |OR">
+			<if test="searchKey != null and (searchKey eq '01'.toString())">
+				B.CD_NM LIKE '%' || #{searchValue} || '%'
+			</if>
+			<if test="searchKey != null and (searchKey eq '02'.toString())">
+				AND A.UPD_ID LIKE '%' || #{searchValue} || '%'
+			</if>
+			<if test="search_use_yn != null and search_use_yn !=''">
+				AND USE_YN = #{search_use_yn}
+			</if>
+		</trim>				
+		ORDER BY JOB_SCHEDULER_TYPE_CD
+	</select>
+
+
+	<select id="getJobSchedulerTypeCd2" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+	SELECT A.JOB_SCHEDULER_TYPE_CD, B.CD_NM AS JOB_SCHEDULER_TYPE_CD_NM 
+		FROM JOB_SCHEDULER_BASE A INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1020') B ON A.JOB_SCHEDULER_TYPE_CD = B.CD
+        ORDER BY JOB_SCHEDULER_TYPE_CD
+	</select>
+	<select id="getJobSchedulerTypeCd" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+	SELECT CD AS JOB_SCHEDULER_TYPE_CD, CD_NM AS JOB_SCHEDULER_TYPE_CD_NM FROM CD WHERE GRP_CD_ID = '1020'
+	</select>
+		
+	<select id="getJobSchedulerExecTypeCd" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+		SELECT CD AS JOB_SCHEDULER_EXEC_TYPE_CD, CD_NM AS JOB_SCHEDULER_EXEC_TYPE_CD_NM
+		FROM CD WHERE GRP_CD_ID = '1045' ORDER BY JOB_SCHEDULER_EXEC_TYPE_CD
+	</select>	
+	
+	<select id="getDpndJobSchedTypeCd" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+	SELECT A.JOB_SCHEDULER_TYPE_CD,  
+		A.JOB_SCHEDULER_DETAIL_TYPE_CD AS DPND_JOB_SCHED_DETAIL_TYPE_CD, 
+        A.JOB_SCHEDULER_DETAIL_TYPE_NM AS DPND_JOB_SCHED_DETAIL_TYPE_NM
+		FROM JOB_SCHEDULER_DETAIL_TYPE_CD A 
+		INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID ='1020') B ON A.JOB_SCHEDULER_TYPE_CD = B.CD
+        WHERE JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+       		ORDER BY JOB_SCHEDULER_TYPE_CD, JOB_SCHEDULER_DETAIL_TYPE_CD
+	</select>	
+    
+<!-- 	<select id="getDpndJobSchedTypeCd" parameterType="jobSchedulerBase" resultType="jobSchedulerBase"> -->
+<!-- 		SELECT DISTINCT(A.DPND_JOB_SCHED_DETAIL_TYPE_CD), B.JOB_SCHEDULER_DETAIL_TYPE_NM AS DPND_JOB_SCHED_DETAIL_TYPE_NM FROM JOB_SCHEDULER_DEPENDENCY A -->
+<!-- 		INNER JOIN JOB_SCHEDULER_DETAIL_TYPE_CD B ON A.DPND_JOB_SCHED_TYPE_CD = B.JOB_SCHEDULER_TYPE_CD AND A.DPND_JOB_SCHED_DETAIL_TYPE_CD = B.JOB_SCHEDULER_DETAIL_TYPE_CD -->
+<!-- 		ORDER BY DPND_JOB_SCHED_DETAIL_TYPE_CD, DPND_JOB_SCHED_DETAIL_TYPE_NM -->
+<!-- 	</select>	 -->
+    
+    
+    
+	<select id="chooseDB" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+		SELECT DBID AS JOB_SCHEDULER_WRK_TARGET_ID, DB_NAME AS JOB_SCHEDULER_WRK_TARGET
+		FROM DATABASE WHERE USE_YN = 'Y'
+	</select>	
+	<select id="chooseWork" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+		SELECT WRKJOB_CD AS JOB_SCHEDULER_WRK_TARGET_ID, WRKJOB_CD_NM AS JOB_SCHEDULER_WRK_TARGET 
+		FROM WRKJOB_CD
+	</select>	
+	<select id="chooseUserAsk" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+<!-- 		SELECT A.JOB_SCHEDULER_TYPE_CD AS JOB_SCHEDULER_WRK_TARGET_ID, B.CD_NM AS JOB_SCHEDULER_WRK_TARGET
+		FROM JOB_SCHEDULER_BASE A INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1020') B ON A.JOB_SCHEDULER_TYPE_CD = B.CD
+        ORDER BY JOB_SCHEDULER_TYPE_CD	 -->
+	SELECT CD AS JOB_SCHEDULER_WRK_TARGET_ID, CD_NM AS JOB_SCHEDULER_WRK_TARGET FROM CD 
+	WHERE GRP_CD_ID = '1020'
+	</select>	
+    
+    
+    <update id="saveJobSchedulerBase" parameterType="jobSchedulerBase">
+		MERGE INTO JOB_SCHEDULER_BASE 
+			USING DUAL ON (JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd})
+		WHEN MATCHED THEN
+			UPDATE SET
+			JOB_SCHEDULER_EXEC_TYPE_CD = #{job_scheduler_exec_type_cd},
+			JOB_SCHEDULER_NM = #{job_scheduler_nm},
+			JOB_SCHEDULER_DESC = #{job_scheduler_desc},
+			DEFAULT_EXEC_CYCLE = #{default_exec_cycle},
+			USE_YN = #{use_yn},
+			UPD_DT = (SYSDATE + 2/24/60),
+			UPD_ID = #{upd_id}
+		WHEN NOT MATCHED THEN 
+			INSERT (JOB_SCHEDULER_TYPE_CD,JOB_SCHEDULER_NM,JOB_SCHEDULER_DESC,JOB_SCHEDULER_EXEC_TYPE_CD,DEFAULT_EXEC_CYCLE,USE_YN,UPD_DT,UPD_ID)
+			VALUES (#{job_scheduler_type_cd},#{job_scheduler_nm},#{job_scheduler_desc},#{job_scheduler_exec_type_cd},#{default_exec_cycle},#{use_yn},(SYSDATE + 2/24/60),#{upd_id})
+    </update>
+    
+    
+   	<delete id="deleteJobSchedulerBase" parameterType="jobSchedulerBase">
+		DELETE JOB_SCHEDULER_BASE WHERE JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+	</delete>
+    
+    
+    <!-- JobShcedulerDetail  -->
+    <select id="getJobSchedulerDetailList" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+		SELECT A.JOB_SCHEDULER_TYPE_CD, 
+       C.CD_NM AS JOB_SCHEDULER_TYPE_CD_NM,  
+       A.JOB_SCHEDULER_NM, 
+       A.JOB_SCHEDULER_EXEC_TYPE_CD, 
+       D.CD_NM AS JOB_SCHEDULER_EXEC_TYPE_CD_NM, 
+       A.JOB_SCHEDULER_DESC, 
+       (CASE 
+             WHEN A.JOB_SCHEDULER_EXEC_TYPE_CD = '2' THEN (SELECT DB_NAME FROM DATABASE WHERE DBID = B.JOB_SCHEDULER_WRK_TARGET_ID)  -- E.DB_NAME
+             WHEN A.JOB_SCHEDULER_EXEC_TYPE_CD = '3' THEN (SELECT WRKJOB_CD_NM FROM WRKJOB_CD WHERE WRKJOB_CD = B.JOB_SCHEDULER_WRK_TARGET_ID)
+             WHEN A.JOB_SCHEDULER_EXEC_TYPE_CD = '5' THEN (SELECT CD_NM FROM CD WHERE GRP_CD_ID = '1020' AND CD = B.JOB_SCHEDULER_WRK_TARGET_ID)
+             ELSE B.JOB_SCHEDULER_WRK_TARGET_ID
+       END) JOB_SCHEDULER_WRK_TARGET,
+	   B.*        
+FROM JOB_SCHEDULER_BASE A, 
+     JOB_SCHEDULER_CONFIG_DETAIL B,
+     (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1020') C, 
+     (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1045') D
+
+		WHERE A.JOB_SCHEDULER_TYPE_CD = B.JOB_SCHEDULER_TYPE_CD (+)
+		AND A.JOB_SCHEDULER_TYPE_CD = C.CD(+)
+		AND A.JOB_SCHEDULER_EXEC_TYPE_CD = D.CD(+)
+		AND A.JOB_SCHEDULER_EXEC_TYPE_CD IN ('2', '3', '4','5')
+<!-- 		<trim prefix="WHERE" prefixOverrides="AND |OR"> -->
+			<if test="searchKey != null and (searchKey eq '01'.toString())">
+				AND C.CD_NM LIKE '%' || UPPER(#{searchValue}) || '%'
+			</if>
+			<if test="searchKey != null and (searchKey eq '02'.toString())">
+				AND UPPER(B.UPD_ID) LIKE '%' || UPPER(#{searchValue}) || '%'
+			</if>
+			<if test="search_use_yn != null and search_use_yn !=''">
+				AND B.USE_YN = #{search_use_yn}
+			</if>
+<!-- 			AND JOB_SCHEDULER_EXEC_TYPE_CD IN ('2','3','4','5') -->
+<!-- 		</trim>				 -->
+		ORDER BY A.JOB_SCHEDULER_TYPE_CD, B.JOB_SCHEDULER_WRK_TARGET_ID
+	</select>
+    
+    
+    <!-- SelectJobScheduler_type_cd  -->
+    <select id="selectJobSchedulerTypeCd" parameterType="jobSchedulerBase" resultType="jobSchedulerBase">
+	SELECT A.JOB_SCHEDULER_TYPE_CD, C.CD_NM AS JOB_SCHEDULER_TYPE_CD_NM,  A.JOB_SCHEDULER_NM, A.JOB_SCHEDULER_EXEC_TYPE_CD, D.CD_NM AS JOB_SCHEDULER_EXEC_TYPE_CD_NM, A.JOB_SCHEDULER_DESC 
+	FROM JOB_SCHEDULER_BASE A 			
+	INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1020') C ON A.JOB_SCHEDULER_TYPE_CD = C.CD
+	INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1045') D ON A.JOB_SCHEDULER_EXEC_TYPE_CD = D.CD
+          WHERE A.JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+
+	</select>
+    
+    
+    
+    
+    
+    
+     <update id="saveJobSchedulerDetail" parameterType="jobSchedulerBase">
+		MERGE INTO JOB_SCHEDULER_CONFIG_DETAIL 
+			USING DUAL ON (JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd} AND JOB_SCHEDULER_WRK_TARGET_ID = #{job_scheduler_wrk_target_id})
+		WHEN MATCHED THEN
+			UPDATE SET
+			EXEC_CYCLE = #{exec_cycle},
+            USE_YN = #{use_yn},
+            UPD_DT = SYSDATE + 2/24/60,
+            UPD_ID = #{upd_id},
+            EXEC_START_DT = TO_DATE(#{exec_start_dt}, 'YYYY/MM/DD HH24:MI:SS'),
+            EXEC_END_DT = TO_DATE(#{exec_end_dt}, 'YYYY/MM/DD HH24:MI:SS')
+		WHEN NOT MATCHED THEN 
+			INSERT (JOB_SCHEDULER_TYPE_CD,JOB_SCHEDULER_WRK_TARGET_ID,EXEC_CYCLE,USE_YN,UPD_DT,UPD_ID,EXEC_START_DT,EXEC_END_DT)
+			VALUES (#{job_scheduler_type_cd},#{job_scheduler_wrk_target_id},#{exec_cycle},#{use_yn},(SYSDATE + 2/24/60),#{upd_id},TO_DATE(#{exec_start_dt},'YYYY/MM/DD HH24:MI:SS'),TO_DATE(#{exec_end_dt},'YYYY/MM/DD HH24:MI:SS'))
+    </update>
+    
+    
+   	<delete id="deleteJobSchedulerDetail" parameterType="jobSchedulerBase">
+		DELETE JOB_SCHEDULER_CONFIG_DETAIL
+		WHERE JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd} AND
+		JOB_SCHEDULER_WRK_TARGET_ID = #{job_scheduler_wrk_target_id}
+	</delete>
+	
+	
+    
+    
+    
+    
+    
+    <select id="getJobSchedulerdetailTypeCdList" parameterType="JobSchedulerBase" resultType="JobSchedulerBase">
+		SELECT A.JOB_SCHEDULER_TYPE_CD, B.CD_NM AS JOB_SCHEDULER_TYPE_CD_NM, 
+		A.JOB_SCHEDULER_DETAIL_TYPE_CD, A.JOB_SCHEDULER_DETAIL_TYPE_NM, A.JOB_SCHEDULER_DETAIL_TYPE_DESC
+		FROM JOB_SCHEDULER_DETAIL_TYPE_CD A 
+		INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID ='1020') B ON A.JOB_SCHEDULER_TYPE_CD = B.CD
+		<trim prefix="WHERE" prefixOverrides="AND |OR">
+			<if test="searchKey != null and (searchKey eq '01'.toString())">
+				CD_NM LIKE '%' || #{searchValue} || '%'
+			</if>
+			<if test="searchKey != null and (searchKey eq '02'.toString())">
+				AND JOB_SCHEDULER_DETAIL_TYPE_NM LIKE '%' || #{searchValue} || '%'
+			</if>
+<!-- 			<if test="search_use_yn != null and search_use_yn !=''"> -->
+<!-- 				AND USE_YN = #{search_use_yn} -->
+<!-- 			</if> -->
+		</trim>				
+		ORDER BY JOB_SCHEDULER_TYPE_CD, JOB_SCHEDULER_DETAIL_TYPE_CD
+	</select>
+     
+   	<delete id="deleteJobSchedulerDetailTypeCd" parameterType="JobSchedulerBase">
+		DELETE JOB_SCHEDULER_DETAIL_TYPE_CD 
+		WHERE JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd} and 
+		JOB_SCHEDULER_DETAIL_TYPE_CD = #{job_scheduler_detail_type_cd}
+	</delete>
+	
+    <update id="saveJobSchedulerDetailTypeCd" parameterType="jobSchedulerBase">
+		/* JobSchedulerDao.saveJobSchedulerDetailTypeCd */
+	MERGE INTO JOB_SCHEDULER_DETAIL_TYPE_CD
+            USING DUAL ON (JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd} and JOB_SCHEDULER_DETAIL_TYPE_CD = #{job_scheduler_detail_type_cd})
+        WHEN MATCHED THEN
+            UPDATE SET
+            JOB_SCHEDULER_DETAIL_TYPE_NM = #{job_scheduler_detail_type_nm},
+            JOB_SCHEDULER_DETAIL_TYPE_DESC = #{job_scheduler_detail_type_desc}
+        WHEN NOT MATCHED THEN
+            INSERT (JOB_SCHEDULER_TYPE_CD,JOB_SCHEDULER_DETAIL_TYPE_CD,JOB_SCHEDULER_DETAIL_TYPE_NM,JOB_SCHEDULER_DETAIL_TYPE_DESC)
+            VALUES (#{job_scheduler_type_cd},#{job_scheduler_detail_type_cd},#{job_scheduler_detail_type_nm},#{job_scheduler_detail_type_desc})
+    </update>
+    
+    <select id="checkPkForDetail" parameterType="JobSchedulerBase" resultType="int">
+		SELECT COUNT(JOB_SCHEDULER_TYPE_CD) FROM JOB_SCHEDULER_DETAIL_TYPE_CD WHERE JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd} AND JOB_SCHEDULER_DETAIL_TYPE_CD = #{job_scheduler_detail_type_cd}
+	</select>
+	
+	
+	
+	
+	
+	
+	
+	<select id="getJobSchedulerDependency" parameterType="JobSchedulerBase" resultType="JobSchedulerBase">
+     /* JobSchedulerDao.getJobSchedulerDependency */
+		
+		SELECT A.JOB_SCHEDULER_TYPE_CD, CD1.CD_NM AS JOB_SCHEDULER_TYPE_CD_NM,
+		       A.DPND_JOB_SCHED_TYPE_CD, CD2.CD_NM AS DPND_JOB_SCHED_TYPE_NM,
+		       A.DPND_JOB_SCHED_DETAIL_TYPE_CD, B.JOB_SCHEDULER_DETAIL_TYPE_NM AS DPND_JOB_SCHED_DETAIL_TYPE_NM
+		from JOB_SCHEDULER_DEPENDENCY A
+			INNER JOIN JOB_SCHEDULER_DETAIL_TYPE_CD B ON  A.DPND_JOB_SCHED_TYPE_CD = B.JOB_SCHEDULER_TYPE_CD AND
+			A.DPND_JOB_SCHED_DETAIL_TYPE_CD = B.JOB_SCHEDULER_DETAIL_TYPE_CD
+			INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1020') CD1 ON A.JOB_SCHEDULER_TYPE_CD = CD1.CD
+			INNER JOIN (SELECT CD, CD_NM FROM CD WHERE GRP_CD_ID = '1020') CD2 ON A.DPND_JOB_SCHED_TYPE_CD = CD2.CD
+		<trim prefix="WHERE" prefixOverrides="AND |OR">
+			<if test="searchKey != null and (searchKey eq '01'.toString())">
+				CD1.CD_NM LIKE '%' || #{searchValue} || '%'
+			</if>
+			<if test="searchKey != null and (searchKey eq '02'.toString())">
+				AND CD2.CD_NM LIKE '%' || #{searchValue} || '%'
+			</if>
+			<if test="searchKey != null and (searchKey eq '03'.toString())">
+				AND B.JOB_SCHEDULER_DETAIL_TYPE_NM LIKE '%' || #{searchValue} || '%'
+			</if>
+<!-- 			<if test="search_use_yn != null and search_use_yn !=''"> -->
+<!-- 				AND USE_YN = #{search_use_yn} -->
+<!-- 			</if> -->
+		</trim>				
+	ORDER BY JOB_SCHEDULER_TYPE_CD, DPND_JOB_SCHED_TYPE_CD, DPND_JOB_SCHED_DETAIL_TYPE_CD
+	</select>
+	
+	
+	
+	<delete id="deleteJobSchedulerDependency" parameterType="JobSchedulerBase">
+        /* JobSchedulerDao.deleteJobSchedulerDependency */
+    DELETE JOB_SCHEDULER_DEPENDENCY 
+        WHERE JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd} AND
+        DPND_JOB_SCHED_TYPE_CD =#{old_dpnd_job_sched_type_cd} AND
+        DPND_JOB_SCHED_DETAIL_TYPE_CD = #{old_dpnd_job_sched_detail_type_cd}
+	</delete>
+	
+	<update id="updateJobSchedulerDependency" parameterType="jobSchedulerBase">
+	    /* JobSchedulerDao.updateJobSchedulerDependency */
+	UPDATE JOB_SCHEDULER_DEPENDENCY 
+	    SET
+	        JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd},
+	        DPND_JOB_SCHED_TYPE_CD = #{dpnd_job_sched_type_cd}, 
+	        DPND_JOB_SCHED_DETAIL_TYPE_CD = #{dpnd_job_sched_detail_type_cd}
+	    WHERE 
+	        JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd} AND
+	        DPND_JOB_SCHED_TYPE_CD = #{old_dpnd_job_sched_type_cd} AND 
+	        DPND_JOB_SCHED_DETAIL_TYPE_CD = #{old_dpnd_job_sched_detail_type_cd}
+	</update>
+	
+	 
+	<insert id="insertJobSchedulerDependency" parameterType="jobSchedulerBase">
+	    /* JobSchedulerDao.insertJobSchedulerDependency */
+	INSERT INTO JOB_SCHEDULER_DEPENDENCY (JOB_SCHEDULER_TYPE_CD,DPND_JOB_SCHED_TYPE_CD,DPND_JOB_SCHED_DETAIL_TYPE_CD)
+	VALUES (#{job_scheduler_type_cd},#{dpnd_job_sched_type_cd},#{dpnd_job_sched_detail_type_cd})
+	</insert>
+	
+	<select id="checkPkForDependency"  parameterType="JobSchedulerBase" resultType="int">
+	/* JobSchedulerDao.checkPkForDependency */
+	SELECT COUNT(DPND_JOB_SCHED_DETAIL_TYPE_CD) FROM JOB_SCHEDULER_DEPENDENCY
+	    WHERE 
+	        JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd} AND
+	        DPND_JOB_SCHED_TYPE_CD = #{dpnd_job_sched_type_cd} AND 
+	        DPND_JOB_SCHED_DETAIL_TYPE_CD = #{dpnd_job_sched_detail_type_cd}
+	</select>
+
+
+
+	
+</mapper>

@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.mqm.dao.MqmStatusTrendDao">
+	
+	<select id="getChartNonCompliantStandardizationRateTrend" parameterType="structuralQualityStatusTrend" resultType="structuralQualityStatusTrend">
+		/* omc.mqm.MqmStatusTrendDao.getStructuralQualityStatusTrend(차트1) */
+		WITH DB_STD_RATE AS (
+		    SELECT A.PROJECT_ID
+		         , A.EXTRAC_DT
+		         , SUM(A.ENT_CNT) AS ENT_CNT
+		         , SUM(A.ATT_CNT) AS ATT_CNT
+		         , SUM(A.ERR_CNT) AS ERR_CNT
+		         , SUM(CASE WHEN A.ERR_TYPE_CD = '101' THEN ERR_CNT ELSE 0 END) AS ERR_101_CNT
+		      FROM TB_OPENQ_ERR_CNT A
+		         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+		     WHERE A.PROJECT_ID = #{project_id}
+      		<if test="lib_nm != null and lib_nm != ''">
+		       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+			</if>  
+      		<if test="startDate != null and startDate != '' and endDate != null and endDate != ''">
+		       AND A.EXTRAC_DT BETWEEN 
+		       		TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND
+					TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+			</if>  
+		       AND A.PROJECT_ID = B.PROJECT_ID
+		       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+		    GROUP BY A.PROJECT_ID, A.EXTRAC_DT
+		)
+		SELECT TO_CHAR(A.EXTRAC_DT, 'YYYY-MM-DD') AS STD_INSPECT_DAY  /* DB구조검토일자   */
+		     , A.ERR_CNT
+		     , ROUND((((A.ATT_CNT - A.ERR_101_CNT) / A.ATT_CNT) * 100), 2) AS STD_RATE
+		  FROM DB_STD_RATE A
+		ORDER BY A.EXTRAC_DT
+	</select>
+	
+	<select id="getStatusByModelAll" parameterType="structuralQualityStatusTrend" resultType="structuralQualityStatusTrend">
+		/* omc.mqm.MqmStatusTrendDao.getChartStatusByModelAll */
+			WITH LAST_DB_STD_RATE AS (
+			    SELECT A.PROJECT_ID
+			         , A.EXTRAC_DT    AS LAST_EXTRAC_DT
+			         , SUM(A.ENT_CNT) AS LAST_ENT_CNT
+			         , SUM(A.ATT_CNT) AS LAST_ATT_CNT
+			         , SUM(A.ERR_CNT) AS LAST_ERR_CNT
+			         , SUM(CASE WHEN A.ERR_TYPE_CD = '101' THEN ERR_CNT ELSE 0 END) AS LAST_ERR_101_CNT
+			      FROM TB_OPENQ_ERR_CNT A
+			         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+			     WHERE A.PROJECT_ID = #{project_id}
+				<if test="lib_nm != null and lib_nm != ''">
+			       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+				</if>  
+			       AND A.EXTRAC_DT = (SELECT MAX(B.EXTRAC_DT) 
+			                            FROM TB_OPENQ_ERR_CNT B
+			                           WHERE B.PROJECT_ID = #{project_id}
+			                             AND B.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+			                         ) 
+			       AND A.PROJECT_ID = B.PROJECT_ID
+			       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+			    GROUP BY A.PROJECT_ID, A.EXTRAC_DT
+			), PRE_DB_STD_RATE AS (
+			    SELECT A.PROJECT_ID
+			         , A.EXTRAC_DT    AS PRE_EXTRAC_DT
+			         , SUM(A.ENT_CNT) AS PRE_ENT_CNT
+			         , SUM(A.ATT_CNT) AS PRE_ATT_CNT
+			         , SUM(A.ERR_CNT) AS PRE_ERR_CNT
+			         , SUM(CASE WHEN A.ERR_TYPE_CD = '101' THEN ERR_CNT ELSE 0 END) AS PRE_ERR_101_CNT
+			      FROM TB_OPENQ_ERR_CNT A
+			         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+			     WHERE A.PROJECT_ID = #{project_id}
+           		<if test="lib_nm != null and lib_nm != ''">
+			       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+				</if>  
+			       AND A.EXTRAC_DT = (SELECT MAX(B.EXTRAC_DT) 
+			                            FROM TB_OPENQ_ERR_CNT B
+			                           WHERE B.PROJECT_ID = #{project_id}
+			                             AND B.EXTRAC_DT  <![CDATA[<]]> (SELECT MAX(B.EXTRAC_DT) 
+			                                                  FROM TB_OPENQ_ERR_CNT B
+			                                                 WHERE B.PROJECT_ID = #{project_id}
+			                                                   AND B.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+			                                               )
+			                         ) 
+			       AND A.PROJECT_ID = B.PROJECT_ID
+			       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+			    GROUP BY A.PROJECT_ID, A.EXTRAC_DT
+			)
+			SELECT A.LAST_ENT_CNT          /* 엔터티수      */
+			     , A.LAST_ATT_CNT          /* 속성수        */
+			     , A.LAST_ERR_101_CNT      /* 비표준 속성수 */
+			     , ROUND((((A.LAST_ATT_CNT - A.LAST_ERR_101_CNT) / A.LAST_ATT_CNT) * 100), 2) AS LAST_STD_RATE   /* 표준화율    */ 
+			     , A.LAST_ENT_CNT - B.PRE_ENT_CNT AS INCRE_ENT_CNT               /* 엔터티 증감건수    */ 
+			     , SIGN(A.LAST_ENT_CNT - B.PRE_ENT_CNT) AS INCRE_ENT_CNT_SIGN    /* 엔터티 증감기호    */   
+			     , A.LAST_ATT_CNT - PRE_ATT_CNT AS INCRE_ATT_CNT                 /* 속성 증감건수      */ 
+			     , SIGN(A.LAST_ATT_CNT - B.PRE_ATT_CNT) AS INCRE_ATT_CNT_SIGN    /* 속성 증감기호      */   
+			     , ROUND((((A.LAST_ATT_CNT - A.LAST_ERR_101_CNT) / A.LAST_ATT_CNT) * 100), 2) - ROUND((((B.PRE_ATT_CNT - B.PRE_ERR_101_CNT) / B.PRE_ATT_CNT) * 100), 2) AS INCRE_STD_RATE             /* 표준화율 증감률     */   
+			     , SIGN(ROUND((((A.LAST_ATT_CNT - A.LAST_ERR_101_CNT) / A.LAST_ATT_CNT) * 100), 2) - ROUND((((B.PRE_ATT_CNT - B.PRE_ERR_101_CNT) / B.PRE_ATT_CNT) * 100), 2)) AS INCRE_STD_RATE_SIGN /* 표준화율 증감기호    */   
+			     , LAST_ERR_101_CNT - PRE_ERR_101_CNT AS INCRE_ERR_CNT           /* 비표준 속성건수    */
+			     , SIGN(LAST_ERR_101_CNT - PRE_ERR_101_CNT) AS INCRE_ERR_SIGN    /* 비표준 속성 증감기호    */
+			     , TO_CHAR(A.LAST_EXTRAC_DT, 'YYYY-MM-DD') AS LAST_EXTRAC_DT     /* 금번회차        */
+			     , TO_CHAR(B.PRE_EXTRAC_DT, 'YYYY-MM-DD') AS PRE_EXTRAC_DT       /* 이전회차        */      
+			  FROM LAST_DB_STD_RATE A
+			     , PRE_DB_STD_RATE B
+			  WHERE A.PROJECT_ID = B.PROJECT_ID(+)
+	</select>
+	
+	<select id="getChartStatusByModel" parameterType="structuralQualityStatusTrend" resultType="structuralQualityStatusTrend">
+		/* omc.mqm.MqmStatusTrendDao.getChartStatusByModel(차트2) */
+				WITH LAST_DB_STD_RATE AS (
+		    SELECT A.PROJECT_ID
+		         , A.EXTRAC_DT    AS LAST_EXTRAC_DT
+		         , A.LIB_NM
+		         , A.MODEL_NM
+		         , SUM(A.ENT_CNT) AS LAST_ENT_CNT
+		         , SUM(A.ATT_CNT) AS LAST_ATT_CNT
+		         , SUM(A.ERR_CNT) AS LAST_ERR_CNT
+		         , SUM(CASE WHEN A.ERR_TYPE_CD = '101' THEN ERR_CNT ELSE 0 END) AS LAST_ERR_101_CNT
+		      FROM TB_OPENQ_ERR_CNT A
+		         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+		     WHERE A.PROJECT_ID = #{project_id} 
+				<if test="lib_nm != null and lib_nm != ''">
+		       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+				</if>
+		       AND A.EXTRAC_DT = (SELECT MAX(B.EXTRAC_DT) 
+		                            FROM TB_OPENQ_ERR_CNT B
+		                           WHERE B.PROJECT_ID = #{project_id}
+		                             AND B.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+		                         ) 
+		       AND A.PROJECT_ID = B.PROJECT_ID
+		       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+		    GROUP BY A.PROJECT_ID, A.EXTRAC_DT, A.LIB_NM, A.MODEL_NM
+		), PRE_DB_STD_RATE AS (
+		    SELECT A.PROJECT_ID
+		         , A.EXTRAC_DT    AS PRE_EXTRAC_DT
+		         , A.LIB_NM
+		         , A.MODEL_NM         
+		         , SUM(A.ENT_CNT) AS PRE_ENT_CNT
+		         , SUM(A.ATT_CNT) AS PRE_ATT_CNT
+		         , SUM(A.ERR_CNT) AS PRE_ERR_CNT
+		         , SUM(CASE WHEN A.ERR_TYPE_CD = '101' THEN ERR_CNT ELSE 0 END) AS PRE_ERR_101_CNT
+		      FROM TB_OPENQ_ERR_CNT A
+		         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+		     WHERE A.PROJECT_ID = #{project_id} 
+				<if test="lib_nm != null and lib_nm != ''">
+		       AND A.LIB_NM LIKE '%'||  #{lib_nm} ||'%'
+				</if>     
+		       AND A.EXTRAC_DT = (SELECT MAX(B.EXTRAC_DT) 
+		                            FROM TB_OPENQ_ERR_CNT B
+		                           WHERE B.PROJECT_ID = #{project_id} 
+		                             AND B.EXTRAC_DT  <![CDATA[<]]> (SELECT MAX(B.EXTRAC_DT) 
+		                                                  FROM TB_OPENQ_ERR_CNT B
+		                                                 WHERE B.PROJECT_ID = #{project_id} 
+		                                                   AND B.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+		                                               )
+		                         ) 
+		       AND A.PROJECT_ID = B.PROJECT_ID
+		       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+		    GROUP BY A.PROJECT_ID, A.EXTRAC_DT, A.LIB_NM, A.MODEL_NM
+		)
+		SELECT A.MODEL_NM              /* 모델명        */
+		     , A.LAST_ERR_CNT          /* 미준수 건수   */
+		     , A.LAST_ERR_101_CNT      /* 비표준 속성수 */
+		     , ROUND((((A.LAST_ATT_CNT - A.LAST_ERR_101_CNT) / A.LAST_ATT_CNT) * 100), 2) AS LAST_STD_RATE   /* 금번회차 표준화율    */ 
+		  FROM LAST_DB_STD_RATE A
+		     , PRE_DB_STD_RATE B
+		 WHERE A.PROJECT_ID = B.PROJECT_ID(+)
+		   AND A.LIB_NM = B.LIB_NM(+)
+		   AND A.MODEL_NM = B.MODEL_NM(+)
+		ORDER BY A.LIB_NM, A.MODEL_NM   
+	</select>
+	
+	<select id="getChartStandardizationRateStatusByModel" parameterType="structuralQualityStatusTrend" resultType="structuralQualityStatusTrend">
+		/* omc.mqm.MqmStatusTrendDao.getChartStandardizationRateStatusByModel(차트3) */
+		WITH LAST_DB_STD_RATE AS (
+		    SELECT A.PROJECT_ID
+		         , A.LIB_NM
+		         , A.MODEL_NM
+		         , MIN(A.EXTRAC_DT) AS LAST_EXTRAC_DT
+		         , SUM(A.ENT_CNT) AS LAST_ENT_CNT
+		         , SUM(A.ATT_CNT) AS LAST_ATT_CNT
+		         , SUM(A.ERR_CNT) AS LAST_ERR_CNT
+		         , SUM(CASE WHEN A.ERR_TYPE_CD = '101' THEN ERR_CNT ELSE 0 END) AS LAST_ERR_101_CNT
+		      FROM TB_OPENQ_ERR_CNT A
+		         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+		     WHERE A.PROJECT_ID = #{project_id}
+				<if test="lib_nm != null and lib_nm != ''">
+		       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+				</if>  
+		       AND A.EXTRAC_DT = (SELECT MAX(B.EXTRAC_DT) 
+		                            FROM TB_OPENQ_ERR_CNT B
+		                           WHERE B.PROJECT_ID = #{project_id}
+		                             AND B.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+		                         ) 
+		       AND A.PROJECT_ID = B.PROJECT_ID
+		       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+		    GROUP BY A.PROJECT_ID, A.LIB_NM, A.MODEL_NM
+		), PRE_DB_STD_RATE AS (
+		    SELECT A.PROJECT_ID
+		         , A.LIB_NM
+		         , A.MODEL_NM
+		         , MIN(A.EXTRAC_DT) AS PRE_EXTRAC_DT
+		         , SUM(A.ENT_CNT) AS PRE_ENT_CNT
+		         , SUM(A.ATT_CNT) AS PRE_ATT_CNT
+		         , SUM(A.ERR_CNT) AS PRE_ERR_CNT
+		         , SUM(CASE WHEN A.ERR_TYPE_CD = '101' THEN ERR_CNT ELSE 0 END) AS PRE_ERR_101_CNT
+		      FROM TB_OPENQ_ERR_CNT A
+		         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+		     WHERE A.PROJECT_ID = #{project_id} 
+				<if test="lib_nm != null and lib_nm != ''">
+		       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+				</if>  
+		       AND A.EXTRAC_DT = (SELECT MAX(B.EXTRAC_DT) 
+		                            FROM TB_OPENQ_ERR_CNT B
+		                           WHERE B.PROJECT_ID = #{project_id}
+		                             AND B.EXTRAC_DT <![CDATA[<]]> (SELECT MAX(B.EXTRAC_DT) 
+		                                                  FROM TB_OPENQ_ERR_CNT B
+		                                                 WHERE B.PROJECT_ID = #{project_id}
+		                                                   AND B.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+		                                               )
+		                         ) 
+		       AND A.PROJECT_ID = B.PROJECT_ID
+		       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+		    GROUP BY A.PROJECT_ID, A.LIB_NM, A.MODEL_NM
+		)
+		SELECT A.MODEL_NM
+		     , ROUND((((B.PRE_ATT_CNT - B.PRE_ERR_101_CNT) / B.PRE_ATT_CNT) * 100), 2)    AS PRE_STD_RATE    /* 이전회차 표준화율    */ 
+		     , ROUND((((A.LAST_ATT_CNT - A.LAST_ERR_101_CNT) / A.LAST_ATT_CNT) * 100), 2) AS LAST_STD_RATE   /* 금번회차 표준화율    */ 
+		     , A.LAST_ERR_101_CNT      /* 비표준 속성수 */
+		     , TO_CHAR(A.LAST_EXTRAC_DT, 'YYYY-MM-DD') AS LAST_EXTRAC_DT     /* 금번회차        */
+		     , TO_CHAR(B.PRE_EXTRAC_DT, 'YYYY-MM-DD') AS PRE_EXTRAC_DT       /* 이전회차        */      
+		  FROM LAST_DB_STD_RATE A
+		     , PRE_DB_STD_RATE B
+		 WHERE A.PROJECT_ID = B.PROJECT_ID(+)
+		   AND A.LIB_NM = B.LIB_NM(+)
+		   AND A.MODEL_NM = B.MODEL_NM(+)
+		  ORDER BY A.LIB_NM, A.MODEL_NM   
+	</select>
+
+	<select id="getChartNonComplianceStatus" parameterType="structuralQualityStatusTrend" resultType="structuralQualityStatusTrend">
+		/* omc.mqm.MqmStatusTrendDao.getChartNonComplianceStatus(차트4) */
+         WITH DB_STD_RATE AS (
+             SELECT A.PROJECT_ID
+                  , A.ERR_TYPE_CD
+                  , SUM(A.ERR_CNT) AS ERR_CNT
+               FROM TB_OPENQ_ERR_CNT A
+                  , TB_OPENM_PROJECT_QTY_CHK_SQL B
+			     WHERE A.PROJECT_ID = #{project_id}
+			       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+				<if test="model_nm != null and model_nm != ''">
+			       AND A.MODEL_NM LIKE '%'|| #{model_nm} ||'%'
+				</if>  
+                     AND A.EXTRAC_DT = (SELECT MAX(B.EXTRAC_DT) 
+                                          FROM TB_OPENQ_ERR_CNT B
+                                         WHERE B.PROJECT_ID = #{project_id}
+                                           AND B.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+                                       ) 
+                   
+                AND A.ERR_TYPE_CD != '100'         /* 집계표 제외 */
+                AND A.PROJECT_ID = B.PROJECT_ID
+                AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+             GROUP BY A.PROJECT_ID, A.ERR_TYPE_CD
+         )
+         SELECT B.QTY_CHK_IDT_CD
+              , B.QTY_CHK_IDT_CD||' '||B.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM   /* 품질지표   */  
+              , A.ERR_CNT           /* 미준수 건수 */
+           FROM DB_STD_RATE A
+              , TB_OPENM_QAINDI B
+          WHERE A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD    
+         ORDER BY B.SRT_ORD DESC
+	</select>
+	
+	<select id="getChartNonComplianceStatus_old" parameterType="structuralQualityStatusTrend" resultType="structuralQualityStatusTrend">
+		/* omc.mqm.MqmStatusTrendDao.getChartNonComplianceStatus(차트4) */
+					WITH DB_STD_RATE AS (
+			    SELECT A.PROJECT_ID
+			         , A.ERR_TYPE_CD
+			         , SUM(A.ERR_CNT) AS ERR_CNT
+			      FROM TB_OPENQ_ERR_CNT A
+			         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+			     WHERE A.PROJECT_ID = #{project_id}
+			       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+				<if test="model_nm != null and model_nm != ''">
+			       AND A.MODEL_NM LIKE '%'|| #{model_nm} ||'%'
+				</if>  
+					<choose>
+						<when test="model_nm != null and model_nm != '' and extrac_dt != null and extrac_dt != ''">
+							AND A.EXTRAC_DT = TO_DATE(#{extrac_dt} || '000000', 'YYYY-MM-DD HH24:MI:SS')
+						</when>
+						<otherwise>
+							AND A.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+						</otherwise>
+					</choose>
+			       AND A.ERR_TYPE_CD != '100'         /* 집계표 제외 */
+			       AND A.PROJECT_ID = B.PROJECT_ID
+			       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+			    GROUP BY A.PROJECT_ID, A.ERR_TYPE_CD
+			)
+			SELECT B.QTY_CHK_IDT_CD
+			     , B.QTY_CHK_IDT_CD||' '||B.QTY_CHK_IDT_NM AS QTY_CHK_IDT_NM   /* 품질지표   */  
+			     , A.ERR_CNT           /* 미준수 건수 */
+			  FROM DB_STD_RATE A
+			     , TB_OPENM_QAINDI B
+			 WHERE A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD    
+			ORDER BY B.SRT_ORD DESC
+	</select>
+	
+	<select id="getChartNumberNonCompliantByModel" parameterType="structuralQualityStatusTrend" resultType="structuralQualityStatusTrend">
+		/* omc.mqm.MqmStatusTrendDao.getChartNumberNonCompliantByModel(차트5) */
+				WITH DB_STD_RATE AS (
+				    SELECT A.PROJECT_ID
+				         , A.EXTRAC_DT
+				         , A.LIB_NM
+				         , A.MODEL_NM
+				         , SUM(A.ERR_CNT) AS ERR_CNT
+				      FROM TB_OPENQ_ERR_CNT A
+				         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+				     WHERE A.PROJECT_ID = #{project_id} 
+				       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+     				<if test="model_nm != null and model_nm != ''">
+				       AND A.MODEL_NM LIKE '%'|| #{model_nm} ||'%'
+					</if>  
+					   AND A.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+				       AND A.ERR_TYPE_CD != '100'         /* 집계표 제외 */
+				       AND A.PROJECT_ID = B.PROJECT_ID
+				       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+				    GROUP BY A.PROJECT_ID, A.EXTRAC_DT, A.LIB_NM, A.MODEL_NM
+				)
+				SELECT A.MODEL_NM
+				     , TO_CHAR(A.EXTRAC_DT, 'YYYY-MM-DD') AS STD_INSPECT_DAY  /* DB구조검토일자   */
+				     , A.ERR_CNT           /* 미준수 건수 */
+				  FROM DB_STD_RATE A
+				ORDER BY A.LIB_NM, A.MODEL_NM, A.EXTRAC_DT
+	</select>
+	
+	<select id="getChartStandardComplianceRateTrend" parameterType="structuralQualityStatusTrend" resultType="structuralQualityStatusTrend">
+		/* omc.mqm.MqmStatusTrendDao.getChartStandardComplianceRateTrend(차트6) */
+			WITH DB_STD_RATE AS (
+			    SELECT A.PROJECT_ID
+			         , A.EXTRAC_DT
+			         , A.LIB_NM
+			         , A.MODEL_NM
+			         , SUM(A.ATT_CNT) AS ATT_CNT
+			         , SUM(CASE WHEN A.ERR_TYPE_CD = '101' THEN ERR_CNT ELSE 0 END) AS ERR_101_CNT
+			      FROM TB_OPENQ_ERR_CNT A
+			         , TB_OPENM_PROJECT_QTY_CHK_SQL B
+			     WHERE A.PROJECT_ID = #{project_id} 
+			       AND A.LIB_NM LIKE '%'|| #{lib_nm} ||'%'
+				<if test="model_nm != null and model_nm != ''">
+			       AND A.MODEL_NM LIKE '%'|| #{model_nm} ||'%'
+				</if>  
+			       AND A.EXTRAC_DT BETWEEN TO_DATE(#{startDate} || '000000', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{endDate} || '235959', 'YYYY-MM-DD HH24:MI:SS')
+			       AND A.PROJECT_ID = B.PROJECT_ID
+			       AND A.ERR_TYPE_CD = B.QTY_CHK_IDT_CD
+			    GROUP BY A.PROJECT_ID, A.EXTRAC_DT, A.LIB_NM, A.MODEL_NM
+			)
+			SELECT A.MODEL_NM
+			     , TO_CHAR(A.EXTRAC_DT, 'YYYY-MM-DD') AS STD_INSPECT_DAY  /* DB구조검토일자   */
+			     , ROUND((((A.ATT_CNT - A.ERR_101_CNT) / A.ATT_CNT) * 100), 2) AS STD_RATE
+			  FROM DB_STD_RATE A
+			ORDER BY A.LIB_NM, A.MODEL_NM, A.EXTRAC_DT
+	</select>
+	
+</mapper>

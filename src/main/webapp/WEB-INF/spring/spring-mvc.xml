@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+
+	<context:component-scan base-package="omc.spop.view" />
+	<!-- Set a single basename, following java.util.ResourceBundle conventions. 
+		The default is "views". ResourceBundle supports different suffixes. For example, 
+		a base name of "views" might map to ResourceBundle files "views", "views_en_au" 
+		and "views_de". Note that ResourceBundle names are effectively classpath 
+		locations: As a consequence, the JDK's standard ResourceBundle treats dots 
+		as package separators. This means that "test.theme" is effectively equivalent 
+		to "test/theme", just like it is for programmatic java.util.ResourceBundle 
+		usage. -->
+	<bean id="viewResolver1"
+		class="org.springframework.web.servlet.view.ResourceBundleViewResolver">
+		<property name="order" value="1" />
+		<property name="basename" value="views" />
+	</bean>
+
+	<bean id="viewResolver2"
+		class="org.springframework.web.servlet.view.ResourceBundleViewResolver">
+		<property name="order" value="1" />
+		<property name="basename" value="xlsxviews" />
+	</bean>
+
+</beans>

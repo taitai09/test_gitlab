@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2019.12.27	명성태	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.ExamineOpenPOPDao">
+	<select id="rtrvSchedulerStatusHistory" parameterType="jobSchedulerExecLog" resultType="jobSchedulerExecLog">
+		/* ExamineOpenPOPDao.rtrvSchedulerStatusHistory */
+		/* 스케쥴러수행현황 */
+		WITH SCHEDULER_EXC AS (
+			SELECT A.BASE_DAY
+				, NVL(A.DBID, 0) AS DBID /* DBID가 없는 스케쥴러가 있음. 예) APM 수집 */
+				, SUM(CASE WHEN A.JOB_STATUS_CD = 'COMPLETE' THEN 1 ELSE 0 END) AS COMPLETE_CNT
+				, SUM(CASE WHEN A.JOB_STATUS_CD = 'COMPLETE' THEN 0 ELSE 1 END) AS ERROR_CNT
+			FROM JOB_SCHEDULER_EXEC_LOG A
+			WHERE BASE_DAY BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(REPLACE(#{base_day},'-',''), 'YYYYMMDD'), -1), 'YYYYMMDD') AND REPLACE(#{base_day},'-','')
+			GROUP BY A.BASE_DAY, A.DBID
+		), BASE_DATA AS (
+			/* 일자별 DB SET을 위한 카테시안곱 */
+			SELECT A.DAY_8CHAR AS BASE_DAY
+				, B.DBID
+				, B.DB_NAME
+				, B.ORDERING
+			FROM CALENDAR A
+				, (
+					SELECT DBID, DB_NAME, ORDERING, USE_YN
+					FROM DATABASE
+					WHERE USE_YN = 'Y'
+					UNION ALL
+					/* DBID가 없는 스케쥴러일 경우 [기타]로 정의 */
+					SELECT 0, '기타',  99999, 'Y'
+					FROM DUAL
+				) B
+				WHERE A.DAY BETWEEN ADD_MONTHS(TO_DATE(REPLACE(#{base_day},'-',''), 'YYYYMMDD'), -1) 
+								AND TO_DATE(REPLACE(#{base_day},'-','') || '235959', 'YYYYMMDDHH24MISS')
+		), RESULT_SET AS (
+			/* 조건 결과 SET */
+			SELECT A.BASE_DAY
+				, A.DB_NAME
+				, CASE WHEN B.ERROR_CNT > 0 THEN '2'        /* 오류   */
+					WHEN B.COMPLETE_CNT IS NULL THEN '3' /* 미수행 */
+					ELSE '1'
+					END AS SCHEDULER_JOB_STATUS_CD    
+				, A.DBID
+				, B.COMPLETE_CNT
+				, B.ERROR_CNT
+				, A.ORDERING
+			FROM BASE_DATA A
+				, SCHEDULER_EXC B
+			WHERE A.BASE_DAY = B.BASE_DAY(+)
+			AND A.DBID = B.DBID(+)
+			<if test="error_yn != null and error_yn.equalsIgnoreCase('Y')">
+				-- 스케줄러 오류 = 'Yes' 일 경우
+				AND B.ERROR_CNT > 0
+			</if>
+		)
+		SELECT
+			A.BASE_DAY
+			, A.DB_NAME
+			, NVL(B.SCHEDULER_JOB_STATUS_CD, 1) AS SCHEDULER_JOB_STATUS_CD
+			-- HIDDEN
+			, A.DBID
+			, B.COMPLETE_CNT
+			, B.ERROR_CNT
+		FROM (/* 조회 조건이 오류일 경우. 조회 기간에 오류 DB가 2건, 각각 오류일자가 다를 경우 WEB 구현 편의성을 위해 아래의 예와 같이 데이터를 만듬.
+			예. 12/1 A 오류, 12/2 B 오류 --> 12/1 A 오류, 12/1 B 정상, 12/2 A 정상, 12/2 B 오류 */
+			SELECT A.DBID, A.DB_NAME, A.ORDERING, B.BASE_DAY
+			FROM (SELECT DISTINCT DBID, DB_NAME, ORDERING 
+					FROM RESULT_SET) A
+				, (SELECT DISTINCT BASE_DAY
+					FROM RESULT_SET) B
+		) A
+			, RESULT_SET B
+		WHERE A.DBID = B.DBID(+)
+		AND A.BASE_DAY = B.BASE_DAY(+)
+		ORDER BY A.BASE_DAY DESC, A.ORDERING
+	</select>
+	
+	<sql id="performSchedulerListRefId">
+		/* ExamineOpenPOPDao.performSchedulerListRefId */
+		/* 스케줄러 수행 내역*/
+		SELECT A.JOB_EXEC_NO
+			, A.JOB_SCHEDULER_TYPE_CD
+			, CD1.CD_NM AS JOB_SCHEDULER_TYPE_NM
+			, TO_CHAR(TO_DATE(A.BASE_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') AS BASE_DAY
+			, TO_CHAR(JOB_START_DT, 'YYYY-MM-DD HH24:MI:SS') AS JOB_START_DT
+			, TO_CHAR(JOB_END_DT,'YYYY-MM-DD HH24:MI:SS') AS JOB_END_DT
+			, A.JOB_STATUS_CD
+			, A.DBID
+			, B.DB_NAME
+			, A.WRKJOB_CD
+			, C.WRKJOB_CD_NM
+			, CASE WHEN A.JOB_STATUS_CD = 'ERROR' THEN 1 
+				WHEN A.JOB_STATUS_CD = 'DEPENDENCY_FAIL' THEN 2 
+				WHEN A.JOB_STATUS_CD = 'GATHERING' THEN 3 
+				WHEN A.JOB_STATUS_CD = 'COMPLETE' THEN 4 
+				ELSE 5 
+				END AS SORT_ORDER
+		FROM JOB_SCHEDULER_EXEC_LOG A
+			, DATABASE B
+			, WRKJOB_CD C
+			, CD CD1  
+		WHERE A.JOB_SCHEDULER_TYPE_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1020'
+		AND A.DBID = B.DBID(+)
+		AND A.WRKJOB_CD = C.WRKJOB_CD(+)
+		AND A.BASE_DAY BETWEEN REPLACE(#{strStartDt},'-','') AND REPLACE(#{strEndDt},'-','')
+		<if test="dbid != null and dbid != ''">
+			AND NVL(A.DBID, 0) = #{dbid}  /* DBID가 없는 스케쥴러가 있음. 예) APM 수집 */
+		</if>
+		<if test="job_scheduler_type_cd != null and job_scheduler_type_cd != ''">
+			AND A.JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+		</if>
+		<if test="error_yn != null and error_yn.equalsIgnoreCase('Y')">
+			-- 스케줄러 오류 = 'Yes' 일 경우
+			AND A.JOB_STATUS_CD <![CDATA[<>]]> 'COMPLETE'
+		</if>
+		ORDER BY A.BASE_DAY DESC, SORT_ORDER ASC, A.JOB_EXEC_NO DESC
+	</sql>
+	
+	<select id="performSchedulerList" parameterType="jobSchedulerExecLog" resultType="jobSchedulerExecLog">
+		/* ExamineOpenPOPDao.performSchedulerList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, AA.*
+			FROM (
+				<include refid="performSchedulerListRefId"/>
+			) AA
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="performSchedulerListByExcelDown" parameterType="jobSchedulerExecLog" resultType="java.util.LinkedHashMap">
+		/* ExamineOpenPOPDao.performSchedulerListByExcelDown */
+		<include refid="performSchedulerListRefId"/>
+	</select>
+	
+	<select id="performSchedulerDetailList" parameterType="jobSchedulerExecDetailLog" resultType="jobSchedulerExecDetailLog">
+		/* ExamineOpenPOPDao.performSchedulerDetailList */
+		SELECT A.JOB_EXEC_NO
+			, A.JOB_SCHEDULER_TYPE_CD
+			, A.JOB_SCHEDULER_DETAIL_TYPE_CD
+			, B.JOB_SCHEDULER_DETAIL_TYPE_NM
+			, TO_CHAR(A.JOB_EXEC_DT,'YYYY-MM-DD HH24:MI:SS') AS JOB_EXEC_DT
+			, A.JOB_TARGET_CNT
+			, A.JOB_ERR_CODE
+			, A.JOB_ERR_SBST
+			, A.HNDOP_JOB_EXEC_YN
+			, A.HNDOP_WORKER_ID
+			, C.USER_NM AS HNDOP_WORKER_NM
+			-- HIDDEN
+			, CASE WHEN A.JOB_ERR_CODE IS NOT NULL THEN 1 ELSE 2 END AS SORT_ORDER
+		FROM JOB_SCHEDULER_EXEC_DETAIL_LOG A
+			, JOB_SCHEDULER_DETAIL_TYPE_CD B
+			, USERS C
+		WHERE A.JOB_SCHEDULER_TYPE_CD = B.JOB_SCHEDULER_TYPE_CD
+		AND A.JOB_SCHEDULER_DETAIL_TYPE_CD = B.JOB_SCHEDULER_DETAIL_TYPE_CD
+		AND A.HNDOP_WORKER_ID = C.USER_ID(+)
+		AND A.JOB_EXEC_NO = #{job_exec_no}
+		AND A.JOB_SCHEDULER_TYPE_CD = #{job_scheduler_type_cd}
+		<if test="job_err_yn != null and job_err_yn.equalsIgnoreCase('Y')">
+			-- 스케줄러 오류 = 'Yes' 일 경우
+			AND A.JOB_ERR_CODE IS NOT NULL
+		</if>
+		<if test="hndop_job_exec_yn != null and (hndop_job_exec_yn eq 'Y'.toString())">
+			AND A.HNDOP_JOB_EXEC_YN = 'Y'
+		</if>
+		ORDER BY SORT_ORDER ASC, JOB_EXEC_DT DESC
+	</select>
+	
+	<select id="instanceList" resultType="instance">
+		/* ExamineOpenPOPDao.instanceList */
+		SELECT D.DBID, D.DB_NAME, D.ORDERING, A.INST_ID,
+			A.AGENT_IP, A.AGENT_PORT,
+			A.GATHER_AGENT_PORT
+		FROM INSTANCE A
+		INNER JOIN DATABASE D
+		ON A.DBID = D.DBID
+		WHERE 1=1
+		ORDER BY D.ORDERING, A.INST_ID
+	</select>
+</mapper>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>10.	성능 검증/추적</h1>
+	<h2>10.1.	배포전 성능 점검</h2>
+	<h3>10.1.6.	성능 점검 현황</h3>
+	<div>
+		<p>배포전 성능 점검 현황을 CM점검현황, 프로그램 점검 현황, 지표별 부적합 현황으로 나누어 볼 수 있다.</p>
+	</div>
+
+	<div class="pointbox">
+		<p class="point-title">[CM 점검 현황] 탭</p>
+		업무, 검색조건(배포요청일시, 점검완료일시, 배포예정일시)을 선택한 후 검색한다.<br />
+		검색결과로는 업무, 요청, 완료(소계, 적합, 부적합), 미완료(소계, 개발확정, 점검중, 개발확정취소, 배포삭제)가 조회된다.
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/10-1-6-1.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[프로그램 점검 현황] 탭</p>
+		업무, 검색조건(배포요청일시, 점검완료일시, 배포예정일시)을 선택한 후 검색한다.<br />
+		검색결과로는 업무, 전체, 점검결과(적합, 부적합, 오류, 미수행, 점검제외), 개발구분(신규, 변경, 동일)이 조회된다.
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/10-1-6-2.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[지표별 부적합 현황] 탭</p>
+		업무, 검색조건(배포요청일시, 점검완료일시, 배포예정일시)을 선택한 후 검색한다.<br />
+		검색결과로는 업무, 전체프로그램, 부적합프로그램, 수행시간, 블럭수, 처리건수, 메모리사용량(MB), 대용량테이블Full Scan, 전체 파티션 액세스가 조회된다.
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/10-1-6-3.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[성능 점검 예외 처리 현황] 탭</p>
+		성능 점검 예외 처리 현황을 조회할 수 있다. 업무를 선택한 후 검색한다.
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/10-1-6-4.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[성능 점검 예외 처리 사유별 현황] 탭</p>
+		성능 점검 예외 처리 사유별 현황을 알 수 있다.
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/10-1-6-5.jpg"></p>
+
+		<h4>엑셀</h4>
+		<p>조회된 데이터를 엑셀로 다운로드한다.</p>
+	</div>
+</div>
+</body>
+</html>

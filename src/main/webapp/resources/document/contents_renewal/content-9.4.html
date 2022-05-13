@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>9. 성능 검증</h1>
+	<h2>9.3. 성능 검증 설정</h2>
+
+	<div class="pointbox">
+		<p class="point-title">[성능 점검 지표 관리] 탭</p>
+		성능 점검 지표를 정의하고 조회/등록/수정할 수 있다.
+	</div>
+	<div>
+		<h4>성능 점검 지표 관리</h4>
+		<p>점검 지표, 점검 방법(범위, 여부) 사용여부, 지표설명, 부적합 가이드를 입력한 후 점검지표를 등록한다.</p>
+		<p class="point-underline">성능 점검지표를 등록하면 [업무별 성능점검 지표 관리]에 기반이 되는 데이터를 정의하고 관리할 수 있다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/56-1.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[성능 점검 단계 관리] 탭</p>
+		성능 점검 단계 관리를 정의하고 조회/등록/수정할 수있다. 
+	</div>
+	<div>
+		<h4>성능 점검 단계 관리</h4>
+		<p>단계 순서, 점검단계, 성능점검자동 실행여부, 삭제여부, 점검단계설명을 입력한 후 저장한다.</p>
+		<p class="point-underline">성능 점검 단계를 등록하면 [업무별 성능 점검 단계 관리]에 기반이 되는 데이터를 정의하고 관리할 수 있다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/58-1.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[업무별 성능 점검 지표 관리] 탭</p>
+		업무별 성능 점검 지표를 정의하고 조회/등록/수정할 수 있다.
+	</div>
+	<div>
+		<h4>업무별 성능 점검 지표 관리</h4>
+		<div class="list-a">
+			<ul>
+				<li>-  업무, 적용여부를 선택하고 검색한다. </li>
+				<li>-  [등록구분(등록/미등록)] 여부에 따라 등록하거나 수정할 수 있다.</li>
+				<li>-  [점검방법(범위/여부)] 에따라 (적합, 부적합), (여부값 판정구분)을 입력하여 데이터를 저장한다.</li>
+			</ul>
+		</div>
+		<p class="point-underline">[성능 점검 지표 관리]에 정의한 데이터를 조회하여 지표관리를 세부적으로 할 수 있다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/57-1.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[업무별 성능 점검 단계 관리] 탭</p>
+		업무별로 성능 점검 단계를 조회/등록/수정할 수 있다.
+	</div>
+	<div>
+		<h4>업무별 성능 점검 단계 관리</h4>
+		<div class="list-a">
+			<ul>
+				<li>-  업무, 삭제여부를 선택한 후 조회한다.</li>
+				<li>-  업무, 점검단계, 단계순서, 삭제여부, DB, 프로그램을 선택한 후 데이터를 저장하거나 수정한다.</li>
+			</ul>
+		</div>
+		<p class="point-underline">[성능 점검 단계]에 등록되어 있는 데이터에 한해서 업무, DB 프로그램을 점검단계별로 정의할 수 있다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/59-1.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[업무별 파싱 스키마 관리] 탭</p>
+		업무별로 파싱스키마를 조회하며 점검단계를 등록/수정할 수 있다.
+	</div>
+	<div>
+		<h4>업무별 파싱 스키마 관리</h4>
+		<div class="list-a">
+			<ul>
+				<li>-  업무, 삭제여부를 선택한 후 검색한다.</li>
+				<li>-  그리드 클릭 시 수정, 초기화 클릭 시 등록 되고 업무, 점검단계, 단계순서, 삭제여부, DB, 스키마를 입력 후 저장한다.</li>
+			</ul>
+		</div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/60-1.jpg"></p>
+	</div>
+</div>
+</body>
+</html>

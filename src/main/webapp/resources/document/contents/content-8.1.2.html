@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>8. 성능 점검</h1>
+
+	<h2>8.1. SQL 표준 점검</h2>
+	<h3>8.1.2. SQL 표준 품질점검 설정 </h3>
+	<div class="pointbox">
+		<p class="point-title">[SQL 품질점검 지표 관리] 탭</p>
+		SQL 표준 품질점검 지표 정보를 조회 및 추가하거나 수정한다.
+	</div>
+	<div>
+		<h4>엑셀</h4>
+		<p>현재 데이터를 엑셀형식으로 다운로드 하여 보여준다.</p>
+
+		<h4>데이터 등록</h4>
+		<p>[초기화] 버튼을 누른 후 데이터를 순서대로 입력 한다.</p>
+
+		<h4>데이터 수정</h4>
+		<p>원하는 데이터를 클릭 후 수정한다.<br />수정 시 음영영역은 데이터수정이 불가하다.</p>
+
+		<h4>데이터 삭제</h4>
+		<p>원하는 데이터를 클릭 후 삭제한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/8-1-2-1.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+
+	<div class="pointbox">
+		<p class="point-title">[SQL 품질점검 RULE 관리] 탭</p>
+		SQL표준에 대한 품질점검은 고객사 마다 점검대상 및 점검RULE이 상이할 수 있다.<br />
+		유지보수 편의성을 위해 변경이 예상되는 RULE을 Table에서 관리하고, 메뉴에서 해당 SQL을 호출하는 방식으로 프로그래밍 되어 있다. <br />
+		본 가이드에 있는 표준 RULE을 셋팅하고 작성 규칙을 준수하여 RULE을 수정해야 한다. RULE의 수정은 Openmade가 수행한다.
+	</div>
+	<div>
+		<p class="imagebox"><img src="/resources/images/menual/bgimg/8-1-2-2.jpg"></p>
+	</div>
+
+	<div class="seperate-line"></div>
+
+	<div class="pointbox">
+		<p class="point-title">[프로젝트 SQL 품질점검 지표 관리] 탭</p>
+		프로젝트 별로 SQL품질 점검 지표 코드를 조회 및 추가하거나 수정할 수 있다.
+	</div>
+	<div>
+		<h4>검색조건</h4>
+		<p>검색조건으로는 프로젝트와 적용여부가 있다.</p>
+
+		<h4>프로젝트 조회</h4>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/8-1-2-3.jpg"></p>
+
+		<h4>프로젝트 SQL 품질점검 지표 조회</h4>
+		<p>프로젝트에 해당하는 SQL 품질점검 지표를 조회한다.</p>
+
+		<h4>프로젝트 표준 지표 적용</h4>
+		<p>선택된 프로젝트의 품질점검RULE에 대하여 표준 RULE을 일괄 적용한다.</p>
+
+		<h4>엑셀</h4>
+		<p>조회된 데이터를 엑셀로 다운로드한다.</p>
+
+		<h4>프로젝트 SQL 품질점검 지표 조회</h4>
+		<p>검색된 데이터를 그리드에서 클릭하였을 때 아랫부분에 상세 정보를 보여준다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/8-1-2-5.jpg"></p>
+
+		<h4>프로젝트 SQL 품질점검 지표 수정</h4>
+		<p>상세 정보 조회 모드에서 적용여부를 적용, 비적용으로 변경할 수 있다.</p>
+
+		<h4>초기화</h4>
+		<p>상세 정보 조회 항목들을 초기화한다.</p>
+	</div>
+
+	<div class="seperate-line"></div>
+
+	<div class="pointbox">
+		<p class="point-title">[프로젝트 SQL 품질점검 RULE 관리] 탭</p>
+		프로젝트 별로 SQL품질 점검 RULE을 조회 및 추가하거나 수정할 수 있다.
+	</div>
+	<div>
+		<h4>검색조건</h4>
+		<p>검색조건으로는 프로젝트와 적용여부가 있다.</p>
+
+		<h4>프로젝트 조회</h4>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/8-1-2-6.jpg"></p>
+
+		<h4>프로젝트 SQL 품질점검 RULE 조회</h4>
+		<p>프로젝트에 해당하는 SQL 품질점검 RULE을 조회한다.</p>
+			<div class="list-a">
+				<ul>
+					<li>해당 RULE은 암호화되어 있으며, RULE의 변경이 필요할 경우 Openmade 담당자가 수정하고 수정된 RULE을 전달받아 저장한다.</li>
+				</ul>
+			</div>
+
+		<h4>프로젝트 표준 RULE적용</h4>
+		<p>선택된 프로젝트의 품질점검RULE에 대하여 표준 RULE을 일괄 적용한다.</p>
+
+		<h4>엑셀</h4>
+		<p>조회된 데이터를 엑셀로 다운로드한다.</p>
+
+		<h4>프로젝트 SQL 품질점검 RULE 조회</h4>
+		<p>검색된 데이터를 그리드에서 클릭하였을 때 아랫부분에 상세 정보를 보여준다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/8-1-2-8.jpg"></p>
+
+		<h4>프로젝트 SQL 품질점검 RULE 수정</h4>
+		<p>상세 정보 조회 모드에서 적용여부 및 품질 점검 RULE을 변경할 수 있다.</p>
+
+		<h4>초기화</h4>
+		<p>상세 정보 조회 항목들을 초기화한다.</p>
+
+		<h4>RULE 복사</h4>
+		<p>Text Area에 있는 RULE을 복사한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/8-1-2-9.jpg"></p>
+	</div>
+</div>
+</body>
+</html>

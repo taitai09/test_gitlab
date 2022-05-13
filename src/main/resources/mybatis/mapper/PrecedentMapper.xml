@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.08	이원식	OPENPOP V2 최초작업	
+-->
+<mapper namespace="omc.spop.dao.PrecedentDao">	
+	<select id="sqlTuningGuideList" parameterType="perfGuide" resultType="perfGuide">
+		/* PrecedentDao.sqlTuningGuideList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="sqlTuningGuideListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>
+
+	<select id="sqlTuningGuideList4Excel" parameterType="perfGuide" resultType="java.util.LinkedHashMap">
+		/* PrecedentDao.sqlTuningGuideList4Excel */
+		<include refid="sqlTuningGuideListRefId"/>
+	</select>
+
+	<sql id="sqlTuningGuideListRefId">
+		/* PrecedentDao.sqlTuningGuideListRefId */
+		SELECT DECODE(TOP_FIX_YN, 'Y', '<![CDATA[<i class="fas fa-thumbtack"></i>]]>') AS PINSET
+		     , A.GUIDE_NO
+			 , A.SYS_NM
+			 , A.GUIDE_TITLE_NM
+			 , A.REG_USER_ID
+			 , U1.USER_NM AS REG_USER_NM
+			 , TO_CHAR(A.REG_DT,'YYYY-MM-DD HH24:MI:SS') REG_DT
+			 , NVL(A.RETV_CNT, 0) AS RETV_CNT
+			 , NVL(B.DOWNLOAD_CNT, 0) AS DOWNLOAD_CNT
+			 , A.TUNING_NO
+ 			 , TO_CHAR(A.UPD_DT,'YYYY-MM-DD HH24:MI:SS') UPD_DT
+     		 , U2.USER_NM AS UPD_NM
+     		 , UPD_ID
+		     , NVL(TOP_FIX_YN, 'N') TOP_FIX_YN
+		     , DECODE(A.UPD_DT, NULL, A.REG_DT, A.UPD_DT) AS ORDER_DT
+			 , A.GUIDE_DIV_CD
+             , A.GUIDE_SBST 
+		  FROM PERF_GUIDE A
+		,(
+			SELECT GUIDE_NO, 
+				SUM(CASE WHEN DOWNLOAD_YN = 'Y' THEN 1 ELSE 0 END) DOWNLOAD_CNT
+			FROM PERF_GUIDE_USE 
+			GROUP BY GUIDE_NO
+		) B, SQL_TUNING ST, CD CD1, USERS U1, USERS U2
+		WHERE 1 = 1
+		AND A.GUIDE_NO = B.GUIDE_NO(+)
+		AND A.TUNING_NO = ST.TUNING_NO(+)
+		AND A.GUIDE_DIV_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1012'
+		AND A.REG_USER_ID = U1.USER_ID(+)
+		AND A.UPD_ID = U2.USER_ID(+)
+		AND A.DEL_YN = 'N'
+		<if test="(strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			AND A.REG_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		</if>
+		AND A.GUIDE_DIV_CD = '1'
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND A.GUIDE_TITLE_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND (A.GUIDE_SBST LIKE '%' || #{searchValue} || '%' OR ST.IMPR_SBST LIKE '%' || #{searchValue} || '%' ) 
+			</when>
+		</choose>	
+<!-- 		ORDER BY TOP_FIX_YN DESC, ORDER_DT DESC -->
+		ORDER BY TOP_FIX_YN DESC, GUIDE_NO DESC
+	</sql>
+	
+	<select id="precedentList" parameterType="perfGuide" resultType="perfGuide">
+		/* PrecedentDao.precedentList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="precedentListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>
+
+	<select id="precedentList4Excel" parameterType="perfGuide" resultType="java.util.LinkedHashMap">
+		/* PrecedentDao.precedentList4Excel */
+		<include refid="precedentListRefId"/>
+	</select>
+
+	<sql id="precedentListRefId">
+		/* PrecedentDao.precedentListRefId */
+		SELECT A.GUIDE_NO
+			 , A.SYS_NM
+			 , A.GUIDE_TITLE_NM
+			 , A.REG_USER_ID
+			 , U1.USER_NM AS REG_USER_NM
+			 , TO_CHAR(A.REG_DT,'YYYY-MM-DD HH24:MI:SS') REG_DT
+			 , NVL(A.RETV_CNT, 0) AS RETV_CNT
+			 , NVL(B.DOWNLOAD_CNT, 0) AS DOWNLOAD_CNT
+			 , A.TUNING_NO
+ 			 , TO_CHAR(A.UPD_DT,'YYYY-MM-DD HH24:MI:SS') UPD_DT
+     		 , U2.USER_NM AS UPD_NM
+     		 , UPD_ID
+		     , DECODE(A.UPD_DT, NULL, A.REG_DT, A.UPD_DT) AS ORDER_DT
+			 , A.GUIDE_DIV_CD
+             , ST.CONTROVERSIALIST
+		     , ST.IMPR_SBST
+		     , A.TUNING_CASE_TYPE_CD
+		  FROM PERF_GUIDE A
+		,(
+			SELECT GUIDE_NO, 
+				SUM(CASE WHEN DOWNLOAD_YN = 'Y' THEN 1 ELSE 0 END) DOWNLOAD_CNT
+			FROM PERF_GUIDE_USE 
+			GROUP BY GUIDE_NO
+		) B, SQL_TUNING ST, CD CD1, USERS U1, USERS U2
+		WHERE 1 = 1
+		AND A.GUIDE_NO = B.GUIDE_NO(+)
+		AND A.TUNING_NO = ST.TUNING_NO(+)
+		AND A.GUIDE_DIV_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1012'
+		AND A.REG_USER_ID = U1.USER_ID(+)
+		AND A.UPD_ID = U2.USER_ID(+)
+		AND A.DEL_YN = 'N'
+		<if test="(strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			AND A.REG_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		</if>
+		AND A.GUIDE_DIV_CD = '2'
+		
+		<if test="tuning_case_type_cd != null and tuning_case_type_cd != ''">
+		AND TUNING_CASE_TYPE_CD = #{tuning_case_type_cd}
+		</if>
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND A.GUIDE_TITLE_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND (A.GUIDE_SBST LIKE '%' || #{searchValue} || '%' OR ST.IMPR_SBST LIKE '%' || #{searchValue} || '%' ) 
+			</when>
+		</choose>	
+		ORDER BY GUIDE_NO DESC, ORDER_DT DESC
+	</sql>
+	
+	<update id="updatePerfGuideRetvCnt" parameterType="perfGuide">
+		/* PrecedentDao.updatePerfGuideRetvCnt */
+		UPDATE PERF_GUIDE SET RETV_CNT = NVL(RETV_CNT,0) + 1
+		WHERE GUIDE_NO = #{guide_no}
+	</update>	
+	
+	<select id="getMaxUseSeq" parameterType="perfGuide" resultType="string">
+		/* PrecedentDao.getMaxUseSeq */
+		SELECT NVL(MAX(USE_SEQ) + 1, 1) USE_SEQ
+		FROM PERF_GUIDE_USE
+		WHERE GUIDE_NO = #{guide_no}
+	</select>
+	
+	<insert id="insertPerfGuideUse" parameterType="perfGuideUse">
+		/* PrecedentDao.insertPerfGuideUse */
+		INSERT INTO PERF_GUIDE_USE(GUIDE_NO, USE_SEQ, WRKJOB_CD, RETV_USER_ID, RETV_DT, DOWNLOAD_YN )
+		VALUES(#{guide_no}, #{use_seq}, #{wrkjob_cd}, #{retv_user_id}, SYSDATE, 'N')	
+	</insert>
+	
+	<select id="readSqlDetail" parameterType="perfGuide" resultType="tuningTargetSql">
+		/* PrecedentDao.readSqlDetail */
+		SELECT A.TUNING_NO, A.TUNING_REQUEST_DT, A.CHOICE_DIV_CD, CD3.CD_NM AS CHOICE_DIV_CD_NM, U1.USER_NM AS WRKJOB_MGR_NM, W1.WRKJOB_CD_NM AS WRKJOB_MGR_WRKJOB_NM,
+			WRKJOB_MGR_TEL_NUM, CD1.CD_NM AS PROGRAM_TYPE_CD_NM, CD2.CD_NM AS BATCH_WORK_DIV_CD_NM, DB.DB_NAME, A.TR_CD, A.DBIO, A.PARSING_SCHEMA_NAME,
+			U2.USER_NM AS PERFR_NM, B.TUNING_COMPLETE_DT, A.WRKJOB_PECULIAR_POINT, A.REQUEST_WHY, A.SQL_DESC, A.SQL_TEXT,
+			IMPRB_ELAP_TIME, IMPRB_BUFFER_CNT, IMPRB_PGA_USAGE, IMPRA_ELAP_TIME, IMPRA_BUFFER_CNT, IMPRA_PGA_USAGE, 
+			ELAP_TIME_IMPR_RATIO, BUFFER_IMPR_RATIO, PGA_IMPR_RATIO
+			,CONTROVERSIALIST, IMPR_SBST, IMPR_SQL_TEXT, IMPRB_EXEC_PLAN, IMPRA_EXEC_PLAN 
+		FROM TUNING_TARGET_SQL A, SQL_TUNING B, DATABASE DB, CD CD1, CD CD2, CD CD3, USERS U1, USERS U2, WRKJOB_CD W1
+		WHERE A.TUNING_NO = B.TUNING_NO(+)
+		AND A.DBID = DB.DBID(+)
+		AND A.PROGRAM_TYPE_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1005'
+		AND A.PROGRAM_TYPE_CD = CD2.CD(+)
+		AND CD2.GRP_CD_ID(+) = '1006'
+		AND A.CHOICE_DIV_CD = CD3.CD(+)
+		AND CD3.GRP_CD_ID(+) = '1003'
+		AND A.WRKJOB_MGR_ID = U1.USER_ID(+)
+		AND A.PERFR_ID = U2.USER_ID(+)
+		AND A.WRKJOB_MGR_WRKJOB_CD = W1.WRKJOB_CD(+)
+		AND A.TUNING_NO = #{tuning_no}	
+	</select>
+	
+	<select id="bindSetList" parameterType="perfGuide" resultType="tuningTargetSqlBind">
+		/* PrecedentDao.bindSetList */
+		SELECT DISTINCT BIND_SET_SEQ
+		FROM TUNING_TARGET_SQL_BIND
+		WHERE TUNING_NO = #{tuning_no}
+		ORDER BY BIND_SET_SEQ
+	</select>	
+	
+	<select id="sqlBindList" parameterType="perfGuide" resultType="tuningTargetSqlBind">
+		/* PrecedentDao.sqlBindList */
+		SELECT BIND_SET_SEQ, BIND_SEQ, BIND_VAR_NM, BIND_VAR_VALUE, BIND_VAR_TYPE, MANDATORY_YN
+		FROM TUNING_TARGET_SQL_BIND
+		WHERE TUNING_NO = #{tuning_no}
+		ORDER BY BIND_SET_SEQ, BIND_SEQ	
+	</select>
+	
+	<select id="readPerfGuide" parameterType="perfGuide" resultType="perfGuide">
+		/* PrecedentDao.readPerfGuide */
+		SELECT GUIDE_NO, GUIDE_DIV_CD, GUIDE_TITLE_NM, GUIDE_SBST, TOP_FIX_YN
+		FROM PERF_GUIDE
+		WHERE GUIDE_NO = #{guide_no}
+	</select>
+	
+	<!-- singular -->
+	<select id="readPerfGuideFile" parameterType="perfGuide" resultType="perfGuideAttachFile">
+		/* PrecedentDao.readPerfGuideFile */
+		SELECT FILE_SEQ, FILE_NM, ORG_FILE_NM, FILE_SIZE, FILE_EXT_NM 
+		FROM PERF_GUIDE_ATTACH_FILE
+		WHERE GUIDE_NO = #{guide_no}
+		ORDER BY FILE_SEQ
+	</select>
+	<!-- multiple -->
+	<select id="readPerfGuideFiles" parameterType="perfGuide" resultType="perfGuideAttachFile">
+		/* PrecedentDao.readPerfGuideFiles */
+		SELECT FILE_SEQ, FILE_NM, ORG_FILE_NM, FILE_SIZE, FILE_EXT_NM 
+		FROM PERF_GUIDE_ATTACH_FILE
+		WHERE GUIDE_NO = #{guide_no}
+		ORDER BY FILE_SEQ
+	</select>	
+
+	<delete id="deletePerfGuideAttachFile" parameterType="perfGuide">
+		/* PrecedentDao.deletePerfGuideAttachFile */
+		DELETE	FROM PERF_GUIDE_ATTACH_FILE
+		WHERE GUIDE_NO = #{guide_no}
+		AND FILE_SEQ = #{file_seq}
+	</delete>
+	
+	<update id="updatePerfGuideUse" parameterType="perfGuideUse">
+		/* PrecedentDao.updatePerfGuideUse */
+		UPDATE PERF_GUIDE_USE
+		SET DOWNLOAD_YN = 'Y'
+		WHERE GUIDE_NO = #{guide_no}
+		AND USE_SEQ = #{use_seq}
+	</update>
+	
+	<select id="getMaxPerfGuideNo" parameterType="perfGuide" resultType="string">
+		/* PrecedentDao.getMaxPerfGuideNo */
+		SELECT NVL(MAX(GUIDE_NO) + 1, 1) GUIDE_NO
+		FROM PERF_GUIDE
+	</select>
+	
+	<insert id="insertPerfGuide" parameterType="perfGuide">
+		/* PrecedentDao.insertPerfGuide */
+		INSERT
+		INTO   PERF_GUIDE
+		       (
+		              GUIDE_NO
+		            , GUIDE_DIV_CD
+		            , GUIDE_TITLE_NM
+		            , GUIDE_SBST
+		            , REG_USER_ID
+		            , REG_DT
+		            , RETV_CNT
+		            , DEL_YN
+		            , UPD_ID
+		            , UPD_DT
+		            <if test="top_fix_yn != null and top_fix_yn != ''">
+			            , TOP_FIX_YN
+		            </if>
+		       )
+		       VALUES
+		       (
+		              #{guide_no}
+		            , '1'
+		            , #{guide_title_nm}
+		            , #{guide_sbst}
+		            , #{reg_user_id}
+		            , SYSDATE
+		            , 0
+		            , 'N'
+		            , #{reg_user_id}
+		            , SYSDATE
+		            <if test="top_fix_yn != null and top_fix_yn != ''">
+			            , #{top_fix_yn}
+		            </if>
+		       )
+	</insert>
+	
+	<select id="getMaxGuideAttachFileSeq" parameterType="perfGuideAttachFile" resultType="string">
+		/* PrecedentDao.getMaxGuideAttachFileSeq */
+		SELECT NVL(MAX(FILE_SEQ) + 1, 1) FILE_SEQ
+		FROM PERF_GUIDE_ATTACH_FILE
+		WHERE GUIDE_NO = #{guide_no}
+	</select>
+	
+	<insert id="insertPerfGuideAttachFile" parameterType="perfGuideAttachFile">
+		/* PrecedentDao.insertPerfGuideAttachFile */
+		INSERT INTO PERF_GUIDE_ATTACH_FILE(GUIDE_NO, FILE_SEQ, FILE_NM, ORG_FILE_NM, FILE_SIZE, FILE_EXT_NM, DOWNLOAD_CNT )
+		VALUES(#{guide_no}, #{file_seq}, #{file_nm}, #{org_file_nm}, #{file_size}, #{file_ext_nm}, 0)	
+	</insert>
+	
+	<update id="updatePerfGuide" parameterType="perfGuide">
+		/* PrecedentDao.updatePerfGuide */
+		UPDATE PERF_GUIDE SET
+			GUIDE_TITLE_NM = #{guide_title_nm} 
+			, GUIDE_SBST = #{guide_sbst} 
+			, UPD_ID = #{upd_id}
+			, UPD_DT = SYSDATE			
+			, TOP_FIX_YN = #{top_fix_yn}			 
+		WHERE GUIDE_NO = #{guide_no}
+	</update>	
+
+	<update id="updatePerfGuideAttachFile" parameterType="perfGuideAttachFile">
+		/* PrecedentDao.updatePerfGuideAttachFile */
+		UPDATE PERF_GUIDE_ATTACH_FILE SET
+			FILE_NM = #{file_nm},
+			ORG_FILE_NM = #{org_file_nm},
+			FILE_SIZE = #{file_size},
+			FILE_EXT_NM = #{file_ext_nm},
+			DOWNLOAD_CNT = 0
+		WHERE GUIDE_NO = #{guide_no}
+	</update>		
+
+	<update id="deletePerfGuide" parameterType="perfGuide">
+		/* PrecedentDao.deletePerfGuide */
+		UPDATE PERF_GUIDE SET
+			  DEL_YN = 'Y'
+			, UPD_ID = #{upd_id}
+			, UPD_DT = SYSDATE
+		WHERE GUIDE_NO = #{guide_no}
+	</update>
+</mapper>

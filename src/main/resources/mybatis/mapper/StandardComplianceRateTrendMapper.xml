@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2019.06.10	명성태	OPENPOP V2 최초작업
+	2022.01.05	이재우	스케줄러 목록 load추가.
+-->
+<mapper namespace="omc.spop.dao.StandardComplianceRateTrendDao">
+	<select id="loadSQL" parameterType="sqlStandards" resultType="standardComplianceRateTrend">
+		/* StandardComplianceRateTrendMapper.loadSQL */
+		${qty_chk_sql}
+	</select>
+	
+	<select id="loadSchedulerList" parameterType="StandardComplianceRateTrend" resultType="StandardComplianceRateTrend">
+		/* StandardComplianceRateTrendDao.loadSchedulerList */
+		SELECT SQL_STD_QTY_SCHEDULER_NO
+			 , JOB_SCHEDULER_NM
+		  FROM SQL_STD_QTY_SCHEDULER
+		 WHERE PROJECT_ID = #{project_id}
+		   AND DEL_YN = 'N'
+		   AND STD_QTY_SCHEDULER_DIV_CD = #{sql_std_qty_div_cd}
+	</select>
+</mapper>

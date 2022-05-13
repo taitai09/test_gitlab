@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.27	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.MessageDao">
+	<select id="recvMessageList" parameterType="sendNote" resultType="sendNote">
+		SELECT TO_CHAR(RN.SEND_DT, 'YYYY-MM-DD HH24:MI:SS') AS SEND_DT, RN.SEND_USER_ID, RN.RECV_USER_ID, U1.USER_NM AS SEND_USER_NM, 
+			SN.NOTE_TYPE_CD, CD1.CD_NM AS NOTE_TYPE_NM, SN.NOTE_TITLE, READ_YN,
+			CASE WHEN READ_YN = 'Y' THEN '읽음' ELSE '읽지않음' END AS READ_TEXT, TO_CHAR(READ_DT, 'YYYY-MM-DD HH24:MI:SS') AS READ_DT
+		FROM SEND_NOTE SN, RECV_NOTE RN, USERS U1, CD CD1
+		WHERE SN.SEND_USER_ID = RN.SEND_USER_ID
+		AND SN.SEND_DT = RN.SEND_DT
+		AND RN.SEND_USER_ID = U1.USER_ID
+		AND CD1.GRP_CD_ID = '1017'
+		AND SN.NOTE_TYPE_CD = CD1.CD(+)
+		AND RN.RECV_USER_ID = #{recv_user_id}
+		<choose>
+			<when test="searchValue != null and (searchKey eq '01'.toString())">
+				AND RN.SEND_USER_ID LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchValue != null and (searchKey eq '02'.toString())">
+				AND U1.USER_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchValue != null and (searchKey eq '03'.toString())">
+				AND SN.NOTE_TITLE LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchValue != null and (searchKey eq '04'.toString())">
+				AND SN.NOTE_CONTENTS LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>
+		<if test="read_yn != null and read_yn != ''">
+			AND READ_YN = #{read_yn}
+		</if>
+		<if test="note_type_cd != null and note_type_cd != ''">
+			AND SN.NOTE_TYPE_CD = #{note_type_cd}
+		</if>		
+		AND RN.DEL_YN = 'N'
+		ORDER BY RN.SEND_DT DESC
+	</select>	
+	
+	<select id="sendMessageList" parameterType="sendNote" resultType="sendNote">
+		SELECT TO_CHAR(RN.SEND_DT, 'YYYY-MM-DD HH24:MI:SS') AS SEND_DT, RN.SEND_USER_ID, RN.RECV_USER_ID, U1.USER_NM AS RECV_USER_NM, 
+			SN.NOTE_TYPE_CD, CD1.CD_NM AS NOTE_TYPE_NM, SN.NOTE_TITLE, READ_YN,
+			CASE WHEN READ_YN = 'Y' THEN '읽음' ELSE '읽지않음' END AS READ_TEXT, TO_CHAR(READ_DT, 'YYYY-MM-DD HH24:MI:SS') AS READ_DT
+		FROM SEND_NOTE SN, RECV_NOTE RN, USERS U1, CD CD1
+		WHERE SN.SEND_USER_ID = RN.SEND_USER_ID
+		AND SN.SEND_DT = RN.SEND_DT
+		AND RN.RECV_USER_ID = U1.USER_ID
+		AND CD1.GRP_CD_ID = '1017'
+		AND SN.NOTE_TYPE_CD = CD1.CD(+)
+		AND RN.SEND_USER_ID = #{send_user_id}
+		<choose>
+			<when test="searchValue != null and (searchKey eq '01'.toString())">
+				AND RN.SEND_USER_ID LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchValue != null and (searchKey eq '02'.toString())">
+				AND U1.USER_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchValue != null and (searchKey eq '03'.toString())">
+				AND SN.NOTE_TITLE LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchValue != null and (searchKey eq '04'.toString())">
+				AND SN.NOTE_CONTENTS LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>
+		<if test="read_yn != null and read_yn != ''">
+			AND READ_YN = #{read_yn}
+		</if>
+		<if test="note_type_cd != null and note_type_cd != ''">
+			AND SN.NOTE_TYPE_CD = #{note_type_cd}
+		</if>			
+		AND RN.DEL_YN = 'N'
+		ORDER BY RN.SEND_DT DESC		
+	</select>		
+	
+	<update id="updateSendNote" parameterType="sendNote">
+		UPDATE SEND_NOTE SET DEL_YN = 'Y'
+		WHERE SEND_USER_ID = #{send_user_id}
+		AND SEND_DT = TO_DATE(#{send_dt}, 'YYYY-MM-DD HH24:MI:SS')
+	</update>	
+
+	<update id="updateRecvNote" parameterType="recvNote">
+		UPDATE RECV_NOTE
+		<set>
+			<if test="read_yn != null">READ_YN = #{read_yn},</if>
+			<if test="read_yn != null and (read_yn eq 'Y'.toString())">READ_DT = SYSDATE,</if>
+			<if test="del_yn != null">DEL_YN = 'Y',</if>
+		</set>
+		<trim prefix="SET" suffixOverrides=","></trim>
+		WHERE SEND_USER_ID = #{send_user_id}
+		AND SEND_DT = TO_DATE(#{send_dt}, 'YYYY-MM-DD HH24:MI:SS')
+		AND RECV_USER_ID = #{recv_user_id}
+	</update>		
+	
+	<select id="getMessage" parameterType="sendNote" resultType="sendNote">
+		SELECT SN.SEND_DT, SN.SEND_USER_ID, U1.USER_NM AS SEND_USER_NM, RN.RECV_USER_ID, U2.USER_NM AS RECV_USER_NM, SN.NOTE_TITLE, SN.NOTE_CONTENTS,
+		CASE WHEN #{check_user_id} = SN.SEND_USER_ID THEN 'Y' ELSE 'N' END AS SEND_YN
+		FROM SEND_NOTE SN, RECV_NOTE RN, USERS U1, USERS U2
+		WHERE SN.SEND_USER_ID = RN.SEND_USER_ID
+		AND SN.SEND_DT = RN.SEND_DT
+		AND SN.SEND_USER_ID = U1.USER_ID
+		AND RN.RECV_USER_ID = U2.USER_ID
+		AND SN.SEND_DT = TO_DATE(#{send_dt}, 'YYYY-MM-DD HH24:MI:SS')
+		AND SN.SEND_USER_ID = #{send_user_id}
+		AND RN.RECV_USER_ID = #{recv_user_id}
+		AND RN.DEL_YN = 'N'
+	</select>
+	
+	<select id="recvMessageUserList" parameterType="users" resultType="users">
+		SELECT A.USER_ID, A.USER_NM, A.EXT_NO, A.HP_NO, A.EMAIL, C.AUTH_CD, C.AUTH_NM, D.WRKJOB_CD, E.WRKJOB_CD_NM AS WRKJOB_NM
+		FROM USERS A, USER_AUTH B, AUTH C, USER_WRKJOB D, WRKJOB_CD E
+		WHERE A.USE_YN = 'Y'
+		AND A.USER_ID = B.USER_ID
+		AND B.AUTH_GRP_ID = C.AUTH_ID
+		AND A.USER_ID = D.USER_ID(+)
+		AND D.WRKJOB_CD = E.WRKJOB_CD(+)
+		<choose>
+			<when test="popSearchValue != null and (popSearchKey eq '01'.toString())">
+				AND A.USER_ID LIKE '%' || #{popSearchValue} || '%'
+			</when>
+			<when test="popSearchValue != null and (popSearchKey eq '02'.toString())">
+				AND A.USER_NM LIKE '%' || #{popSearchValue} || '%'
+			</when>
+		</choose>
+		<if test="popAuth_cd != null and popAuth_cd != ''">
+			AND C.AUTH_CD = #{popAuth_cd}
+		</if>
+		<if test="popWrkjob_cd != null and popWrkjob_cd != ''">
+			AND D.WRKJOB_CD = #{popWrkjob_cd}
+		</if>
+		AND SYSDATE BETWEEN TO_DATE(B.AUTH_START_DAY, 'YYYY-MM-DD') AND TO_DATE(B.AUTH_END_DAY, 'YYYY-MM-DD')
+		AND SYSDATE BETWEEN TO_DATE(D.WORKJOB_START_DAY(+), 'YYYY-MM-DD') AND TO_DATE(D.WORKJOB_END_DAY(+), 'YYYY-MM-DD')
+		ORDER BY A.USER_ID
+	</select>
+	
+	<insert id="insertSendNote" parameterType="sendNote">
+		INSERT INTO SEND_NOTE (SEND_USER_ID, SEND_DT, NOTE_TYPE_CD, NOTE_TITLE, NOTE_CONTENTS, DEL_YN)
+		VALUES (#{send_user_id}, TO_DATE(#{send_dt}, 'YYYY-MM-DD HH24:MI:SS'), #{note_type_cd}, #{note_title}, #{note_contents}, 'N')
+	</insert>
+	
+	<insert id="insertRecvNote" parameterType="recvNote">
+		INSERT INTO RECV_NOTE (SEND_USER_ID, SEND_DT, RECV_USER_ID, READ_YN, DEL_YN)
+		VALUES (#{send_user_id}, TO_DATE(#{send_dt}, 'YYYY-MM-DD HH24:MI:SS'), #{recv_user_id}, 'N', 'N')
+	</insert>
+</mapper>

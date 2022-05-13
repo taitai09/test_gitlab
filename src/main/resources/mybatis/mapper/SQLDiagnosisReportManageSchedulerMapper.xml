@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2021.09.16	김원재	OPENPOP V2 최초작업
+ -->
+<mapper namespace="omc.spop.dao.SQLDiagnosisReportManageSchedulerDao">
+	
+	<select id="selectSQLDiagnosisReportSchedulerList" resultType="JobSchedulerBase">
+		/* SQLDiagnosisReportManageSchedulerDao.selectSQLDiagnosisReportSchedulerList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM , AA.*
+			FROM(
+				SELECT C.DB_NAME															--표준진단DB
+					, A.JOB_SCHEDULER_NM													--스케줄러명
+					, TO_CHAR(B.EXEC_START_DT, 'YYYY-MM-DD') EXEC_START_DT					--스케줄러 시작일자
+					, TO_CHAR(B.EXEC_END_DT, 'YYYY-MM-DD') EXEC_END_DT						--스케줄러 종료일자
+					, CASE WHEN EXEC_CYCLE_DIV_CD = '1' THEN
+						'매일 '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행' 
+					WHEN EXEC_CYCLE_DIV_CD = '2' THEN    
+						'매주 '||EXEC_DAY_OF_WEEK||' '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행' 
+					WHEN EXEC_CYCLE_DIV_CD = '3' THEN
+						'매월 '||EXEC_DAY||'일 '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행'
+					END EXEC_CYCLE															--실행주기
+					, A.EXEC_CYCLE_DIV_CD
+					, A.STD_QTY_TARGET_DBID
+					, A.JOB_SCHEDULER_DESC													--스케줄러 설명
+		<!-- 			, CD1.CD_NM sql_source_type_nm											SQL 소스 -->
+					, CASE WHEN A.GATHER_TERM_TYPE_CD = '1' THEN
+						CD2.CD_NM||'/'||CD3.CD_NM||' 진단'
+					WHEN A.GATHER_TERM_TYPE_CD = '2' THEN 
+						CD2.CD_NM||'/'||TO_CHAR(TO_DATE(A.GATHER_TERM_START_DAY, 'YYYY-MM-DD'), 'YYYY-MM-DD')||'~'||TO_CHAR(TO_DATE(A.GATHER_TERM_END_DAY, 'YYYY-MM-DD'), 'YYYY-MM-DD')
+					END GATHER_TERM															--수집기간
+					, A.GATHER_TERM_TYPE_CD
+					, A.GATHER_RANGE_DIV_CD
+					, A.GATHER_TERM_START_DAY
+					, A.GATHER_TERM_END_DAY
+					, A.OWNER_LIST															--TABLE_OWNER
+					, A.MODULE_LIST															--MODUEL
+					, A.EXTRA_FILTER_PREDICATION											--FILTER SQL
+					, A.SQL_SOURCE_TYPE_CD
+					, A.SQL_STD_QTY_SCHEDULER_NO
+				FROM SQL_STD_QTY_SCHEDULER A
+					, JOB_SCHEDULER_CONFIG_DETAIL B
+					, DATABASE C
+					, CD CD1
+					, CD CD2
+					, CD CD3
+				WHERE A.DEL_YN = 'N' 
+				AND A.STD_QTY_SCHEDULER_DIV_CD = '03'
+				AND A.PROJECT_ID = 0
+				AND B.JOB_SCHEDULER_TYPE_CD = '37'
+				AND B.JOB_SCHEDULER_WRK_TARGET_ID = A.SQL_STD_QTY_SCHEDULER_NO 
+				AND A.STD_QTY_TARGET_DBID = C.DBID
+				AND A.SQL_SOURCE_TYPE_CD = CD1.CD(+)
+				AND CD1.GRP_CD_ID(+) = '1084'
+				AND A.GATHER_TERM_TYPE_CD = CD2.CD(+)
+				AND CD2.GRP_CD_ID(+) = '1093'
+				AND A.GATHER_RANGE_DIV_CD = CD3.CD(+)
+				AND CD3.GRP_CD_ID(+) = '1002'
+				<if test="std_qty_target_dbid != null and std_qty_target_dbid != ''">
+					AND A.STD_QTY_TARGET_DBID = #{std_qty_target_dbid}
+				</if>
+			)AA
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		)AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="excelDownload" parameterType="jobSchedulerBase" resultType="java.util.LinkedHashMap">
+		/* SQLDiagnosisReportManageSchedulerDao.excelDownload */
+		SELECT C.DB_NAME															--표준진단DB
+			, A.JOB_SCHEDULER_NM													--스케줄러명
+			, TO_CHAR(B.EXEC_START_DT, 'YYYY-MM-DD') EXEC_START_DT					--스케줄러 시작일자
+			, TO_CHAR(B.EXEC_END_DT, 'YYYY-MM-DD') EXEC_END_DT						--스케줄러 종료일자
+			, CASE WHEN EXEC_CYCLE_DIV_CD = '1' THEN
+				'매일 '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행' 
+			WHEN EXEC_CYCLE_DIV_CD = '2' THEN    
+				'매주 '||EXEC_DAY_OF_WEEK||' '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행' 
+			WHEN EXEC_CYCLE_DIV_CD = '3' THEN
+				'매월 '||EXEC_DAY||'일 '||TO_CHAR(EXEC_HOUR)||'시 '||TO_CHAR(EXEC_MINUTE)||'분 실행'
+			END EXEC_CYCLE															--실행주기
+			, A.JOB_SCHEDULER_DESC													--스케줄러 설명
+			, CASE WHEN A.GATHER_TERM_TYPE_CD = '1' THEN
+				CD2.CD_NM||'/'||CD3.CD_NM||' 진단'
+			WHEN A.GATHER_TERM_TYPE_CD = '2' THEN 
+				CD2.CD_NM||'/'||TO_CHAR(TO_DATE(A.GATHER_TERM_START_DAY, 'YYYY-MM-DD'), 'YYYY-MM-DD')||'~'||TO_CHAR(TO_DATE(A.GATHER_TERM_END_DAY, 'YYYY-MM-DD'), 'YYYY-MM-DD')
+			END GATHER_TERM															--수집기간
+			, A.OWNER_LIST															--TABLE_OWNER
+			, A.MODULE_LIST															--MODUEL
+			, A.EXTRA_FILTER_PREDICATION											--FILTER SQL
+			, A.SQL_SOURCE_TYPE_CD
+			
+		FROM SQL_STD_QTY_SCHEDULER A
+			, JOB_SCHEDULER_CONFIG_DETAIL B
+			, DATABASE C
+			, CD CD1
+			, CD CD2
+			, CD CD3
+		WHERE A.DEL_YN = 'N' 
+		AND A.STD_QTY_SCHEDULER_DIV_CD = '03'
+		AND A.PROJECT_ID = 0
+		AND B.JOB_SCHEDULER_TYPE_CD = '37'
+		AND B.JOB_SCHEDULER_WRK_TARGET_ID = A.SQL_STD_QTY_SCHEDULER_NO 
+		AND A.STD_QTY_TARGET_DBID = C.DBID
+		AND A.SQL_SOURCE_TYPE_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1084'
+		AND A.GATHER_TERM_TYPE_CD = CD2.CD(+)
+		AND CD2.GRP_CD_ID(+) = '1093'
+		AND A.GATHER_RANGE_DIV_CD = CD3.CD(+)
+		AND CD3.GRP_CD_ID(+) = '1002'
+		<if test="std_qty_target_dbid != null and std_qty_target_dbid != ''">
+			AND A.STD_QTY_TARGET_DBID = #{std_qty_target_dbid}
+		</if>
+	</select>
+	
+</mapper>

@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2017.12.08	이원식	최초작성
+	2018.03.07	이원식	OPENPOP V2 최초작업	
+-->
+<mapper namespace="omc.spop.dao.DatabaseMngDao">
+	<sql id="databaseListRefId" >
+		/* DatabaseMngDao.databaseListRefId */
+		SELECT A.DBID, A.DB_NAME, A.DB_ABBR_NM, A.DB_OPERATE_TYPE_CD, CD2.CD_NM AS DATABASE_KINDS_CD,
+			   CD1.CD_NM AS DB_OPERATE_TYPE_NM, A.NLS_CHARACTERSET AS CHARACTERSET,
+			   A.RGB_COLOR_ID, B.RGB_COLOR_VALUE, A.GATHER_INST_ID, A.COLLECT_INST_ID,
+			   A.ORDERING, A.USE_YN, CASE WHEN A.EXADATA_YN IS NULL THEN 'N' ELSE A.EXADATA_YN END EXADATA_YN
+		  FROM DATABASE A
+		  LEFT JOIN CD CD1
+			ON A.DB_OPERATE_TYPE_CD = CD1.CD
+		   AND CD1.GRP_CD_ID = '1019'
+		  LEFT JOIN RGB_COLOR B
+			ON A.RGB_COLOR_ID = B.RGB_COLOR_ID
+		  LEFT JOIN CD CD2
+			ON A.DATABASE_KINDS_CD = NVL(CD2.CD,'ORACLE')
+		   AND CD2.GRP_CD_ID = '1095'
+		 WHERE 1=1
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+		   AND DBID LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+		   AND DB_NAME LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>
+		 ORDER BY ORDERING ASC
+	</sql>
+	
+	<select id="databaseList" parameterType="database" resultType="database">
+		/* DatabaseMngDao.databaseListRefId */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="databaseListRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	<select id="databaseListByExcelDown" parameterType="database" resultType="java.util.LinkedHashMap">
+		/* DatabaseMngDao.databaseListByExcelDown */
+				<include refid="databaseListRefId"/>
+	</select>
+
+	<update id="saveDatabase" parameterType="database">
+		/* DatabaseMngDao.saveDatabase */
+		MERGE INTO DATABASE 
+			USING DUAL ON (DBID = #{dbid})
+		WHEN MATCHED THEN
+			UPDATE SET 
+				DB_NAME = #{db_name},
+				DB_ABBR_NM = #{db_abbr_nm},
+				ORDERING = #{ordering},
+				DB_OPERATE_TYPE_CD = #{db_operate_type_cd},
+				USE_YN = #{use_yn},
+				COLLECT_INST_ID = #{collect_inst_id},
+				GATHER_INST_ID = #{gather_inst_id},
+				NLS_CHARACTERSET = #{characterset},
+				RGB_COLOR_ID = #{rgb_color_id}
+		WHEN NOT MATCHED THEN
+			INSERT (DBID, DB_NAME, DB_ABBR_NM, ORDERING, DB_OPERATE_TYPE_CD, USE_YN, COLLECT_INST_ID, GATHER_INST_ID, NLS_CHARACTERSET, RGB_COLOR_ID)
+			VALUES (#{dbid}, #{db_name}, #{db_abbr_nm}, #{ordering}, #{db_operate_type_cd}, #{use_yn}, #{collect_inst_id}, #{gather_inst_id}, #{characterset}, #{rgb_color_id})
+	</update>
+	
+	<select id="notExistDbid" parameterType="database" resultType="database">
+		/* DatabaseMngDao.notExistDbid */
+		SELECT COUNT(*) AS CNT
+		FROM DATABASE
+		WHERE DBID = #{dbid}
+	</select>
+	
+	<sql id="instanceListRefId">
+		/* DatabaseMngDao.instanceListRefId */
+		SELECT A.DBID, D.DB_NAME, A.INST_ID, A.HOST_NM, 
+			A.DISPLAY_NM, A.INST_NM AS INST_NAME, A.INSTANCE_DESC, 
+			A.RGB_COLOR_ID, B.RGB_COLOR_VALUE,
+			A.AGENT_IP, 
+			A.AGENT_PORT,
+			A.GATHER_AGENT_PORT, A.DPLX_AGENT_IPS, A.DPLX_AGENT_PORTS, A.DPLX_GATHER_AGENT_PORTS,
+            A.COLLECT_AGENT_ID, A.COLLECT_AGENT_PATH, A.COLLECT_INSTANCE_SEQ
+			
+		FROM INSTANCE A
+		INNER JOIN DATABASE D
+		ON A.DBID = D.DBID
+		LEFT JOIN RGB_COLOR B
+		ON A.RGB_COLOR_ID = B.RGB_COLOR_ID
+		WHERE 1=1
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND A.INST_NM LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>	
+		ORDER BY A.DBID, A.INST_ID
+	</sql>
+	
+	<select id="instanceList" parameterType="instance" resultType="instanceV2">
+		/* DatabaseMngDao.instanceList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="instanceListRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="instanceListByExcelDown" parameterType="instance" resultType="java.util.LinkedHashMap">
+		/* DatabaseMngDao.instanceListByExcelDown */
+				<include refid="instanceListRefId"/>
+	</select>
+	
+	<select id="rgbColorList" parameterType="rgbColor" resultType="rgbColor">
+		/* DatabaseMngDao.rgbColorList */
+		SELECT A.RGB_COLOR_ID,
+    		CASE WHEN B.RGB_COLOR_ID IS NULL THEN A.RGB_COLOR_VALUE ELSE '' END AS RGB_COLOR_VALUE
+		FROM RGB_COLOR A, INSTANCE B
+		WHERE A.RGB_COLOR_ID = B.RGB_COLOR_ID(+)
+	</select>
+	
+	<select id="getRGBColor" resultType="rgbColor">
+		/* DatabaseMngDao.getRgbColor */
+		SELECT RGB_COLOR_ID, RGB_COLOR_VALUE
+		FROM RGB_COLOR
+	</select>
+	
+	<select id="checkRGBColorDatabase" resultType="rgbColor">
+		/* DatabaseMngDao.checkRGBColorDatabase */
+		SELECT RGB_COLOR_ID, DB_NAME, DBID
+		FROM DATABASE
+		WHERE RGB_COLOR_ID IS NOT NULL
+	</select>
+	
+	<select id="checkRGBColorInstance" resultType="rgbColor">
+		/* DatabaseMngDao.checkRGBColorInstance */
+		SELECT RGB_COLOR_ID, DBID, INST_NM, INST_ID
+		FROM INSTANCE
+		WHERE RGB_COLOR_ID IS NOT NULL
+	</select>
+	
+	<update id="saveInstance" parameterType="instanceV2">
+		/* DatabaseMngDao.saveInstance */
+		MERGE INTO INSTANCE 
+			USING DUAL ON (DBID = #{dbid} AND INST_ID = #{inst_id})
+		WHEN MATCHED THEN
+			UPDATE SET 
+				INST_NM = #{inst_name},
+				DISPLAY_NM = #{display_nm},
+				HOST_NM = #{host_nm},
+				AGENT_IP = #{agent_ip},
+				AGENT_PORT = #{agent_port},
+				GATHER_AGENT_PORT = #{gather_agent_port},
+				INSTANCE_DESC = #{instance_desc},
+				RGB_COLOR_ID = #{rgb_color_id},
+				DPLX_AGENT_IPS = #{dplx_agent_ips},
+				DPLX_GATHER_AGENT_PORTS = #{dplx_gather_agent_ports},
+				DPLX_AGENT_PORTS = #{dplx_agent_ports}
+		WHEN NOT MATCHED THEN
+			INSERT (DBID, INST_ID, INST_NM, DISPLAY_NM, HOST_NM, AGENT_IP, AGENT_PORT, GATHER_AGENT_PORT, INSTANCE_DESC, RGB_COLOR_ID, DPLX_AGENT_IPS, DPLX_GATHER_AGENT_PORTS, DPLX_AGENT_PORTS)
+			VALUES (#{dbid}, #{inst_id}, #{inst_name}, #{display_nm}, #{host_nm}, #{agent_ip}, #{agent_port}, #{gather_agent_port}, #{instance_desc}, #{rgb_color_id}, #{dplx_agent_ips}, #{dplx_gather_agent_ports}, #{dplx_agent_ports})
+	</update>
+	
+	<insert id="insertInstance" parameterType="instance">
+		/* DatabaseMngDao.insertInstance */
+		INSERT INTO INSTANCE
+			(DBID, INST_ID, INST_NM, DISPLAY_NM, HOST_NM, AGENT_IP, AGENT_PORT, GATHER_AGENT_PORT,
+			                INSTANCE_DESC, RGB_COLOR_ID,	DPLX_AGENT_IPS,	DPLX_GATHER_AGENT_PORTS, DPLX_AGENT_PORTS, 
+			                COLLECT_AGENT_ID, COLLECT_AGENT_PATH, COLLECT_INSTANCE_SEQ
+			                )
+			                
+			VALUES(#{dbid}, #{inst_id}, #{inst_name}, #{display_nm},	#{host_nm},	#{agent_ip},#{agent_port}, #{gather_agent_port},
+							#{instance_desc}, #{rgb_color_id}, #{dplx_agent_ips},#{dplx_gather_agent_ports}, #{dplx_agent_ports},
+							#{collect_agent_id}, #{collect_agent_path}, #{collect_instance_seq}
+							)
+	</insert>
+	
+	<update id="updateInstance" parameterType="instance">
+		/* DatabaseMngDao.updateInstance */
+             UPDATE INSTANCE
+                SET 
+                    DBID = #{dbid},
+                    INST_ID = #{inst_id},
+                    INST_NM = #{inst_name},
+                    DISPLAY_NM = #{display_nm},
+                    HOST_NM = #{host_nm},
+                    AGENT_IP = #{agent_ip},
+                    AGENT_PORT = #{agent_port},
+                    GATHER_AGENT_PORT = #{gather_agent_port},
+                    INSTANCE_DESC = #{instance_desc},
+                    RGB_COLOR_ID = #{rgb_color_id},
+                    DPLX_AGENT_IPS = #{dplx_agent_ips},
+                    DPLX_GATHER_AGENT_PORTS = #{dplx_gather_agent_ports},
+                    DPLX_AGENT_PORTS = #{dplx_agent_ports},
+  					COLLECT_AGENT_ID = #{collect_agent_id}, 
+  					COLLECT_AGENT_PATH = #{collect_agent_path}, 
+  					COLLECT_INSTANCE_SEQ = #{collect_instance_seq}
+                WHERE 
+                    DBID = #{dbid} AND INST_ID = #{inst_id}
+	</update>
+
+	<insert id="insertDatabase" parameterType="database">
+		/* DatabaseMngDao.insertDatabase */
+	     INSERT INTO DATABASE (DBID,DB_NAME,DB_ABBR_NM,ORDERING,USE_YN,DB_OPERATE_TYPE_CD,COLLECT_INST_ID,GATHER_INST_ID,NLS_CHARACTERSET,RGB_COLOR_ID, EXADATA_YN, DATABASE_KINDS_CD)
+	     VALUES(#{dbid}, #{db_name}, #{db_abbr_nm}, #{ordering}, #{use_yn}, #{db_operate_type_cd}, #{collect_inst_id}, #{gather_inst_id}, #{characterset}, #{rgb_color_id}, #{exadata_yn},UPPER(#{database_kinds_cd}))
+	</insert>
+	
+	<update id="updateDatabase" parameterType="database">
+		/* DatabaseMngDao.updateDatabase*/
+		UPDATE DATABASE
+		    SET
+		        DBID = #{dbid}
+		        , DB_NAME = #{db_name}
+		        , DB_ABBR_NM = #{db_abbr_nm}
+		        , ORDERING = #{ordering}
+		        , DB_OPERATE_TYPE_CD = #{db_operate_type_cd}
+		        , USE_YN = #{use_yn}
+		        , COLLECT_INST_ID = #{collect_inst_id}
+		        , GATHER_INST_ID = #{gather_inst_id}
+		        , NLS_CHARACTERSET = #{characterset} 
+		        , RGB_COLOR_ID = #{rgb_color_id}
+     			<if test="(exadata_yn != null and exadata_yn != '')">
+		        , EXADATA_YN = #{exadata_yn}
+		        </if>
+		        , DATABASE_KINDS_CD = UPPER(#{database_kinds_cd})
+		     WHERE DBID = #{dbid}
+	</update>
+	
+		<select id="checkDbNmByDatabase" parameterType="instance" resultType="int">
+		/* DatabaseMngDao.checkDbNmByDatabase */
+			SELECT COUNT(DB_NAME) FROM DATABASE WHERE db_name = #{db_name}
+	</select>	
+	
+	
+	<select id="checkInstIdByInstance" parameterType="instance" resultType="int">
+		/* DatabaseMngDao.checkInstIdByInstance */
+			SELECT COUNT(DBID) FROM INSTANCE WHERE DBID = #{dbid} AND INST_ID = #{inst_id}
+	</select>	
+	<select id="checkInstNmByInstance" parameterType="instance" resultType="int">
+		/* DatabaseMngDao.checkInstNmByInstance */
+			SELECT COUNT(INST_NM) FROM INSTANCE WHERE INST_NM = #{inst_name}
+	</select>	
+	
+	<delete id="deleteInstance" parameterType="instance">
+		DELETE FROM INSTANCE
+		WHERE
+		DBID = #{dbid} 
+		AND INST_ID = #{inst_id}
+	</delete>
+	
+	<select id="agentFailoverList" parameterType="agentFailover" resultType="agentFailover">
+		/* DatabaseMngDao.agentFailoverList */
+		SELECT A.DBID, B.DB_NAME, A.AGENT_TYPE_CD,
+    		CASE WHEN A.AGENT_TYPE_CD = '1' THEN '스냅샷' ELSE 'D-1' END AS AGENT_TYPE_NM,
+    		A.FIRST_INST_ID, A.SECONDARY_INST_ID
+		FROM AGENT_FAILOVER A, DATABASE B
+		WHERE A.DBID = #{dbid}
+		AND A.DBID = B.DBID
+	</select>	
+	
+	<update id="saveAgentFailover" parameterType="agentFailover">
+		/* DatabaseMngDao.saveAgentFailover */
+		UPDATE AGENT_FAILOVER SET 
+			FIRST_INST_ID = #{first_inst_id},
+			SECONDARY_INST_ID = #{secondary_inst_id}
+		WHERE DBID = #{dbid}
+		AND AGENT_TYPE_CD = #{agent_type_cd}
+	</update>	
+	
+	<select id="alertSettingList" parameterType="alertConfig" resultType="alertConfig">
+		/* DatabaseMngDao.alertSettingList */
+		SELECT A.DBID, A.INST_ID, A.ALERT_TYPE_CD, CD1.CD_NM AS ALERT_TYPE_NM,
+			A.ALERT_THRESHOLD, A.ENABLE_YN, A.SMS_SEND_YN
+		FROM ALERT_CONFIG A, CD CD1
+		WHERE A.ALERT_TYPE_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1011'
+		AND A.DBID = #{dbid} 
+		AND A.INST_ID = #{inst_id}
+		<if test="searchKey != null and searchKey != ''">
+			AND A.ALERT_TYPE_CD = #{searchKey}
+		</if>
+	</select>
+	
+	<update id="saveAlertSetting" parameterType="alertConfig">
+		/* DatabaseMngDao.saveAlertSetting */
+		UPDATE ALERT_CONFIG SET 
+			ALERT_THRESHOLD = #{alert_threshold},
+			ENABLE_YN = #{enable_yn},
+			SMS_SEND_YN = #{sms_send_yn}
+		WHERE DBID = #{dbid}
+		AND INST_ID = #{inst_id}
+		AND ALERT_TYPE_CD = #{alert_type_cd}
+	</update>	
+</mapper> 

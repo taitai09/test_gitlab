@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>12.	DB 진단/점검</h1>
+	<h2>12.5. SPACE 분석</h2>
+	<h3>12.5.4.	데이터파일 I/O 분석</h3>
+
+	<div>
+		<p>I/O가 특정 데이터파일에 집중되면 I/O 경합으로 인한 성능저하가 발생하여 애플리케이션 응답시간 지연이 발생한다. </p>
+		<p>Read와 Write가 동시에 많이 발생하거나 다른 데이터파일에 비하여 I/O가 많이 발생하는 데이터파일을 식별하여 I/O튜닝 작업이 필요하다. I/O튜닝은 물리적으로 해당 데이터파일에 생성된 세그먼트를 다른 테이블스페이스로 이동하거나 I/O 피크시점에 수행된 SQL을 찾아서 튜닝하여 I/O를 줄여줄 수 있다. </p>
+
+		<h4>데이터파일 I/O분석 조회</h4>
+		<p>DB, I/O 분석 기간을 선택하여 I/O분석을 수행한다. 차트 또는 그리드에서 데이터파일을 선택하면 시간대별 I/O추이 상세분석 화면이 상단 탭으로 생성된다. </p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-5-4-1.jpg"></p>
+	</div>
+
+	<div>
+		<h4>데이터파일 I/O 상세 분석 조회</h4>
+		<p>데이터파일에 생성된 세그먼트와 피크시점에 TOP SQL목록을 조회하여 I/O병목을 튜닝한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/12-5-4-2.jpg"></p>
+	</div>
+</div>
+</body>
+</html>

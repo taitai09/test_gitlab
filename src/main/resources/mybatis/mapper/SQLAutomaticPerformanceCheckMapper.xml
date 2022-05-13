@@ -1,0 +1,849 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2019.06.10	명성태	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.SQLAutomaticPerformanceCheckDao">
+	<select id="searchProjectList" parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.searchProjectList */
+		SELECT PROJECT_NM AS PROJECT_NM                                    -- 프로젝트명
+			 , PROJECT_DESC AS PROJECT_DESC                                -- 프로젝트설명
+			 , DEL_YN AS DEL_YN                                            -- 종료여부
+			   -- HIDDEN
+			 , PROJECT_ID AS PROJECT_ID                                    -- 프로젝트ID
+		  FROM PROJECT    -- 프로젝트(TABLE)
+		 WHERE PROJECT_NM LIKE '%'||#{project_nm}||'%'                       -- 프로젝트명
+		<if test="del_yn != null and del_yn != ''">
+		   AND DEL_YN = #{del_yn}                                            -- 종료여부
+		</if>
+		   AND PROJECT_ID != 0
+		 ORDER BY PROJECT_NM
+	</select>
+	
+	<select id="searchPerformanceCheckId" parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.searchPerformanceCheckId */
+		SELECT SQL_AUTO_PERF_CHECK_ID
+			, PERF_CHECK_RANGE_BEGIN_DT
+			, PERF_CHECK_RANGE_END_DT
+		FROM SQL_AUTO_PERF_CHK
+		WHERE PROJECT_ID = #{project_id}
+		ORDER BY SQL_AUTO_PERF_CHECK_ID DESC 
+	</select>
+	
+	<select id="loadPerformanceCheckCount" parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.loadPerformanceCheckCount */
+		SELECT A.PROJECT_ID
+			 , A.SQL_AUTO_PERF_CHECK_ID
+			 , '전체: '||COUNT(*) AS TOTAL_CNT
+			 , '수행완료: '||NVL(SUM(CASE WHEN B.PROJECT_ID IS NULL AND A.SQL_COMMAND_TYPE_CD IS NOT NULL THEN 1 ELSE 0 END), 0) AS COMPLETED_CNT
+			 , '수행중: '||NVL(SUM(CASE WHEN B.PROJECT_ID IS NULL AND A.SQL_COMMAND_TYPE_CD IS NULL THEN 1 ELSE 0 END), 0) AS PERFORMING_CNT
+			 , '오류: '||NVL(SUM(CASE WHEN B.PROJECT_ID IS NOT NULL THEN 1 ELSE 0 END), 0) AS ERR_CNT
+			 , NVL(MAX(PERF_CHECK_FORCE_CLOSE_YN), 'N') AS PERF_CHECK_FORCE_CLOSE_YN
+			 , NVL(TO_CHAR(C.PERF_CHECK_EXEC_END_DT), 'N') AS PERF_CHECK_ERROR
+		  FROM SQL_AUTO_PERF_CHK_TARGET A
+			 , SQL_AUTO_PERF_CHK_ERROR B
+			 , SQL_AUTO_PERF_CHK C
+		 WHERE A.PROJECT_ID = #{project_id}
+		   AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+		   AND A.PROJECT_ID = B.PROJECT_ID(+)
+		   AND A.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID(+)
+		   AND A.SQL_ID = B.SQL_ID(+)
+		   AND A.PROJECT_ID = C.PROJECT_ID
+		   AND A.SQL_AUTO_PERF_CHECK_ID = C.SQL_AUTO_PERF_CHECK_ID
+		 GROUP BY A.PROJECT_ID
+			 , A.SQL_AUTO_PERF_CHECK_ID
+			 , C.PERF_CHECK_EXEC_END_DT
+	</select>
+	
+	<select id="countPerformanceCheckErrorCount" parameterType="sqlAutomaticPerformanceCheck" resultType="int">
+		/* SQLAutomaticPerformanceCheckMapper.countPerformanceCheckErrorCount */
+		
+		SELECT COUNT(*) AS RCOUNT
+		FROM SQL_AUTO_PERF_CHK A
+		WHERE A.PROJECT_ID = #{project_id}
+		AND A.PERF_CHECK_EXEC_END_DT IS NULL
+		AND ROWNUM = 1
+	</select>
+	
+	<select id="getRoundingInfo" parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.getRoundingInfo */
+		/* 03: 회차정보조회 */
+		SELECT ORIGINAL_DBID                -- 원천DBID
+			, PERF_CHECK_TARGET_DBID       -- 성능점검대상DBID
+			, DB2.DB_NAME AS PERF_CHECK_TARGET_DB_NAME    -- 성능점검대상DB명
+			, PARSING_SCHEMA_NAME          -- 성능점검파싱스키마명
+			, PERF_CHECK_RANGE_BEGIN_DT    -- 성능점검범위시작일시
+			, PERF_CHECK_RANGE_END_DT      -- 성능점검범위종료일시
+			, TOPN_CNT                     -- TOPN수
+			, LITERAL_EXCEPT_YN            -- 리터럴제외여부
+			, PERF_CHECK_EXEC_BEGIN_DT     -- 성능점검수행시작일시
+			, PERF_CHECK_EXEC_END_DT       -- 성능점검수행완료일시
+			, PERF_CHECK_FORCE_CLOSE_YN    -- 강제완료여부
+		FROM SQL_AUTO_PERF_CHK
+			, DATABASE DB2
+		WHERE PROJECT_ID = #{project_id}
+		AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+		AND PERF_CHECK_TARGET_DBID = DB2.DBID
+	</select>
+	
+	<select id="loadOriginalDb" parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformancecheck">
+		/* SQLAutomaticPerformanceCheckMapper.loadOriginalDb */
+		/* 원천_대상DB조회 */
+		SELECT B.PROJECT_NM
+			, DB1.DB_NAME AS ORIGINAL_DB_NAME
+			, DB2.DB_NAME AS PERF_CHECK_TARGET_DB_NAME
+			, A.PARSING_SCHEMA_NAME
+			, A.PERF_CHECK_ORIGINAL_DBID AS ORIGINAL_DBID
+			, A.PERF_CHECK_TARGET_DBID
+			, A.PROJECT_ID
+		FROM PROJECT_DB A
+			, PROJECT B
+			, DATABASE DB1
+			, DATABASE DB2
+		WHERE A.PROJECT_ID = B.PROJECT_ID
+		AND A.PERF_CHECK_ORIGINAL_DBID = DB1.DBID
+		AND A.PERF_CHECK_TARGET_DBID = DB2.DBID
+		AND A.PROJECT_ID = #{project_id}
+		AND A.PERF_CHECK_TARGET_YN = 'Y'
+		ORDER BY DB1.ORDERING
+	</select>
+	
+	<select id="loadChartData" parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.loadChartData */
+		WITH SQL_AUTO_PERF_CHK_STATS AS (
+			SELECT 
+				PLAN_CHANGE_YN AS PLAN_CHANGE_YN                                -- 이전실행계획해시값
+				, ROUND(A.BEFORE_ELAPSED_TIME/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)/1000000, 4) AS BEFORE_ELAPSED_TIME       -- 이전수행시간
+				, ROUND(A.BEFORE_BUFFER_GETS/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS BEFORE_BUFFER_GETS                    -- 이전버퍼획득수
+				, A.AFTER_PLAN_HASH_VALUE AS AFTER_PLAN_HASH_VALUE              -- 이후실행계획해시값
+				, ROUND(A.AFTER_ELAPSED_TIME/1000000, 4) AS AFTER_ELAPSED_TIME   -- 이후수행시간
+				, A.AFTER_BUFFER_GETS AS AFTER_BUFFER_GETS                      -- 이후버퍼획득수
+				, A.SQL_COMMAND_TYPE_CD AS SQL_COMMAND_TYPE_CD                  -- SQL명령유형코드
+				, A.PERF_IMPACT_TYPE_CD 
+			FROM SQL_AUTO_PERF_CHK_TARGET A                                     -- SQL자동성능점검대상내역(TABLE)
+			WHERE A.PROJECT_ID = #{project_id}                                  -- 프로젝트ID
+			AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}            -- SQL자동성능점검회차
+		)
+		SELECT 
+			/* Elapsed Time */
+			'Before' AS BEFORE_ELAPSED_TIME_TITLE
+			,'After' AS AFTER_ELAPSED_TIME_TITLE
+			,SUM(A.BEFORE_ELAPSED_TIME) AS BEFORE_ELAPSED_TIME_CHART
+			, SUM(A.AFTER_ELAPSED_TIME) AS AFTER_ELAPSED_TIME_CHART
+			/* Buffer Gets */
+			,'Before' AS BEFORE_BUFFER_GETS_TITLE
+			,'After' AS AFTER_BUFFER_GETS_TITLE
+			, SUM(A.BEFORE_BUFFER_GETS) AS BEFORE_BUFFER_GETS_CHART
+			, SUM(A.AFTER_BUFFER_GETS) AS AFTER_BUFFER_GETS_CHART
+			/* PLAN변경 */
+			,'New Plan' AS PLAN_CHANGE_Y_TITLE
+			,'Same Plan' AS PLAN_CHANGE_N_TITLE
+			, SUM(CASE WHEN A.PLAN_CHANGE_YN = 'Y' THEN 1 ELSE 0 END) AS PLAN_CHANGE_Y_CHART
+			, SUM(CASE WHEN A.PLAN_CHANGE_YN = 'N' THEN 1 ELSE 0 END) AS PLAN_CHANGE_N_CHART
+			/* SQL유형 */
+			,'SELECT' AS SQL_COMMAND_SELECT_TITLE
+			,'INSERT' AS SQL_COMMAND_INSERT_TITLE
+			,'UPDATE' AS SQL_COMMAND_UPDATE_TITLE
+			,'DELETE' AS SQL_COMMAND_DELETE_TITLE
+			,'MERGE' AS SQL_COMMAND_MERGE_TITLE
+			, SUM(CASE WHEN A.SQL_COMMAND_TYPE_CD = 'SELECT' THEN 1 ELSE 0 END) AS SQL_COMMAND_SELECT_CHART
+			, SUM(CASE WHEN A.SQL_COMMAND_TYPE_CD = 'INSERT' THEN 1 ELSE 0 END) AS SQL_COMMAND_INSERT_CHART
+			, SUM(CASE WHEN A.SQL_COMMAND_TYPE_CD = 'UPDATE' THEN 1 ELSE 0 END) AS SQL_COMMAND_UPDATE_CHART
+			, SUM(CASE WHEN A.SQL_COMMAND_TYPE_CD = 'DELETE' THEN 1 ELSE 0 END) AS SQL_COMMAND_DELETE_CHART
+			, SUM(CASE WHEN A.SQL_COMMAND_TYPE_CD = 'MERGE' THEN 1 ELSE 0 END) AS SQL_COMMAND_MERGE_CHART
+			/* 성능 임팩트 */
+			,'Improved' AS PERF_IMPACT_IMPROVED_TITLE
+			,'Regressed' AS PERF_IMPACT_REGRESSED_TITLE
+			,'Unchanged' AS PERF_IMPACT_UNCHANGED_TITLE
+			,'TimeOut' AS PERF_IMPACT_TIMEOUT_TITLE
+			, SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '1' THEN 1 ELSE 0 END) AS PERF_IMPACT_IMPROVED_CHART
+			, SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '2' THEN 1 ELSE 0 END) AS PERF_IMPACT_REGRESSED_CHART
+			, SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '3' THEN 1 ELSE 0 END) AS PERF_IMPACT_UNCHANGED_CHART
+			, SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '4' THEN 1 ELSE 0 END) AS PERF_IMPACT_TIMEOUT_CHART
+		FROM SQL_AUTO_PERF_CHK_STATS A
+	</select>
+	
+	<sql id="loadPerformanceCheckListRefId">
+		/* SQLAutomaticPerformanceCheckMapper.loadPerformanceCheckListRefId */
+		SELECT B.PROJECT_NM AS PROJECT_NM                                    -- 프로젝트명 
+			, A.SQL_AUTO_PERF_CHECK_ID AS SQL_AUTO_PERF_CHECK_ID            -- 수행회차
+			, A.PERF_IMPACT_TYPE_CD AS PERF_IMPACT_TYPE_CD                  -- 성능임팩트유형코드
+			, CD1.CD_NM AS SQL_IDFY_COND_TYPE_NM                            -- 성능점검대상범위
+			, A.BUFFER_INCREASE_RATIO AS BUFFER_INCREASE_RATIO              -- 버퍼개선율
+			, A.ELAPSED_TIME_INCREASE_RATIO AS ELAPSED_TIME_INCREASE_RATIO  -- 수행시간개선율
+			, A.PLAN_CHANGE_YN AS PLAN_CHANGE_YN                            -- 실행계획변경여부
+			, A.SQL_ID AS SQL_ID                                            -- SQL_ID
+			, A.BEFORE_PLAN_HASH_VALUE AS BEFORE_PLAN_HASH_VALUE            -- 이전실행계획해시값
+			, A.BEFORE_EXECUTIONS AS BEFORE_EXECUTIONS                      -- 이전실행수
+			, ROUND(A.BEFORE_ROWS_PROCESSED/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS BEFORE_ROWS_PROCESSED              -- 이전처리레코드수
+			, ROUND(A.BEFORE_ELAPSED_TIME/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)/1000000, 4) AS BEFORE_ELAPSED_TIME                  -- 이전수행시간
+			, ROUND(A.BEFORE_BUFFER_GETS/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS BEFORE_BUFFER_GETS                    -- 이전버퍼획득수
+			, ROUND(A.BEFORE_DISK_READS/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS BEFORE_DISK_READS                      -- 이전디스크읽기수
+			, A.BEFORE_FULLSCAN_YN AS BEFORE_FULLSCAN_YN                    -- 이전FULLSCAN여부
+			, A.BEFORE_PARTITION_ALL_ACCESS_YN AS BEFORE_PARTITION_ALL_ACCESS_YN-- 이전전체파티션엑세스여부
+			, A.AFTER_PLAN_HASH_VALUE AS AFTER_PLAN_HASH_VALUE              -- 이후실행계획해시값
+			, A.AFTER_EXECUTIONS AS AFTER_EXECUTIONS                        -- 이후실행수
+			, A.AFTER_ROWS_PROCESSED AS AFTER_ROWS_PROCESSED                -- 이후처리레코드수
+			, ROUND(A.AFTER_ELAPSED_TIME/1000000, 4) AS AFTER_ELAPSED_TIME   -- 이후수행시간
+			, A.AFTER_BUFFER_GETS AS AFTER_BUFFER_GETS                      -- 이후버퍼획득수
+			, A.AFTER_DISK_READS AS AFTER_DISK_READS                        -- 이후디스크읽기수
+			, A.AFTER_FULLSCAN_YN AS ALTER_FULLSCAN_YN                      -- 이후FULLSCAN여부
+			, A.AFTER_PARTITION_ALL_ACCESS_YN AS AFTER_PARTITION_ALL_ACCESS_YN -- 이후전체파티션엑세스여부
+			, A.SQL_COMMAND_TYPE_CD AS SQL_COMMAND_TYPE_CD                     -- SQL명령유형코드
+			, C.ERR_CODE AS ERR_CODE
+			, C.ERR_MSG AS ERR_MSG
+			, DBMS_LOB.SUBSTR(D.SQL_FULLTEXT, 1000, 1) AS SQL_TEXT
+		FROM SQL_AUTO_PERF_CHK_TARGET A                                     -- SQL자동성능점검대상내역(TABLE)
+			, PROJECT B
+			, SQL_AUTO_PERF_CHK_ERROR C
+			, VSQL_TEXT D
+			, CD CD1
+		WHERE A.PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+		AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}            -- SQL자동성능점검회차
+		AND A.PROJECT_ID = B.PROJECT_ID
+		AND A.PROJECT_ID = C.PROJECT_ID(+)
+		AND A.SQL_AUTO_PERF_CHECK_ID = C.SQL_AUTO_PERF_CHECK_ID(+)
+		AND A.SQL_ID = C.SQL_ID(+)
+		AND D.SQL_ID = A.SQL_ID
+		AND D.DBID IN (SELECT ORIGINAL_DBID 
+						FROM SQL_AUTO_PERF_CHK 
+						WHERE PROJECT_ID = #{project_id}
+						AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id})
+		AND D.PLAN_HASH_VALUE = A.BEFORE_PLAN_HASH_VALUE
+		AND CD1.GRP_CD_ID(+) = '1025'
+		AND A.PERF_IMPACT_TYPE_CD = CD1.CD(+)
+		<if test="performance_yn != null and performance_yn.equalsIgnoreCase('Y')">
+			/* 미수행여부 = 'Y' */
+			AND SQL_COMMAND_TYPE_CD IS NULL
+			AND NOT EXISTS (SELECT 'X'
+							FROM SQL_AUTO_PERF_CHK_ERROR
+							WHERE PROJECT_ID = A.PROJECT_ID
+							AND SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+							AND SQL_ID = A.SQL_ID)
+		</if>
+		
+		<if test="error_yn != null and error_yn.equalsIgnoreCase('Y')">
+			/* 오류여부 = 'Y' */
+			AND C.ERR_MSG IS NOT NULL
+		</if>
+		
+		<if test="select_sql != null and select_sql != ''">
+			/* SQL 유형 */
+			AND A.SQL_COMMAND_TYPE_CD = #{select_sql}
+		</if>
+		
+		<if test="select_perf_impact != null and select_perf_impact != ''">
+			/* 성능 임팩트 유형 */
+			AND A.PERF_IMPACT_TYPE_CD = #{select_perf_impact}
+		</if>
+		
+		<if test="plan_change_status != null and plan_change_status.equalsIgnoreCase('Y')">
+			/* Plan 변경여부 = 'Y' */
+			AND A.PLAN_CHANGE_YN = #{plan_change_status}
+		</if>
+	</sql>
+	
+	<select id="loadPerformanceCheckList" parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.loadPerformanceCheckList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, AA.*
+			FROM (
+				<include refid="loadPerformanceCheckListRefId"/>
+			) AA
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="countExecuteTms" parameterType="sqlAutomaticPerformanceCheck" resultType="int">
+		/* SQLAutomaticPerformanceCheckMapper.countExecuteTms */
+		/* 01: 프로젝트에 자동성능점검 수행중인 회차가 있는지 조회 */
+		SELECT COUNT(*) AS RCOUNT
+		FROM SQL_AUTO_PERF_CHK A
+		WHERE A.PROJECT_ID = #{project_id}
+		AND A.PERF_CHECK_EXEC_END_DT IS NULL
+		AND ROWNUM = 1
+	</select>
+	
+	<select id="maxPerformanceCheckId" parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformanceCheck">
+		SELECT SQL_AUTO_PERF_CHECK_ID 
+		  FROM (SELECT NVL(MAX(SQL_AUTO_PERF_CHECK_ID), 0) + 1 as SQL_AUTO_PERF_CHECK_ID
+		             , COUNT(*) CNT
+		        FROM SQL_AUTO_PERF_CHK
+		        WHERE PROJECT_ID = #{project_id}
+		        )
+	</select>
+	
+	<update id="insertSqlAutomaticPerformanceCheck" parameterType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.insertSqlAutomaticPerformanceCheck */
+		/* 02: SQL자동성능점검기본 INSERT */
+		INSERT INTO   SQL_AUTO_PERF_CHK                                               -- (TABLE)
+			( PROJECT_ID                                                              -- 프로젝트ID
+			, SQL_AUTO_PERF_CHECK_ID                                                  -- SQL자동성능점검회차
+			, ORIGINAL_DBID                                                           -- 원천DBID
+			, PERF_CHECK_TARGET_DBID                                                  -- 성능점검대상DBID
+			, PARSING_SCHEMA_NAME                                                     -- 성능점검파싱스키마명
+			, PERF_CHECK_RANGE_BEGIN_DT                                               -- 성능점검범위시작일시
+			, PERF_CHECK_RANGE_END_DT                                                 -- 성능점검범위종료일시
+			, TOPN_CNT                                                                -- TOPN수
+			, LITERAL_EXCEPT_YN                                                       -- 리터럴제외여부
+			, PERF_CHECK_EXECUTER_ID                                                  -- 성능점검수행자ID
+			, PERF_CHECK_EXEC_BEGIN_DT                                                -- 성능점검수행시작일시
+		) VALUES ( #{project_id}                                                      -- 프로젝트ID
+			, #{sql_auto_perf_check_id}                                               -- SQL자동성능점검회차
+			, #{dbid}                                                                 -- 원천DBID
+			, #{perf_check_target_dbid}                                                                 -- 성능점검대상DBID
+			, #{parsing_schema_name}                                                  -- 성능점검파싱스키마명
+			, TO_TIMESTAMP(#{perf_check_range_begin_dt}, 'YYYY-MM-DD HH24:MI')        -- 성능점검범위시작일시
+			, TO_TIMESTAMP(#{perf_check_range_end_dt}, 'YYYY-MM-DD HH24:MI')          -- 성능점검범위종료일시
+			, #{topn_cnt}                                                             -- TOPN수
+			, #{literal_except_yn}                                                    -- 리터럴제외여부
+			, #{perf_check_executer_id}                                               -- 성능점검수행자ID
+			, SYSDATE                                                                 -- 성능점검수행시작일시
+		)
+	</update>
+	
+	<update id="insertSqlAutomaticPerformanceCheckTarget" parameterType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.insertSqlAutomaticPerformanceCheckTarget */
+		/* 03: SQL자동성능점검대상내역 INSERT */
+		INSERT INTO   SQL_AUTO_PERF_CHK_TARGET                            -- SQL자동성능점검대상내역(TABLE)
+			( PROJECT_ID                                                  -- 프로젝트ID
+			, SQL_AUTO_PERF_CHECK_ID                                      -- SQL자동성능점검회차
+			, SQL_ID                                                      -- SQL_ID
+			, BEFORE_PLAN_HASH_VALUE                                      -- 이전실행계획해시값
+			, BEFORE_EXECUTIONS                                           -- 이전실행수
+			, BEFORE_ROWS_PROCESSED                                       -- 이전처리레코드수
+			, BEFORE_ELAPSED_TIME                                         -- 이전수행시간
+			, BEFORE_BUFFER_GETS                                          -- 이전버퍼획득수
+			, BEFORE_DISK_READS                                           -- 이전디스크읽기수
+			, BEFORE_FULLSCAN_YN                                          -- 이전FULLSCAN여부
+			, BEFORE_PARTITION_ALL_ACCESS_YN                              -- 이전전체파티션엑세스여부
+		)
+		WITH SQL_LIST AS
+		(
+            SELECT /*+ MATERIALIZE */ 
+                A.DBID
+                , A.SQL_ID
+                , A.PLAN_HASH_VALUE
+                , SUM(B.EXECUTIONS) EXECUTIONS
+                , SUM(B.ROWS_PROCESSED) ROWS_PROCESSED
+                , SUM(B.ELAPSED_TIME) ELAPSED_TIME
+                , SUM(B.BUFFER_GETS) BUFFER_GETS
+                , SUM(B.DISK_READS) DISK_READS
+                , ROW_NUMBER() OVER(ORDER BY SUM(B.BUFFER_GETS) DESC) RANK
+            FROM (SELECT DBID
+	                    , SQL_ID
+	                    , PLAN_HASH_VALUE
+	                    , SQL_FULLTEXT
+	                    , SNAP_TIME
+	                    , ROW_NUMBER() OVER(PARTITION BY SQL_ID ORDER BY SNAP_TIME DESC, PLAN_HASH_VALUE) RNUM
+	                FROM VSQL_TEXT
+	                WHERE DBID = #{dbid}
+	                AND SNAP_TIME BETWEEN TO_TIMESTAMP(#{perf_check_range_begin_dt} || ':00.000000', 'YYYY-MM-DD HH24:MI:SS.FF6')  -- :start_date = yyyymmddhh24mi
+	                AND TO_TIMESTAMP(#{perf_check_range_end_dt} || ':59.999999', 'YYYY-MM-DD HH24:MI:SS.FF6')                      -- :end_date = yyyymmddhh24mi
+	                ) A
+                , (SELECT DBID
+                        , SQL_ID
+                        , PLAN_HASH_VALUE
+                        , EXECUTIONS
+                        , ROWS_PROCESSED
+                        , ELAPSED_TIME
+                        , BUFFER_GETS
+                        , DISK_READS
+                        , INST_ID
+                        , FORCE_MATCHING_SIGNATURE
+                        , COUNT(*) OVER (PARTITION BY FORCE_MATCHING_SIGNATURE ) FORCE_MATCHING_SIGNATURE_CNT
+                        , ROW_NUMBER() OVER (PARTITION BY FORCE_MATCHING_SIGNATURE ORDER BY BUFFER_GETS DESC) LITERAL_SEQ
+                    FROM VSQL_STATS
+                    WHERE DBID = #{dbid}
+                ) B
+            WHERE A.DBID = B.DBID
+            AND A.SQL_ID = B.SQL_ID
+            AND A.PLAN_HASH_VALUE = B.PLAN_HASH_VALUE
+            AND A.RNUM = 1
+            
+            <if test="literal_except_yn != null and literal_except_yn != '' and literal_except_yn != 'N'.toString()">
+            /* 리터럴 SQL 제외 인 경우  조건 추가 */
+            AND ( FORCE_MATCHING_SIGNATURE = 0 OR 
+                    (FORCE_MATCHING_SIGNATURE != 0 AND FORCE_MATCHING_SIGNATURE_CNT <![CDATA[<]]> 5) OR 
+                    (FORCE_MATCHING_SIGNATURE != 0 AND FORCE_MATCHING_SIGNATURE_CNT >= 5 AND LITERAL_SEQ = 1)
+                )
+            </if>
+            
+            GROUP BY A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+		)
+		/* 모듈조건 건수 */
+		, PROJECT_SQL_IDFY_COND_CNT AS
+		(
+			SELECT NVL(SUM(CASE WHEN SQL_IDFY_COND_TYPE_CD = '1' THEN 1 ELSE 0 END), 0) OWNER_CNT
+				, NVL(SUM(CASE WHEN SQL_IDFY_COND_TYPE_CD = '2' THEN 1 ELSE 0 END), 0) TABLE_CNT
+				, NVL(SUM(CASE WHEN SQL_IDFY_COND_TYPE_CD = '3' THEN 1 ELSE 0 END), 0) MODULE_CNT
+			FROM PROJECT_CHK_TARGET
+			WHERE PROJECT_ID = #{project_id}
+            AND PROJECT_CHECK_TARGET_TYPE_CD = '3'
+            AND DBID = #{dbid}
+		)
+		/* 테이블 조건 필터링후 SQL LIST */
+		, TABLE_FILTER_SQL_LIST AS
+		(
+			SELECT DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+			FROM SQL_LIST A
+				, VSQL_PLAN B
+				, (
+					SELECT OWNER AS OBJECT_OWNER, UPPER(TABLE_NAME) AS OBJECT_NAME
+					FROM PROJECT A
+						, PROJECT_CHK_TARGET B
+					WHERE A.PROJECT_ID = B.PROJECT_ID
+                    AND A.PROJECT_ID = #{project_id}
+					AND B.DBID = #{dbid}
+					AND B.PROJECT_CHECK_TARGET_TYPE_CD = '3'  
+                    AND B.SQL_IDFY_COND_TYPE_CD = '2'  /* 테이블 단위*/
+					
+					UNION ALL
+					
+					SELECT C.OWNER AS OBJECT_OWNER, C.INDEX_NAME AS OBJECT_NAME
+					FROM PROJECT A
+						, PROJECT_CHK_TARGET B
+						, ODS_INDEXES C
+					WHERE A.PROJECT_ID = B.PROJECT_ID
+					AND B.OWNER = C.TABLE_OWNER
+					AND UPPER(B.TABLE_NAME) = C.TABLE_NAME
+					AND A.PROJECT_ID = #{project_id}
+					AND B.DBID = #{dbid}
+					AND B.PROJECT_CHECK_TARGET_TYPE_CD = '3'  
+                    AND B.SQL_IDFY_COND_TYPE_CD = '2'  /* 테이블 단위*/
+					AND C.BASE_DAY = (SELECT MAX(BASE_DAY) BASE_DAY
+										FROM ODS_INDEXES
+										WHERE DBID = #{dbid})
+				) C
+			WHERE A.DBID = B.DBID
+			AND A.PLAN_HASH_VALUE = B.PLAN_HASH_VALUE
+			AND B.OBJECT_OWNER = C.OBJECT_OWNER
+			AND B.OBJECT_NAME = C.OBJECT_NAME
+			AND (B.OBJECT_TYPE LIKE 'TABLE%' OR B.OBJECT_TYPE LIKE 'INDEX%')
+			AND (SELECT TABLE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) > 0
+			UNION ALL
+			SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+			FROM SQL_LIST A
+			WHERE (SELECT TABLE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+		)
+		/* OWNER 조건 필터링후 SQL LIST */
+		, OWNER_FILTER_SQL_LIST AS
+		(
+			SELECT /*+ LEADING(A, B, C) */
+				DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE, B.OWNER, C.OBJECT_OWNER
+			FROM TABLE_FILTER_SQL_LIST A
+				, PROJECT_CHK_TARGET B
+				, VSQL_PLAN C
+			WHERE A.DBID = C.DBID
+			AND A.PLAN_HASH_VALUE = C.PLAN_HASH_VALUE
+			AND B.OWNER = UPPER(C.OBJECT_OWNER)
+			AND B.PROJECT_ID = #{project_id}
+			AND B.DBID = #{dbid}
+			AND B.PROJECT_CHECK_TARGET_TYPE_CD = '3'  
+			AND B.SQL_IDFY_COND_TYPE_CD = '1'  /* OWNER 단위 */
+			AND (SELECT OWNER_CNT FROM PROJECT_SQL_IDFY_COND_CNT) > 0
+			UNION ALL
+			SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE, NULL OWNER, NULL OBJECT_OWNER
+			FROM TABLE_FILTER_SQL_LIST A
+			WHERE (SELECT OWNER_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+		)
+		/* 모듈 조건 필터링후 SQL LIST */
+		, MODULE_FILTER_SQL_LIST AS
+		(
+			SELECT /* LEADING(D A B C) USE_NL(B C) */
+				DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+			FROM OWNER_FILTER_SQL_LIST A
+				, VSQL_MODULE B
+				, PROJECT_CHK_TARGET C
+			WHERE A.DBID = B.DBID
+			AND A.SQL_ID = B.SQL_ID
+			AND UPPER(TRIM(B.MODULE)) = UPPER(TRIM(C.MODULE))
+			AND C.PROJECT_ID = #{project_id}
+			AND C.DBID = #{dbid}
+			AND C.SQL_IDFY_COND_TYPE_CD = '3'  /* MODULE 단위 */
+			AND C.PROJECT_CHECK_TARGET_TYPE_CD = '3'
+			AND (SELECT MODULE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) > 0
+			UNION ALL
+			SELECT A.DBID, A.SQL_ID
+			FROM OWNER_FILTER_SQL_LIST A
+				, PROJECT_SQL_IDFY_COND_CNT D
+			WHERE (SELECT MODULE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+		)
+		SELECT *
+		FROM (
+			SELECT /*+ LEADING(A B C) USE_NL(B) USE_HASH(C) */
+				#{project_id} project_id
+				, #{sql_auto_perf_check_id} sql_auto_perf_check_id
+				, B.SQL_ID 
+				, B.PLAN_HASH_VALUE
+				, B.EXECUTIONS
+				, B.ROWS_PROCESSED
+				, B.ELAPSED_TIME
+				, B.BUFFER_GETS
+				, B.DISK_READS
+				, (CASE WHEN C.FULLSCAN_CNT > 0 THEN 'Y' ELSE 'N' END) FULLSCAN_YN
+				, (CASE WHEN C.PARTITION_ALL_ACCESS_CNT > 0 THEN 'Y' ELSE 'N' END) PARTITION_ALL_ACCESS_YN
+			FROM MODULE_FILTER_SQL_LIST A
+				, SQL_LIST B
+				, (
+					SELECT DBID 
+						, PLAN_HASH_VALUE
+						, SUM(CASE WHEN OPERATION || ' ' || OPTIONS IN ('TABLE ACCESS FULL', 'INDEX FAST FULL SCAN', 'INDEX FULL SCAN', 'BITMAP INDEX FAST FULL SCAN', 'TABLE ACCESS STORAGE FULL', 'INDEX STORAGE FAST FULL SCAN', 'BITMAP INDEX STORAGE FAST FULL SCAN') THEN 1 ELSE 0 END)  FULLSCAN_CNT
+						, SUM(CASE WHEN OPERATION || ' ' || OPTIONS IN ('PARTITION RANGE ALL', 'PARTITION LIST ALL', 'PARTITION HASH ALL') THEN 1 ELSE 0 END) PARTITION_ALL_ACCESS_CNT
+					FROM VSQL_PLAN 
+					WHERE (DBID, PLAN_HASH_VALUE) IN (SELECT DBID, PLAN_HASH_VALUE FROM MODULE_FILTER_SQL_LIST)
+					AND OPERATION || ' ' || OPTIONS IN ('TABLE ACCESS FULL', 'INDEX FAST FULL SCAN', 'INDEX FULL SCAN', 'BITMAP INDEX FAST FULL SCAN', 'TABLE ACCESS STORAGE FULL', 'INDEX STORAGE FAST FULL SCAN', 'BITMAP INDEX STORAGE FAST FULL SCAN', 'PARTITION RANGE ALL', 'PARTITION LIST ALL', 'PARTITION HASH ALL')
+					GROUP BY DBID, PLAN_HASH_VALUE
+				) C
+			WHERE A.SQL_ID = B.SQL_ID
+			AND B.DBID = C.DBID(+)
+			AND B.PLAN_HASH_VALUE = C.PLAN_HASH_VALUE(+)
+			--AND A.SQL_ID IN ('a7k594rxwng2k', '8zc85a8249x81', '0x4rjw2ckcf69', '0q18ra5naxugp')
+			--AND A.SQL_ID IN ('26dyra0hxq3vt')
+			--AND A.SQL_ID IN ('07n9yv8rac2qq')
+			ORDER BY B.RANK
+		)
+		<if test="topn_cnt != null and topn_cnt != ''">
+			WHERE ROWNUM <![CDATA[<=]]> #{topn_cnt}
+		</if>
+
+	</update>
+	
+	<update id="forceUpdateSqlAutomaticPerformanceCheck" parameterType="sqlAutomaticPerformanceCheck">
+		/* SQLAutomaticPerformanceCheckMapper.forceUpdateSqlAutomaticPerformanceCheck */
+		/* 02: 강제완료처리 UPDATE */
+		UPDATE SQL_AUTO_PERF_CHK A SET PERF_CHECK_EXEC_END_DT = SYSDATE
+			, PERF_CHECK_FORCE_CLOSE_YN = 'Y'
+		WHERE A.PROJECT_ID = #{project_id}
+		AND A.PERF_CHECK_EXEC_END_DT IS NULL
+	</update>
+	
+	<select id="excelDownload" parameterType="sqlAutomaticPerformanceCheck" resultType="java.util.LinkedHashMap">
+		/* SQLAutomaticPerformanceCheckMapper.excelDownload */
+			<include refid="loadPerformanceCheckListRefId"/>
+	</select>
+	
+	<select id="loadExplainSqlText" parameterType="odsHistSqlText" resultType="odsHistSqlText">
+		/* SQLAutomaticPerformanceCheckMapper.loadExplainSqlText */
+		SELECT A.SQL_ID AS SQL_ID
+			, A.SQL_FULLTEXT AS SQL_TEXT
+		FROM VSQL_TEXT A 
+		WHERE A.DBID = #{dbid}
+		AND A.SQL_ID = #{sql_id}
+		AND A.PLAN_HASH_VALUE = #{plan_hash_value}                       /* before_plan_hash_value */
+	</select>
+	
+	<select id="loadExplainBindValue" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* SQLAutomaticPerformanceCheckMapper.loadExplainBindValue */
+		SELECT NAME                                -- 바인드명
+			, VALUE_STRING AS VALUE                -- 바인드값
+			, DATATYPE_STRING AS SQL_BIND          -- 바인드타입
+		FROM (
+			SELECT NAME
+				, VALUE_STRING
+				, DATATYPE_STRING
+				, LAST_CAPTURED
+				, MAX(LAST_CAPTURED) OVER() MAX_LAST_CAPTURED /* 가장 최근 바인드값 */
+			FROM VSQL_BIND_CAPTURE
+			WHERE DBID = #{dbid}
+			AND SQL_ID = #{sql_id}
+		)
+		WHERE LAST_CAPTURED = MAX_LAST_CAPTURED
+	</select>
+	
+	<select id="loadExplainBeforePlan" parameterType="explainPlanTree" resultType="explainPlanTree">
+		/* SQLAutomaticPerformanceCheckMapper.loadExplainBeforePlan*/
+		WITH TUN AS
+		(
+			SELECT *
+			FROM VSQL_PLAN
+			WHERE DBID = #{dbid}
+			AND PLAN_HASH_VALUE = #{plan_hash_value}                      /* before_plan_hash_value */
+		)
+		SELECT ID
+			, NVL(PARENT_ID,'-1') AS PARENT_ID
+			, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID
+			, (OPERATION
+			|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+			|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+			|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+			|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+			  || (CASE WHEN CARDINALITY IS NOT NULL THEN ' '||'CARD=' || CARDINALITY ELSE '' END)
+			  || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+				) AS TEXT
+		FROM TUN
+		ORDER BY ID
+	</select>
+	
+	<select id="loadExplainAfterSelectPlan" parameterType="explainPlanTree" resultType="explainPlanTree">
+		/* SQLAutomaticPerformanceCheckMapper.loadExplainAfterSelectPlan*/
+		WITH TUN AS
+		(
+			SELECT *
+			FROM SQL_AUTO_PERF_SQL_PLAN
+			WHERE PROJECT_ID = #{project_id}
+			AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+			AND SQL_ID = #{sql_id}
+		)
+		SELECT ID
+			, NVL(CASE WHEN PARENT_ID=0 THEN
+					CASE 
+						WHEN DEPTH=0 THEN -1
+						ELSE PARENT_ID
+					END
+					ELSE PARENT_ID
+				END, '-1') AS PARENT_ID
+			, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID
+			, (OPERATION
+			|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+			|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+			|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+			|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+			  || (CASE WHEN CARDINALITY IS NOT NULL THEN ' '||'CARD=' || CARDINALITY ELSE '' END)
+			  || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+			) AS TEXT
+		FROM TUN
+		ORDER BY ID
+	</select>
+	
+	<select id="loadExplainAfterNotSelectPlan" parameterType="explainPlanTree" resultType="explainPlanTree">
+		/* SQLAutomaticPerformanceCheckMapper.loadExplainAfterNotSelectPlan*/
+		WITH TUN AS
+		(
+			SELECT *
+			FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+			WHERE PROJECT_ID = #{project_id}
+			AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+			AND SQL_ID = #{sql_id}
+		)
+		SELECT ID
+			, NVL(CASE WHEN PARENT_ID=0 THEN
+					CASE 
+						WHEN DEPTH=0 THEN -1
+						ELSE PARENT_ID
+					END
+					ELSE PARENT_ID
+				END, '-1') AS PARENT_ID
+			, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID
+			, (OPERATION
+			|| DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+			|| DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+			|| DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+			|| NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST ELSE '' END)
+			  || (CASE WHEN CARDINALITY IS NOT NULL THEN ' '||'CARD=' || CARDINALITY ELSE '' END)
+			  || (CASE WHEN BYTES IS NOT NULL THEN ' ' || 'BYTES=' || BYTES ELSE '' END)
+			  || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+			) AS TEXT
+		FROM TUN
+		ORDER BY ID
+	</select>
+
+	<sql id="projectSqlIdfyConditionListRefId">
+		/* SQLAutomaticPerformanceCheckDao.projectSqlIdfyConditionListRefId */
+		SELECT B.PROJECT_NM AS PROJECT_NM                                    -- 프로젝트명
+		     , C.DB_NAME AS DB_NAME                                          -- DB
+		     , CD1.CD_NM AS SQL_IDFY_COND_TYPE_NM                            -- 성능점검대상범위
+		     , A.OWNER AS OWNER                                              -- OWNER                   
+		     , A.TABLE_NAME AS TABLE_NAME                                    -- 테이블명
+		     , A.MODULE AS MODULE                                            -- MODULE
+		     -- HIDDEN
+		     , A.PROJECT_ID AS PROJECT_ID                                    -- 프로젝트ID
+		     , A.CHECK_TARGET_SEQ AS CHECK_TARGET_SEQ                        -- 조건일련번호
+		     , A.DBID AS DBID                                                -- DBID
+		     , A.SQL_IDFY_COND_TYPE_CD AS SQL_IDFY_COND_TYPE_CD              -- SQL식별조건유형코드     
+		  FROM PROJECT_CHK_TARGET A    -- 프로젝트SQL식별조건(TABLE)
+		     , PROJECT B
+		     , DATABASE C
+		     , CD CD1
+		 WHERE A.PROJECT_ID = B.PROJECT_ID
+   		   AND A.PROJECT_ID = #{project_id}
+   		   AND A.DBID = C.DBID
+   		   AND A.SQL_IDFY_COND_TYPE_CD = CD1.CD(+)
+   		   AND CD1.GRP_CD_ID(+) = '1070'
+   		<if test="dbid != null and dbid != '' and dbid != '전체'">
+		   AND A.DBID = #{dbid}
+		</if>
+		<if test="owner != null and owner != '' and owner != '전체'">
+		   AND A.OWNER LIKE '%' || #{owner} || '%'
+		</if>
+		<if test="table_name != null and table_name != ''">
+		   AND A.TABLE_NAME LIKE '%' || UPPER(#{table_name}) || '%'
+		</if>
+		<if test="module != null and module != ''">
+		   AND UPPER(A.MODULE) LIKE '%' || UPPER(#{module}) || '%'
+		</if>
+		 ORDER BY B.PROJECT_NM, A.SQL_IDFY_COND_TYPE_CD, A.OWNER, A.TABLE_NAME, A.MODULE
+	</sql>
+	
+	<select id="projectSqlIdfyConditionList" parameterType="projectSqlIdfyCondition" resultType="projectSqlIdfyCondition">
+		/* SQLAutomaticPerformanceCheckDao.projectSqlIdfyConditionList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, AA.*
+			FROM (
+				<include refid="projectSqlIdfyConditionListRefId"/>
+			) AA
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="getUserNameComboBox" parameterType="odsUsers" resultType="odsUsers">
+		/* SQLAutomaticPerformanceCheckMapper.getUserNameComboBox */
+		SELECT USERNAME AS USER_ID
+		     , USERNAME AS USER_NM
+		  FROM ODS_USERS
+		 WHERE DBID = #{dbid}
+		   AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_USERS WHERE DBID = #{dbid})
+		   AND USERNAME NOT IN (SELECT USERNAME FROM UI_EXCEPT_DB_USER)		
+		 ORDER BY USERNAME
+	</select>
+	
+	<select id="getProjectUserNameComboBox" parameterType="projectSqlIdfyCondition" resultType="odsUsers">
+		/* SQLAutomaticPerformanceCheckMapper.getProjectUserNameComboBox */
+		SELECT OWNER AS USER_ID
+		     , OWNER AS USER_NM
+		  FROM PROJECT_CHK_TARGET
+		 WHERE PROJECT_ID = #{project_id}
+		 GROUP BY OWNER
+		 ORDER BY OWNER
+	</select>
+	<select id="getProjectSqlIdfyConditionCheck" parameterType="projectSqlIdfyCondition" resultType="projectSqlIdfyCondition">
+		/* SQLAutomaticPerformanceCheckMapper.getProjectSqlIdfyConditionCheck */
+		SELECT (SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END 
+		          FROM PROJECT_CHK_TARGET A 
+		         WHERE A.PROJECT_ID = #{project_id} 
+		           AND DBID = #{dbid}
+		           AND SQL_IDFY_COND_TYPE_CD = '1' 
+		           AND OWNER = #{owner}
+		           AND ROWNUM =1) AS OWNER_YN
+		     , (SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END 
+		          FROM PROJECT_CHK_TARGET A 
+		         WHERE A.PROJECT_ID = #{project_id} 
+		           AND DBID = #{dbid}
+		           AND SQL_IDFY_COND_TYPE_CD = '2' 
+		           AND OWNER = #{owner}
+		           AND ROWNUM = 1) AS OWNER_TABLE_YN
+		     , (SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END 
+		          FROM PROJECT_CHK_TARGET A 
+		         WHERE A.PROJECT_ID = #{project_id} 
+		           AND DBID = #{dbid}
+		           AND SQL_IDFY_COND_TYPE_CD = '2' 
+		           AND OWNER = #{owner}
+		           AND TABLE_NAME = #{table_name}
+		           AND ROWNUM = 1) AS TABLE_YN
+		     , (SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END 
+		          FROM PROJECT_CHK_TARGET A 
+		         WHERE A.PROJECT_ID = #{project_id} 
+		           AND DBID = #{dbid}
+		           AND SQL_IDFY_COND_TYPE_CD = '3' 
+		           AND MODULE = #{module}
+		           AND ROWNUM = 1) AS MODULE_YN
+		  FROM DUAL
+	</select>
+	<insert id="insertProjectSqlIdfyCondition" parameterType="projectSqlIdfyCondition">
+		/* SQLAutomaticPerformanceCheckMapper.insertProjectSqlIdfyCondition */
+		INSERT INTO PROJECT_CHK_TARGET
+		( 
+			 PROJECT_ID                                                   -- 프로젝트ID
+        	, CHECK_TARGET_SEQ                                            -- 점검대상일련번호
+        	, PROJECT_CHECK_TARGET_TYPE_CD                                -- 프로젝트점검대상유형코드
+        	, SQL_IDFY_COND_TYPE_CD                                       -- SQL식별조건유형코드
+        	, DBID                                                        -- DBID
+        	, OWNER                                                       -- OWNER
+        	, TABLE_NAME                                                  -- 테이블명
+        	, MODULE                                                      -- 모듈
+ 		) VALUES
+ 	    (
+ 		      #{project_id}                                               -- 프로젝트ID
+        	, (SELECT NVL(MAX(CHECK_TARGET_SEQ),0) +1 FROM PROJECT_CHK_TARGET WHERE PROJECT_ID = #{project_id})  -- 점검대상일련번호
+        	, #{project_check_target_type_cd}                               -- 프로젝트점검대상유형코드
+        	, #{sql_idfy_cond_type_cd}                                    -- SQL식별조건유형코드
+        	, #{dbid}                                                     -- DBID
+        	, #{owner}                                                    -- OWNER
+        	, UPPER(#{table_name})                                        -- 테이블명
+        	, #{module}                                                   -- 모듈
+        ) 
+	</insert>
+	<update id="updateProjectSqlIdfyCondition" parameterType="projectSqlIdfyCondition">
+		/* SQLAutomaticPerformanceCheckMapper.updateProjectSqlIdfyCondition */
+		UPDATE PROJECT_CHK_TARGET A 
+		   SET OWNER       = #{owner}
+		     , SQL_IDFY_COND_TYPE_CD = #{sql_idfy_cond_type_cd}
+			 , TABLE_NAME  = #{table_name}
+			 , MODULE      = #{module}
+		WHERE A.PROJECT_ID = #{project_id}
+		  AND A.CHECK_TARGET_SEQ   = #{check_target_seq}
+		  AND A.DBID = #{dbid}
+	</update>
+   	<delete id="deleteProjectSqlIdfyCondition" parameterType="projectSqlIdfyCondition">
+   		/* SQLAutomaticPerformanceCheckMapper.deleteProjectSqlIdfyCondition */
+		DELETE FROM PROJECT_CHK_TARGET A
+		WHERE A.PROJECT_ID = #{project_id}
+		  AND A.CHECK_TARGET_SEQ   = #{check_target_seq}
+		  AND A.DBID = #{dbid}
+	</delete>
+   	<delete id="deleteProjectSqlIdfyConditionTypeCd" parameterType="projectSqlIdfyCondition">
+   		/* SQLAutomaticPerformanceCheckMapper.deleteProjectSqlIdfyConditionTypeCd */
+		DELETE FROM PROJECT_CHK_TARGET A
+		WHERE A.PROJECT_ID = #{project_id}
+		  AND A.SQL_IDFY_COND_TYPE_CD   = #{sql_idfy_cond_type_cd}
+		  AND A.DBID = #{dbid}
+	</delete>
+	<select id="getTableOwner" parameterType="odsUsers" resultType="odsUsers">
+		/* SQLAutomaticPerformanceCheckMapper.getTableOwner */
+		SELECT USERNAME AS USER_ID, USERNAME AS USER_NM
+		FROM ODS_USERS
+		WHERE DBID = #{dbid}
+		AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_USERS WHERE DBID = #{dbid})
+		AND USERNAME NOT IN (SELECT USERNAME FROM UI_EXCEPT_DB_USER)
+		ORDER BY USERNAME
+	</select>
+	<select id="getSelectTable" parameterType="projectSqlIdfyCondition" resultType="odsUsers">
+		/* SQLAutomaticPerformanceCheckMapper.getSelectTable */
+			SELECT A.TABLE_NAME AS TABLE_NAME
+			     , A.OWNER      AS TABLE_OWNER
+				FROM ODS_TABLES A
+				WHERE A.DBID = #{dbid}
+				AND A.OWNER = #{owner}
+				AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLES WHERE DBID = #{dbid})
+				AND NOT EXISTS (SELECT 1 
+				                  FROM PROJECT_CHK_TARGET B
+				                 WHERE A.OWNER = B.OWNER
+				                   AND A.TABLE_NAME = B.TABLE_NAME
+				                   AND B.PROJECT_ID = #{project_id}
+				                   AND B.SQL_IDFY_COND_TYPE_CD = '2')
+				ORDER BY TABLE_NAME
+	</select>
+	
+	<select id="getSelectProjectSqlIdfyConditionTable" parameterType="projectSqlIdfyCondition" resultType="projectSqlIdfyCondition">
+		/* SQLAutomaticPerformanceCheckMapper.getSelectProjectSqlIdfyConditionTable */
+			SELECT A.TABLE_NAME AS TABLE_NAME
+			     , A.OWNER      AS OWNER
+				FROM PROJECT_CHK_TARGET A
+				WHERE A.PROJECT_ID = #{project_id}
+                  AND A.SQL_IDFY_COND_TYPE_CD = #{sql_idfy_cond_type_cd}
+                  AND A.DBID = #{dbid}
+				ORDER BY TABLE_NAME
+	</select>
+
+	<select id="excelDownloadProjectSqlIdfyCondition" parameterType="projectSqlIdfyCondition" resultType="java.util.LinkedHashMap">
+		/* SQLAutomaticPerformanceCheckMapper.excelDownloadProjectSqlIdfyCondition */
+			<include refid="projectSqlIdfyConditionListRefId"/>
+	</select>
+	
+	<select id="getAuthoritySQL" parameterType="authoritySQL" resultType="authoritySQL">
+		/* SQLAutomaticPerformanceCheckMapper.getAuthoritySQL */
+		${authority_sql}
+	</select>
+</mapper>

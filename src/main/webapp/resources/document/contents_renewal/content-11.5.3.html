@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>11. 성능 최적화</h1>
+	<h2>11.5. 인덱스 설계 </h2>
+	<h3>11.5.3. 인덱스 자동 설계현황</h3>
+
+	<div>
+		<p>
+			Open-POP Index Design Advisor는 DB에서 수행된 쿼리의 엑세스 패스를 분석하여  짧은 시간에 고품질의 인덱스를 설계할 수 있도록 한다. 차세대 프로젝트와 같이 AS-IS 시스템을 전면 개편하는 프로젝트에서 AS-IS의 인덱스를 그대로 마이그레이션하는 경우가 많은데 이러한 방법은 사용 빈도가 적은 인덱스가 TO-BE 시스템에도 그대로 생성될 뿐만 아니라 TO-BE 요건에 의한 신규 인덱스가 추가되어 인덱스 개수가 많아져서 결과적으로 성능이 더 악화될 수 가 있다. Index Design Advisor는 DB에서 수행된 SQL 또는 적재 가능한 SQL 파일의 액세스 패스 패턴을 분석하여 인덱스를 자동으로 추천해준다. 
+		</p>
+		<p>pen-POP을 통해 차세대 프로젝트에서 효율적으로 인덱스를 설계하는 방법론은 아래와 같다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/47-1.jpg"></p>
+
+		<h4>인덱스 자동설계 현황조회</h4>
+		<p>수집 SQL과 적재SQL기반의 인덱스 자동설계현황을 보여준다. 인덱스 자동설계는 많은 시간이 소요되기 때문에 자동설계 요청 시 서버에서 백그라운드로 작업이 수행되며 작업 진행상태는 이 화면에서 확인한다. 자동설계가 진행 중이면 진행상태가 EXECUTING, 완료되면 COMPLETE 라고 표시된다. COMPLETE 상태의 목록을 클릭하면 인덱스 추천 현황을 확인할 수 있다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/47-2.jpg"></p>
+	
+		<h4>인덱스 Recommend 현황 조회</h4>
+		<p>Index Design Advisor 가 추천한 인덱스 설계 목록이다. 추천유형의 ADD 는 신규생성, MODIFY 는 인덱스 변경을 의미한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/47-3.jpg"></p>
+
+		<h4>인덱스 자동설계 강제완료처리</h4>
+		<p>사용자가 선택한 미완료된 인덱스자동설계 작업을 강제로 완료처리한다. 체크박스는 진행상태가 EXECUTING 일 경우에만 체크된다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg_renewal/47-4.jpg"></p>
+	</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>9. 성능 최적화</h1>
+	<h2>9.1. 성능 최적화 관리</h2>
+	<h3>9.1.4. 성능 개선 현황</h3>
+
+	<div>
+		<p>DBIO 기반의 튜닝이력을 조회하는 화면이다. 업무 변경에 의해 과거에 튜닝한 SQL이 변경되어 재 튜닝 해야 하거나, 튜닝 가이드 반영여부를 확인할 때 유용하다.</p>
+	</div>
+
+	<div class="pointbox">
+		<p class="point-title">[성능개선현황 보고서] 탭 </p>
+		DB별 성능개선현황 보고서를 출력한다. 자동선정, 수동선정에 의한 일괄튜닝종료 건은 제외하여 집계한다.
+	</div>
+
+	<div>
+		<p class="imagebox-d"><img src="/resources/images/menual/bgimg/9-1-4-1.jpg"></p>
+		<div class="list-a">
+			<ul>
+				<li>- 요청: 튜닝진행상태가 튜닝요청 인건</li>
+				<li>- 선정: 자동선정, 수동선정 인건</li>
+				<li>- 처리중(성능관리팀): 튜닝진행상태가 선정, 요청, 튜닝대기, 튜닝중 인건</li>
+				<li>- 개선완료(성능관리팀): 튜닝진행상태가 적용대기 및 튜닝완료사유가 튜닝완료, 부분튜닝 인건</li>
+				<li>- 개선사항없음(성능관리팀): 튜닝상태가 적용대기 및 튜닝완료사유가 개선점없음 인건</li>
+				<li>- 오류(성능관리팀): 튜닝상태가 적용대기 및 튜닝완료사유가 오류  인건</li>
+				<li>- 처리중(업무개발팀): 튜닝진행상태가 적용대기 인건</li>
+				<li>- 튜닝반려(업무개발팀): 튜닝진행상태가 튜닝반려 인건</li>
+				<li>- 적용완료(업무개발팀): 튜닝진행상태가 튜닝종료 인건 </li>
+				<li>- 적용반려(업무개발팀): 튜닝진행상태가 적용반려 인건</li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[성능개선결과 산출물] 탭</p>
+		적용대기, 튜닝종료 건에 대한 튜닝 결과서를 산출물 파일로 다운로드 받는다. 자동선정, 수동선정에 의한 일괄튜닝종료 건은 제외하여 집계한다.
+	</div>
+	<div>
+		<h4>성능개선목록 조회</h4>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/9-1-4-2.jpg"></p>
+
+		<h4>성능개선결과 상세 조회 및 산출물 생성</h4>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/9-1-4-3.jpg"></p>
+
+		<h4>성능개선결과 산출물 포맷</h4>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/9-1-4-4.jpg"></p>	
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[프로그램 유형별 성능개선현황] 탭</p>
+		튜닝완료 건에 대한 온라인, 배치 프로그램 유형별 성능개선보고서를 출력한다. 자동선정, 수동선정에 의한 일괄튜닝종료 건은 제외하여 집계한다.
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/9-1-4-5.jpg"></p>	
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[요청 유형별 성능개선현황] 탭</p>
+		요청, 자동선정, 수동선정, SQL진단(FULLSCAN, 플랜변경 등), 성능분석, 배포전 성능점검 등 요청 유형별 성능개선보고서를 출력한다. 자동선정, 수동선정에 의한 일괄튜닝종료 건은 제외하여 집계한다.
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/9-1-4-6.jpg"></p>	
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[개선 유형별 성능개선현황] 탭</p>
+		SQL수정, INDEX추가, HINT추가 등 개선 유형별 성능개선보고서를 출력한다. 자동선정, 수동선정에 의한 일괄튜닝종료 건은 제외하여 집계한다.
+	</div>
+	<div>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/9-1-4-7.jpg"></p>	
+	</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+	2021.09.16	김원재	OPENPOP V2 최초작업
+ -->
+<mapper namespace="omc.spop.dao.SQLDiagnosisReportStatusDao">
+	
+	<select id="getReportHeaders" resultType="java.util.LinkedHashMap">
+		/* SQLDiagnosisReportStatusDao.getReportHeaders */
+	
+		SELECT A.QTY_CHK_IDT_CD as "qty_chk_idt_cd"
+			, A.QTY_CHK_IDT_NM as "qty_chk_idt_nm"
+		FROM SQL_STD_QTY_IDT_BASE A
+		JOIN PROJECT_SQL_STD_QTY_CHK_SQL B
+		ON A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+		AND B.PROJECT_ID = 0
+		ORDER BY A.QTY_CHK_IDT_CD
+		
+	</select>
+	
+</mapper>

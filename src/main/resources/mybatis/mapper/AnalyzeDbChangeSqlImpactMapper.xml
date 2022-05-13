@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2021.02.16	이재우	최초작성
+-->
+
+<mapper namespace="omc.spop.dao.AnalyzeDbChangeSqlImpactDao">
+
+	<select id="getOracleVersionList" resultType="cd" parameterType="cd">
+		/* AnalyzeDbChangeSqlImpactDao.getOracleVersionList */
+		SELECT CD
+			 , CD_NM
+			 , CD_DESC
+			 , REF_VL_1
+			 , REF_VL_2
+			 , REF_VL_3
+		  FROM CD
+		 WHERE GRP_CD_ID = '1085'
+		   AND USE_YN = 'Y'
+		 <choose>
+		 	<when test="cd != null and cd != ''">
+		   AND CD <![CDATA[>]]> #{cd}
+		 	</when>
+		 	<otherwise>
+		   AND CD <![CDATA[<]]> '08'
+		 	</otherwise>
+		 </choose>
+		 
+		 ORDER BY ORDERED
+	</select>
+	
+	<sql id="loadAnalyzeDbChangeSqlImpactListRefId">
+		/* AnalyzeDbChangeSqlImpactDao.loadAnalyzeDbChangeSqlImpactListRefId */
+		SELECT A.NO                                                                                                       -- NO
+			 , A.SQL_ID                                                                                                   -- SQL ID
+			 , (CASE WHEN (B.DEPRECATED_HINT_CNT - B.EXCEPT_HINT_CNT) <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END) DEPRECATED_YN            -- 미지원 힌트
+			 , A.ORA_01719_YN                                                                                             -- ORA-01719
+			 , A.ORA_00979_YN                                                                                             -- ORA-00979
+			 <!-- , 'N' ORDER_BY_YN -->                                                                                   -- ORDER BY 추가가 필요한지 여부
+			 , ORA_30563_YN                                                                                               -- ORA-30563
+			 , WM_CONCAT_YN                                                                                               -- WM_CONCAT
+			 , A.PERF_IMPACT_TYPE_NM                                                                                      -- 성능임팩트유형
+			 , A.BUFFER_INCREASE_RATIO                                                                                    -- 버퍼임팩트(배)
+			 , A.ELAPSED_TIME_INCREASE_RATIO                                                                              -- 수행시간임팩트(배)
+			 , A.PLAN_CHANGE_YN                                                                                           -- Plan 변경여부
+			 , A.ASIS_EXECUTIONS                                                                                          -- ASIS EXECUTIONS
+			 , A.ASIS_ELAPSED_TIME                                                                                        -- ASIS ELAPSED TIME
+			 , A.TOBE_ELAPSED_TIME                                                                                        -- TOBE ELAPSED TIME
+			 , A.ASIS_BUFFER_GETS                                                                                         -- ASIS BUFFER GETS
+			 , A.TOBE_BUFFER_GETS                                                                                         -- TOBE BUFFER GETS
+			 , DBMS_LOB.SUBSTR(A.SQL_TEXT, 200, 1) AS SQL_TEXT_WEB                                                        -- SQL TEXT(FOR WEB)
+			 , A.SQL_TEXT AS SQL_TEXT_EXCEL                                                                               -- SQL TEXT(FOR EXCEL)
+			 , COUNT(*) OVER() SQL_CNT                                                                                    -- 전체 SQL
+			 , SUM(CASE WHEN (B.DEPRECATED_HINT_CNT - B.EXCEPT_HINT_CNT)  <![CDATA[>]]>  0 THEN 1 ELSE 0 END) OVER() +
+			   SUM(CASE WHEN A.ORA_01719_YN = 'Y' THEN 1 ELSE 0 END) OVER() + 
+			   SUM(CASE WHEN A.ORA_00979_YN = 'Y' THEN 1 ELSE 0 END) OVER() CHANGE_SQL_CNT                                       -- 변경대상
+			   
+			 , SUM(CASE WHEN (B.DEPRECATED_HINT_CNT - B.EXCEPT_HINT_CNT) <![CDATA[>]]> 0 THEN 1 ELSE 0 END) OVER() DEPRECATED_SQL_CNT -- 미지원힌트
+			 , SUM(CASE WHEN A.ORA_01719_YN = 'Y' THEN 1 ELSE 0 END) OVER() ORA_01719_CNT                                 -- ORA-01719
+			 , SUM(CASE WHEN A.ORA_00979_YN = 'Y' THEN 1 ELSE 0 END) OVER() ORA_00979_CNT                                 -- ORA-00979
+			 <!-- , 0 ORDER_BY_CNT  -->                                                                                   -- ORDER BY 추가가 필요한 SQL
+
+			 , SUM(CASE WHEN A.ORA_30563_YN = 'Y' THEN 1 ELSE 0 END) OVER() ORA_30563_CNT                                 -- ORA-30563
+			 , SUM(CASE WHEN A.WM_CONCAT_YN = 'Y' THEN 1 ELSE 0 END) OVER() WM_CONCAT_CNT                                 -- ORA-00979
+			 
+			 , NVL(B.BYPASS_UJVC_CNT, 0)             BYPASS_UJVC_CNT                                                      -- BYPASS_UJVC
+			 , NVL(B.AND_EQUAL_CNT, 0)               AND_EQUAL_CNT                                                        -- AND_EQUAL
+			 , NVL(B.MERGE_AJ_CNT, 0)                MERGE_AJ_CNT                                                         -- MERGE_AJ
+			 , NVL(B.HASH_AJ_CNT, 0)                 HASH_AJ_CNT                                                          -- HASH_AJ
+			 , NVL(B.NL_AJ_CNT, 0)                   NL_AJ_CNT                                                            -- NL_AJ
+			 , NVL(B.HASH_SJ_CNT, 0)                 HASH_SJ_CNT                                                          -- HASH_SJ
+			 , NVL(B.MERGE_SJ_CNT, 0)                MERGE_SJ_CNT                                                         -- MERGE_SJ
+			 , NVL(B.NL_SJ_CNT, 0)                   NL_SJ_CNT                                                            -- NL_SJ
+			 , NVL(B.ORDERED_PREDICATES_CNT, 0)      ORDERED_PREDICATES_CNT                                               -- ORDERED_PREDICATES
+			 , NVL(B.ROWID_CNT, 0)                   ROWID_CNT                                                            -- ROWID
+			 , NVL(B.STAR_CNT, 0)                    STAR_CNT                                                             -- STAR
+			 , NVL(B.NOPARALLEL_CNT, 0)              NOPARALLEL_CNT                                                       -- NOPARALLEL
+			 , NVL(B.NOPARALLEL_INDEX_CNT, 0)        NOPARALLEL_INDEX_CNT                                                 -- NOPARALLEL_INDEX
+			 , NVL(B.NOREWRITE_CNT, 0)               NOREWRITE_CNT                                                        -- NOREWRITE
+		  FROM (
+				SELECT B.SQL_ID
+					 , (CASE WHEN '${asis_oracle_version_cd}' IN ( '01', '02', '03') AND '${tobe_oracle_version_cd}' <![CDATA[>=]]> '03' AND C.ERR_CODE = 'ORA-01719' THEN 'Y' ELSE 'N' END) ORA_01719_YN
+					 , (CASE WHEN '${asis_oracle_version_cd}' IN ( '01', '02', '03') AND '${tobe_oracle_version_cd}' <![CDATA[>=]]> '03' AND C.ERR_CODE = 'ORA-00979' THEN 'Y' ELSE 'N' END) ORA_00979_YN
+					 , (CASE WHEN '${asis_oracle_version_cd}' IN ( '01', '02', '03') AND '${tobe_oracle_version_cd}' <![CDATA[>=]]> '03' AND C.ERR_CODE = 'ORA-30563' THEN 'Y' ELSE 'N' END) ORA_30563_YN
+					 , (CASE WHEN '${asis_oracle_version_cd}' IN ( '01', '02', '03') AND '${tobe_oracle_version_cd}' <![CDATA[>=]]> '03' AND C.ERR_CODE = 'ORA-00904' AND INSTR(UPPER(ERR_MSG), 'WM_CONCAT') > 0 THEN 'Y' ELSE 'N' END) WM_CONCAT_YN
+					 , (CASE WHEN CD1.CD_NM = 'NA' AND C.ERR_CODE IS NOT NULL THEN 'Error' ELSE CD1.CD_NM END)  AS PERF_IMPACT_TYPE_NM
+					 , B.BUFFER_INCREASE_RATIO AS BUFFER_INCREASE_RATIO																		-- 버퍼개선율
+					 , B.ELAPSED_TIME_INCREASE_RATIO AS ELAPSED_TIME_INCREASE_RATIO															-- 수행시간개선율
+					 , B.PLAN_CHANGE_YN AS PLAN_CHANGE_YN																					-- Plan 변경여부
+					 , B.BEFORE_EXECUTIONS AS ASIS_EXECUTIONS																				-- ASIS EXECUTIONS
+					 , ROUND(B.BEFORE_ELAPSED_TIME/DECODE(B.BEFORE_EXECUTIONS, 0, 1, B.BEFORE_EXECUTIONS)/1000000, 4) AS ASIS_ELAPSED_TIME		-- ASIS ELAPSED TIME
+					 , ROUND(B.AFTER_ELAPSED_TIME/1000000, 4) AS TOBE_ELAPSED_TIME																-- TOBE ELAPSED TIME
+					 , ROUND(B.BEFORE_BUFFER_GETS/DECODE(B.BEFORE_EXECUTIONS, 0, 1, B.BEFORE_EXECUTIONS)) AS ASIS_BUFFER_GETS					-- ASIS BUFFER GETS
+					 , B.AFTER_BUFFER_GETS AS TOBE_BUFFER_GETS																				-- TOBE BUFFER GETS
+					 , (CASE 
+							 WHEN PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' /* AWR */ THEN (SELECT SQL_TEXT FROM ODS_HIST_SQLTEXT ASQL WHERE ASQL.DBID = A.ORIGINAL_DBID AND ASQL.SQL_ID = B.SQL_ID) 
+							 ELSE /* VSQL */ (SELECT SQL_FULLTEXT FROM VSQL_TEXT VSQL WHERE VSQL.DBID = A.ORIGINAL_DBID AND VSQL.SQL_ID = B.SQL_ID AND VSQL.PLAN_HASH_VALUE = B.BEFORE_PLAN_HASH_VALUE) 
+					   END) AS SQL_TEXT
+					 , D.PROJECT_NM
+					 , A.PERF_CHECK_NAME
+					 , ROW_NUMBER() OVER(ORDER BY B.SQL_ID) NO
+				  FROM SQL_AUTO_PERF_CHK A
+					 , SQL_AUTO_PERF_CHK_TARGET B
+					 , SQL_AUTO_PERF_CHK_ERROR C
+					 , PROJECT D
+					 , CD CD1
+				 WHERE A.PROJECT_ID = B.PROJECT_ID
+					   AND A.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID
+					   AND B.PROJECT_ID = C.PROJECT_ID(+)
+					   AND B.SQL_AUTO_PERF_CHECK_ID = C.SQL_AUTO_PERF_CHECK_ID(+)
+					   AND B.SQL_ID = C.SQL_ID(+)
+					   AND B.PERF_IMPACT_TYPE_CD  = CD1.CD
+					   AND CD1.GRP_CD_ID = '1025'
+					   AND A.PROJECT_ID = D.PROJECT_ID
+					   AND A.PROJECT_ID = '${project_id}'
+					   AND A.SQL_AUTO_PERF_CHECK_ID = '${sql_auto_perf_check_id}'
+					   AND A.DATABASE_KINDS_CD = '${database_kinds_cd}'
+					   AND A.PERF_CHECK_TYPE_CD = '1'
+				) A 
+			 , (/* DEPRECATED HINT */
+				SELECT SQL_ID
+					 , SUM(REGEXP_COUNT(HINT, 'BYPASS_UJVC|AND_EQUAL|MERGE_AJ|HASH_AJ|NL_AJ|HASH_SJ|MERGE_SJ|NL_SJ|ORDERED_PREDICATES|ROWID|STAR|NOPARALLEL|NOPARALLEL_INDEX|NOREWRITE', 1, 'i')) DEPRECATED_HINT_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'STAR_TRANSFORMATION', 1, 'i')) EXCEPT_HINT_CNT
+					 
+					 , SUM(REGEXP_COUNT(HINT, 'BYPASS_UJVC', 1, 'i'))         BYPASS_UJVC_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'AND_EQUAL', 1, 'i'))           AND_EQUAL_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'MERGE_AJ', 1, 'i'))            MERGE_AJ_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'HASH_AJ', 1, 'i'))             HASH_AJ_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'NL_AJ', 1, 'i'))               NL_AJ_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'HASH_SJ', 1, 'i'))             HASH_SJ_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'MERGE_SJ', 1, 'i'))            MERGE_SJ_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'NL_SJ', 1, 'i'))               NL_SJ_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'ORDERED_PREDICATES', 1, 'i'))  ORDERED_PREDICATES_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'ROWID', 1, 'i'))               ROWID_CNT
+					 , SUM(REGEXP_COUNT(REPLACE(HINT, 'STAR_TRANSFORMATION', ''), 'STAR', 1, 'i')) STAR_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'NOPARALLEL', 1, 'i'))          NOPARALLEL_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'NOPARALLEL_INDEX', 1, 'i'))    NOPARALLEL_INDEX_CNT
+					 , SUM(REGEXP_COUNT(HINT, 'NOREWRITE', 1, 'i'))           NOREWRITE_CNT
+				  FROM (
+						/* 한줄 힌트 추출*/
+						/* SELECT@@@###FULL(A)LEADING(ABC@AA)LEADING(ABC.AA$$), DELETE@@@###NOLOGGING 형식으로 추출 */
+						SELECT /*+ USE_MERGE(A B) */ 
+							   'ONELINE_HINT' AS HINT_TYPE
+							 , SQL_ID
+							 , REGEXP_SUBSTR(REPLACE(REPLACE(A.SQL_TEXT, ' ', ''), CHR(9), ''), '(SELECT|DELETE|UPDATE|INSERT|MERGE)@@@###[[:alnum:]@_().$]*', 1, LVL, 'i') HINT
+						  FROM (SELECT SQL_ID
+									 , SQL_TEXT
+									 , REGEXP_COUNT(REPLACE(REPLACE(SQL_TEXT, ' ', ''), CHR(9), ''), '(SELECT|DELETE|UPDATE|INSERT|MERGE)@@@###[[:alnum:]@_().$]*', 1, 'i') ONE_LINE_HINT_COUNT
+								  FROM (/* 한줄 주석 제거할때 한줄힌트(--+) 가 제거되지 않도록 한줄주석을 '@@@###' 으로 치환 */
+										SELECT /*+ MATERIALIZE */
+											   SQL_ID
+											 , REGEXP_REPLACE(REGEXP_REPLACE(SQL_TEXT,'--\+', '@@@###'), '--.*') SQL_TEXT
+										  FROM (
+												SELECT B.SQL_ID
+													 , (CASE 
+															 WHEN PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' /* AWR */ THEN (SELECT SQL_TEXT FROM ODS_HIST_SQLTEXT ASQL WHERE ASQL.DBID = A.ORIGINAL_DBID AND ASQL.SQL_ID = B.SQL_ID) 
+															 ELSE /* VSQL */ (SELECT SQL_FULLTEXT FROM VSQL_TEXT VSQL WHERE VSQL.DBID = A.ORIGINAL_DBID AND VSQL.SQL_ID = B.SQL_ID AND VSQL.PLAN_HASH_VALUE = B.BEFORE_PLAN_HASH_VALUE) 
+													   END) AS SQL_TEXT
+												  FROM SQL_AUTO_PERF_CHK A
+													 , SQL_AUTO_PERF_CHK_TARGET B
+												 WHERE A.PROJECT_ID = B.PROJECT_ID
+												   AND A.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID
+												   AND A.PROJECT_ID = '${project_id}'
+												   AND A.SQL_AUTO_PERF_CHECK_ID = '${sql_auto_perf_check_id}'
+												   AND A.DATABASE_KINDS_CD = '${database_kinds_cd}'
+												   AND A.PERF_CHECK_TYPE_CD = '1'
+											   )
+								)
+								WHERE SQL_TEXT LIKE '%@@@###%'
+								) A
+							 , (SELECT LEVEL LVL FROM DUAL CONNECT BY LEVEL <![CDATA[<=]]> 100) B
+						WHERE LVL <![CDATA[<=]]> ONE_LINE_HINT_COUNT
+						 
+						UNION ALL
+						
+						/* 여러줄 힌트 추출 : 금소장님 로직 활용 */
+						SELECT 'MULTILINE_HINT' AS HINT_TYPE
+							 , SQL_ID
+							 , REGEXP_REPLACE('*/'||REPLACE(REPLACE(REPLACE(REPLACE(SQL_TEXT, ' ', NULL), CHR(10), NULL), CHR(13), NULL), '/*+', '/*+'||CHR(10))||'/*+', '\*/.*/\*\+') HINT
+						  FROM (
+								SELECT B.SQL_ID
+									 , (CASE 
+											 WHEN PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' /* AWR */ THEN (SELECT SQL_TEXT FROM ODS_HIST_SQLTEXT ASQL WHERE ASQL.DBID = A.ORIGINAL_DBID AND ASQL.SQL_ID = B.SQL_ID) 
+											 ELSE /* VSQL */ (SELECT SQL_FULLTEXT FROM VSQL_TEXT VSQL WHERE VSQL.DBID = A.ORIGINAL_DBID AND VSQL.SQL_ID = B.SQL_ID AND VSQL.PLAN_HASH_VALUE = B.BEFORE_PLAN_HASH_VALUE) 
+									   END) AS SQL_TEXT
+								  FROM SQL_AUTO_PERF_CHK A
+								     , SQL_AUTO_PERF_CHK_TARGET B
+								 WHERE A.PROJECT_ID = B.PROJECT_ID
+								   AND A.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID
+								   AND A.PROJECT_ID = '${project_id}'
+								   AND A.SQL_AUTO_PERF_CHECK_ID = '${sql_auto_perf_check_id}'
+								   AND A.DATABASE_KINDS_CD = '${database_kinds_cd}'
+								   AND A.PERF_CHECK_TYPE_CD = '1'
+							   )
+						)
+				WHERE LENGTH(HINT) <![CDATA[>]]> 2  /* HINT 가 없는 행 제외 조건 */
+				GROUP BY SQL_ID
+			 ) B
+		 WHERE A.SQL_ID = B.SQL_ID(+)
+		 ORDER BY A.NO
+	</sql>
+	
+	<!-- DB변경SQL영향도분석 TableList -->
+	<select id="loadAnalyzeDbChangeSqlImpactList" parameterType="analyzeDbChangeSqlImpact" resultType="analyzeDbChangeSqlImpact">
+		/* AnalyzeDbChangeSqlImpactDao.loadAnalyzeDbChangeSqlImpactList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, AA.*
+			FROM (
+				<include refid="loadAnalyzeDbChangeSqlImpactListRefId"/>
+			) AA
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM <![CDATA[>]]> ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<!-- DB변경SQL영향도분석 excel 다운 -->
+	<select id="excelDownload" parameterType="analyzeDbChangeSqlImpact" resultType="java.util.LinkedHashMap">
+		/* AnalyzeDbChangeSqlImpactDao.excelDownload */
+		<include refid="loadAnalyzeDbChangeSqlImpactListRefId" />
+	</select>
+</mapper>

@@ -1,0 +1,500 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2017.09.29	이원식	최초작성	
+	2018.02.21	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.IndexDesignPreProcessingDao">
+    <select id="collectionTargetList" parameterType="vsqlParsingSchema" resultType="vsqlParsingSchema">
+      /* IndexDesignPreProcessingDao.collectionTargetList */
+      SELECT USERNAME
+      FROM ODS_USERS
+      WHERE USERNAME NOT IN ( 
+          SELECT USERNAME
+          FROM UI_EXCEPT_DB_USER
+          UNION ALL
+          SELECT PARSING_USERNAME
+          FROM VSQL_PARSING_SCHEMA
+          WHERE DBID = #{dbid}
+          AND PARSING_SCHEMA_NO = (SELECT MAX(PARSING_SCHEMA_NO) FROM VSQL_PARSING_SCHEMA WHERE DBID = #{dbid}))
+      AND DBID = #{dbid}
+      AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_USERS WHERE DBID = #{dbid})
+      ORDER BY USERNAME
+    </select>
+    
+    <select id="applyTargetList" parameterType="vsqlParsingSchema" resultType="vsqlParsingSchema">
+      /* IndexDesignPreProcessingDao.applyTargetList */
+      SELECT PARSING_USERNAME
+      FROM VSQL_PARSING_SCHEMA
+      WHERE DBID = #{dbid}
+      AND PARSING_SCHEMA_NO = (SELECT MAX(PARSING_SCHEMA_NO) FROM VSQL_PARSING_SCHEMA WHERE DBID = #{dbid})
+    </select>
+    
+    <select id="glovalViewInfo" parameterType="vsqlParsingSchema" resultType="vsqlParsingSchema">
+      /* IndexDesignPreProcessingDao.glovalViewInfo */
+      SELECT GLOBAL_VIEW_YN, INSTANCE_NUMBER
+      FROM VSQL_PARSING_SCHEMA
+      WHERE DBID = #{dbid}
+      AND PARSING_SCHEMA_NO = (SELECT MAX(PARSING_SCHEMA_NO) FROM VSQL_PARSING_SCHEMA WHERE DBID = #{dbid})
+      AND ROWNUM = 1
+    </select>
+    
+    <select id="collectionModuleList" parameterType="vsqlGatheringModule" resultType="vsqlGatheringModule">
+      /* IndexDesignPreProcessingDao.collectionModuleList */
+      SELECT MODULE_NAME
+      FROM VSQL_GATHERING_MODULE
+      WHERE GATHERING_MODULE_NO = (SELECT MAX(GATHERING_MODULE_NO) FROM VSQL_GATHERING_MODULE WHERE DBID = #{dbid})
+      AND DBID = #{dbid}
+    </select>
+    
+    <select id="getMaxParsingSchemaNo" parameterType="vsqlParsingSchema" resultType="string">
+      /* IndexDesignPreProcessingDao.getMaxParsingSchemaNo */
+      SELECT NVL(MAX(PARSING_SCHEMA_NO)+1, 1) AS PARSING_SCHEMA_NO
+      FROM VSQL_PARSING_SCHEMA
+      WHERE DBID = #{dbid}
+    </select>
+    
+    <insert id="insertParsingSchema" parameterType="vsqlParsingSchema">
+      /* IndexDesignPreProcessingDao.insertParsingSchema */
+      INSERT INTO VSQL_PARSING_SCHEMA(DBID, PARSING_SCHEMA_NO, PARSING_USERNAME, GLOBAL_VIEW_YN, INSTANCE_NUMBER, REG_DT)
+      VALUES (
+          #{dbid}, #{parsing_schema_no}, #{parsing_username}, #{global_view_yn}, #{instance_number}, SYSDATE
+      )
+    </insert>
+    
+    <select id="getMaxGatheringModlueNo" parameterType="vsqlParsingSchema" resultType="string">
+      /* IndexDesignPreProcessingDao.getMaxGatheringModlueNo */
+      SELECT NVL(MAX(GATHERING_MODULE_NO)+1, 1) AS GATHERING_MODULE_NO
+      FROM VSQL_GATHERING_MODULE
+      WHERE DBID = #{dbid}
+    </select>
+    
+    <insert id="insertGatheringModule" parameterType="vsqlGatheringModule">
+      /* IndexDesignPreProcessingDao.insertGatheringModule */
+      INSERT INTO VSQL_GATHERING_MODULE(DBID, GATHERING_MODULE_NO, MODULE_NAME, REG_DT)
+      VALUES (
+          #{dbid}, #{gathering_module_no}, #{module_name}, SYSDATE
+      )
+    </insert>
+    
+    <select id="parsingCollectionTermsList" parameterType="accPathExec" resultType="accPathExec">
+      /* IndexDesignPreProcessingDao.parsingCollectionTermsList */
+      SELECT A.DBID, A.EXEC_SEQ,
+          TO_CHAR(B.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') AS START_SNAP_DT, /* 변경 */
+          TO_CHAR(C.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') AS END_SNAP_DT,   /* 변경 */
+          A.ANALYSIS_SQL_CNT, A.TABLE_COUNT, A.ACCESS_PATH_COUNT,
+          TO_CHAR(A.ACCESS_PATH_EXEC_DT, 'YYYY-MM-DD HH24:MI:SS') AS ACCESS_PATH_EXEC_DT,
+          CASE WHEN A.ACCESS_PATH_EXEC_END_DT IS NULL THEN '파싱 진행중' ELSE TO_CHAR(A.ACCESS_PATH_EXEC_END_DT, 'YYYY-MM-DD HH24:MI:SS') END AS ACCESS_PATH_EXEC_END_DT
+      FROM ACC_PATH_EXEC A, VSQL_SNAPSHOT B, VSQL_SNAPSHOT C
+      WHERE A.DBID = B.DBID(+)
+      AND A.START_SNAP_NO = B.SNAP_NO(+)
+      AND A.DBID = C.DBID(+)
+      AND A.END_SNAP_NO = C.SNAP_NO(+)
+      AND A.DBID = #{dbid}
+      AND A.ACCESS_PATH_TYPE = 'VSQL'
+      <if test="(strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+          AND A.ACCESS_PATH_EXEC_DT BETWEEN TO_DATE(#{strStartDt}, 'YYYY-MM-DD') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+      </if>
+      ORDER BY A.EXEC_SEQ DESC
+    </select>
+    
+    <select id="parsingCollectionTermsList_old" parameterType="accPathExec" resultType="accPathExec">
+      /* IndexDesignPreProcessingDao.parsingCollectionTermsList */
+      SELECT A.DBID, A.EXEC_SEQ,
+          TO_CHAR(B.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') || ' (' || A.START_SNAP_NO || ')' AS START_SNAP_NO,
+          TO_CHAR(C.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') || ' (' || A.END_SNAP_NO || ')' AS END_SNAP_NO,
+          A.ANALYSIS_SQL_CNT, A.TABLE_COUNT, A.ACCESS_PATH_COUNT,
+          TO_CHAR(A.ACCESS_PATH_EXEC_DT, 'YYYY-MM-DD HH24:MI:SS') AS ACCESS_PATH_EXEC_DT,
+          CASE WHEN A.ACCESS_PATH_EXEC_END_DT IS NULL THEN '파싱 진행중' ELSE TO_CHAR(A.ACCESS_PATH_EXEC_END_DT, 'YYYY-MM-DD HH24:MI:SS') END AS ACCESS_PATH_EXEC_END_DT
+      FROM ACC_PATH_EXEC A, VSQL_SNAPSHOT B, VSQL_SNAPSHOT C
+      WHERE A.DBID = B.DBID(+)
+      AND A.START_SNAP_NO = B.SNAP_NO(+)
+      AND A.DBID = C.DBID(+)
+      AND A.END_SNAP_NO = C.SNAP_NO(+)
+      AND A.DBID = #{dbid}
+      AND A.ACCESS_PATH_TYPE = 'VSQL'
+      <if test="(strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+          AND A.ACCESS_PATH_EXEC_DT BETWEEN TO_DATE(#{strStartDt}, 'YYYY-MM-DD') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+      </if>
+      ORDER BY A.EXEC_SEQ DESC
+    </select>
+    <!-- 
+    <select id="snapShotList" parameterType="vsqlSnapshot" resultType="vsqlSnapshot">
+        SELECT A.DBID, A.SNAP_NO  
+            ,TO_CHAR(A.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') SNAP_DT 
+            ,A.PARSING_SCHEMA_NO
+            ,B.PARSING_SCHEMAS AS PARSING_SCHEMA 
+        FROM VSQL_SNAPSHOT A 
+            ,(SELECT PARSING_SCHEMA_NO,  
+                LISTAGG(PARSING_USERNAME, ', ') WITHIN GROUP(ORDER BY PARSING_USERNAME) PARSING_SCHEMAS 
+              FROM VSQL_PARSING_SCHEMA B 
+              WHERE DBID = #{dbid}
+              GROUP BY PARSING_SCHEMA_NO) B 
+        WHERE A.PARSING_SCHEMA_NO = B.PARSING_SCHEMA_NO 
+        AND A.DBID = #{dbid}
+        AND A.SNAP_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        <if test="(snap_s_no != null and snap_s_no != '')">
+            AND A.SNAP_NO >= ${snap_s_no}
+        </if>
+        ORDER BY SNAP_NO
+    </select>
+    -->
+    <select id="snapShotList" parameterType="vsqlSnapshot" resultType="vsqlSnapshot">
+      /* IndexDesignPreProcessingDao.snapShotList */
+      SELECT A.DBID, A.SNAP_NO
+          ,TO_CHAR(A.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') SNAP_DT
+      FROM VSQL_SNAPSHOT A
+      WHERE A.DBID = #{dbid}
+      AND A.SNAP_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+      <if test="(snap_s_no != null and snap_s_no != '')">
+          AND A.SNAP_NO >= ${snap_s_no}
+      </if>
+      ORDER BY SNAP_NO
+    </select>
+    
+    <select id="insertParsingCollectionTerms" parameterType="vsqlSnapshot" statementType="CALLABLE">
+        /* IndexDesignPreProcessingDao.insertParsingCollectionTerms */
+        { CALL SP_SPOP_ACC_PATH_PARSING_ITG (${dbid},NULL,NULL,${snap_s_no},${snap_e_no},NULL,'VSQL') }
+    </select>
+    
+    <select id="getSnapNoList" parameterType="vsqlSnapshot" resultType="vsqlSnapshot">
+      /* IndexDesignPreProcessingDao.getSnapNoList */
+      SELECT A.SNAP_NO SNAP_S_NO
+           , B.SNAP_NO SNAP_E_NO
+        FROM (SELECT SNAP_NO
+                FROM (SELECT *
+                        FROM VSQL_SNAPSHOT
+                       WHERE DBID = #{dbid}
+                         AND SNAP_DT BETWEEN TO_DATE(#{strStartDt} ||' '|| #{strStartTime}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} ||' '|| #{strEndTime}, 'YYYY-MM-DD HH24:MI:SS')
+                       ORDER BY SNAP_DT ASC
+                       )
+               WHERE ROWNUM = 1) A
+           , (SELECT SNAP_NO
+                FROM (SELECT *
+                        FROM VSQL_SNAPSHOT
+                       WHERE DBID = #{dbid}
+                         AND SNAP_DT BETWEEN TO_DATE(#{strStartDt} ||' '|| #{strStartTime}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} ||' '|| #{strEndTime}, 'YYYY-MM-DD HH24:MI:SS')
+                       ORDER BY SNAP_DT DESC
+                     )
+               WHERE ROWNUM = 1) B
+    </select>
+
+    <select id="loadSQLList" parameterType="dbioLoadFile" resultType="dbioLoadFile">
+      /* IndexDesignPreProcessingDao.loadSQLList */
+      SELECT A.FILE_NO
+          ,C.DB_NAME
+          ,A.FILE_NM
+          ,A.QUERY_LOAD_CNT AS SQL_CNT
+          ,A.REG_DT
+          ,B.PLAN_DESC
+          ,B.EXPLAIN_EXEC_YN
+          ,(SELECT 'Y'
+              FROM ACC_PATH_EXEC APE
+              WHERE A.DBID = APE.DBID
+              AND B.FILE_NO = APE.FILE_NO
+              AND B.EXPLAIN_EXEC_SEQ = APE.EXPLAIN_EXEC_SEQ
+              AND ROWNUM = 1) AS ACCESS_PATH_EXEC_YN
+      FROM DBIO_LOAD_FILE A
+      ,(
+          SELECT FILE_NO
+              ,EXPLAIN_EXEC_SEQ
+              ,(PLAN_CREATE_CNT || ' / ' || PLAN_ERROR_CNT || ' / ' || PLAN_NO_EXEC_CNT) AS PLAN_DESC
+              ,'Y' EXPLAIN_EXEC_YN
+          FROM DBIO_EXPLAIN_EXEC B
+          WHERE EXPLAIN_EXEC_SEQ = (SELECT MAX(EXPLAIN_EXEC_SEQ) 
+                                      FROM DBIO_EXPLAIN_EXEC C 
+                                      WHERE B.FILE_NO = C.FILE_NO)
+      ) B, DATABASE C
+      WHERE A.FILE_NO = B.FILE_NO(+)
+      AND A.DBID = C.DBID
+      AND A.DBID = #{dbid}
+      ORDER BY A.FILE_NO DESC
+    </select>
+    
+    <select id="getDbioFileNo" parameterType="string" resultType="string">
+      /* IndexDesignPreProcessingDao.getDbioFileNo */
+      SELECT (
+          CASE
+          WHEN FILE_NO IS NULL THEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '0001'
+          ELSE TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(TO_CHAR(FILE_NO), 4, '0')
+          END) AS FILE_NO
+      FROM (
+          SELECT TO_NUMBER(MAX(SUBSTR(TO_CHAR(FILE_NO), 9))) + 1 FILE_NO
+          FROM DBIO_LOAD_FILE
+          WHERE FILE_NO LIKE TO_CHAR(SYSDATE, 'YYYYMMDD') || '%'
+      )
+    </select>
+    
+    <insert id="insertDbioLoadFile" parameterType="dbioLoadFile">
+      /* IndexDesignPreProcessingDao.insertDbioLoadFile */
+      INSERT INTO DBIO_LOAD_FILE(FILE_NO, DBID, FILE_NM, REG_DT) 
+      VALUES (#{file_no}, #{dbid}, #{file_nm}, SYSDATE)
+    </insert>
+    
+    <insert id="insertDbioLoadSql" parameterType="dbioLoadSql">
+      /* IndexDesignPreProcessingDao.insertDbioLoadSql */
+      INSERT INTO DBIO_LOAD_SQL(FILE_NO, QUERY_SEQ, SQL_TEXT, REG_DT) 
+      VALUES (#{file_no}, #{query_seq}, #{sql_text}, SYSDATE)
+    </insert>
+    
+    <update id="updateDbioLoadFile" parameterType="dbioLoadFile">
+      /* IndexDesignPreProcessingDao.updateDbioLoadFile */
+      UPDATE DBIO_LOAD_FILE
+      SET QUERY_LOAD_CNT = #{query_load_cnt}
+      WHERE FILE_NO = #{file_no}
+    </update>
+    
+    <delete id="deleteProjectUnitLoadSql" parameterType="projectUnitLoadSql">
+      /* IndexDesignPreProcessingDao.deleteProjectUnitLoadSql */
+      DELETE FROM SQL_STD_QTY_CHK_ALL_PGM
+      WHERE PROJECT_ID = #{project_id}
+    </delete>
+    
+    <insert id="insertProjectUnitLoadSql" parameterType="projectUnitLoadSql">
+      /* IndexDesignPreProcessingDao.insertProjectUnitLoadSql */
+      INSERT INTO SQL_STD_QTY_CHK_ALL_PGM(PROJECT_ID, SQL_HASH, PROGRAM_SOURCE_DESC, REG_DT)
+      VALUES (#{project_id}, #{sql_hash}, #{program_source_desc}, SYSDATE)
+    </insert>
+    
+    <select id="selectSolution10235" resultType="solutionProgramMng">
+      SELECT * 
+      FROM SLT_PROGRAM_SQL
+      WHERE SLT_PROGRAM_DIV_CD = 'S'
+      AND SLT_PROGRAM_SQL_NUMBER = 10235
+    </select>
+    
+    <update id="update10235" parameterType="projectUnitLoadSql">
+      /* IndexDesignPreProcessingDao.updateProjectUnitLoadSql */
+      ${update10235}
+    </update>
+    
+    <sql id="loadActionPlanListRefId">
+      <choose>
+          <when test="(explain_exec_seq != null and explain_exec_seq != '')">
+              SELECT /*+ LEADING(A) USE_NL(B) INDEX(A PK_DBIO_LOAD_SQL) */ A.QUERY_SEQ
+              <choose>
+                  <when test="strGubun eq 'EXCEL'">
+                      , DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+                  </when>
+                  <otherwise>
+                      , DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+                  </otherwise>
+              </choose>
+                  , DECODE(B.EXPLAIN_EXEC_NOTE, NULL, 'Y', 'N') AS PLAN_YN
+                  , B.EXPLAIN_EXEC_NOTE AS NOTE
+              FROM DBIO_LOAD_SQL A, DBIO_EXPLAIN_EXEC_DTL B
+              WHERE A.FILE_NO = B.FILE_NO(+)
+              AND A.QUERY_SEQ = B.QUERY_SEQ(+)
+              AND A.FILE_NO = ${file_no}
+              AND B.EXPLAIN_EXEC_SEQ (+) = ${explain_exec_seq}
+              AND A.QUERY_SEQ <![CDATA[>]]> ${query_seq}    /* 1page : 0, 2page : 이전페이지 최종레코드의 query_seq */
+              <if test="plan_yn != null and plan_yn != '' and plan_yn != 'N'.toString()">
+                  AND B.EXPLAIN_EXEC_NOTE IS NULL
+              </if>
+              <if test="note eq 'Y'.toString()">
+                  AND B.EXPLAIN_EXEC_NOTE IS NOT NULL
+              </if>
+                <if test="note eq 'N'.toString()">
+                    AND B.EXPLAIN_EXEC_NOTE IS NULL
+              </if>
+              ORDER BY A.QUERY_SEQ
+          </when>
+          
+          <otherwise>
+              SELECT /*+ INDEX(A PK_DBIO_LOAD_SQL) */ A.QUERY_SEQ
+              <choose>
+                  <when test="strGubun eq 'EXCEL'">
+                      , DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+                  </when>
+                  <otherwise>
+                      , DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+                  </otherwise>
+              </choose>
+              , '' AS PLAN_YN, '' AS NOTE 
+              FROM DBIO_LOAD_SQL A
+              WHERE FILE_NO = ${file_no}
+              AND A.QUERY_SEQ <![CDATA[>]]> ${query_seq}    /* 1page : 0, 2page : 이전페이지 최종레코드의 query_seq */
+              ORDER BY QUERY_SEQ
+          </otherwise>
+      </choose>
+    </sql>
+    
+    <select id="loadActionPlanList" parameterType="dbioLoadSql" resultType="dbioLoadSql">
+      /* IndexDesignPreProcessingDao.loadActionPlanList */
+      SELECT A.* FROM(
+          SELECT ROWNUM RNUM, A.* 
+          FROM(
+              <include refid="loadActionPlanListRefId"/>
+          )A
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      )A
+      WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="loadActionPlanList4Excel" parameterType="dbioLoadSql" resultType="java.util.LinkedHashMap">
+      /* IndexDesignPreProcessingDao.loadActionPlanList4Excel */
+      SELECT QUERY_SEQ, SQL_TEXT, PLAN_YN, NOTE
+      FROM(
+          <include refid="loadActionPlanListRefId"/>
+      )
+    </select>
+    
+    <select id="downloadLargeExcel" parameterType="dbioLoadSql" flushCache="true" useCache="false" resultType="java.util.LinkedHashMap" fetchSize="1000">
+      /* IndexDesignPreProcessingDao.downloadLargeExcel */
+          <include refid="loadActionPlanListRefId"/>
+    </select>
+    
+    <select id="actionPlanInfo" parameterType="dbioLoadSql" resultType="dbioLoadSql">
+      /* IndexDesignPreProcessingDao.actionPlanInfo */
+      SELECT SQL_TEXT
+      FROM DBIO_LOAD_SQL
+      WHERE FILE_NO = #{file_no}
+      AND QUERY_SEQ = ${query_seq}
+    </select>
+    
+    <select id="getMaxExplainExecSeq" parameterType="dbioLoadSql" resultType="string">
+      /* IndexDesignPreProcessingDao.getMaxExplainExecSeq */
+      SELECT (CASE WHEN MAX(EXPLAIN_EXEC_SEQ) IS NULL THEN 1 ELSE MAX(EXPLAIN_EXEC_SEQ) + 1 END) AS EXPLAIN_EXEC_SEQ
+      FROM DBIO_EXPLAIN_EXEC 
+      WHERE FILE_NO = #{file_no}
+    </select>
+    
+    <select id="isTaskLoadActionPlan" parameterType="dbioLoadSql" resultType="dbioLoadSql">
+      /* IndexDesignPreProcessingDao.isTaskLoadActionPlan */
+      SELECT DB.DB_NAME, COUNT(*) EXECUTING_CNT
+      FROM DBIO_LOAD_FILE A, DBIO_EXPLAIN_EXEC B, DATABASE DB
+      WHERE A.FILE_NO = B.FILE_NO
+      AND A.DBID = DB.DBID
+      AND B.EXEC_END_DT IS NULL
+      AND A.DBID = #{dbid}
+      GROUP BY DB.DB_NAME
+    </select>
+    
+    <insert id="insertDbioExplainExec" parameterType="dbioExplainExec">
+      /* IndexDesignPreProcessingDao.insertDbioExplainExec */
+      INSERT INTO DBIO_EXPLAIN_EXEC (FILE_NO, EXPLAIN_EXEC_SEQ, PLAN_CREATE_CNT, PLAN_ERROR_CNT, PLAN_NO_EXEC_CNT, REG_DT) 
+      VALUES (#{file_no}, #{explain_exec_seq}, 0, 0, 0, SYSDATE)
+    </insert>
+    
+    <select id="planExecCnt" parameterType="dbioExplainExec" resultType="dbioExplainExec">
+      /* IndexDesignPreProcessingDao.planExecCnt */
+      SELECT MAX(A.QUERY_LOAD_CNT)                      AS SQL_CNT         /* 실행계획생성대상 SQL 건수 */
+          , COUNT(*)                                    AS PLAN_EXEC_CNT   /* 실행계획생성실행건수 */
+          , MAX(DECODE(B.EXEC_END_DT, NULL, 'N', 'Y'))  AS COMPLETE_YN     /* 실행계획생성완료여부 */
+      FROM DBIO_LOAD_FILE A, DBIO_EXPLAIN_EXEC B, DBIO_EXPLAIN_EXEC_DTL C
+      WHERE A.FILE_NO = B.FILE_NO
+      AND B.FILE_NO = C.FILE_NO(+)
+      AND B.EXPLAIN_EXEC_SEQ = C.EXPLAIN_EXEC_SEQ(+)
+      AND B.FILE_NO = #{file_no}
+      AND B.EXPLAIN_EXEC_SEQ = #{explain_exec_seq}
+    </select>
+    
+    <select id="selectActionPlanLog" parameterType="dbioExplainExec" resultType="dbioExplainExec">
+      /* IndexDesignPreProcessingDao.selectActionPlanLog */
+      SELECT NVL(SUM(CASE WHEN EXPLAIN_EXEC_NOTE IS NULL THEN 1 ELSE 0 END),0) AS SUC_CNT,
+          NVL(SUM(CASE WHEN EXPLAIN_EXEC_NOTE IS NULL THEN 0 ELSE 1 END),0) ERR_CNT
+      FROM DBIO_EXPLAIN_EXEC_DTL
+      WHERE FILE_NO = #{file_no}
+      AND EXPLAIN_EXEC_SEQ = #{explain_exec_seq}
+    </select>
+    
+    <update id="updateForceComplete" parameterType="dbioExplainExec">
+      /* IndexDesignPreProcessingDao.updateForceComplete */
+      UPDATE DBIO_EXPLAIN_EXEC
+      SET EXEC_END_DT = SYSDATE
+      WHERE FILE_NO IN (
+          SELECT FILE_NO
+          FROM DBIO_LOAD_FILE
+          WHERE DBID = #{dbid}
+      )
+    </update>
+    
+    <select id="explainList" parameterType="dbioLoadFile" resultType="dbioLoadFile">
+      /* IndexDesignPreProcessingDao.explainList */
+      SELECT B.EXPLAIN_EXEC_SEQ
+          ,B.PLAN_DESC
+          ,B.REG_DT
+          ,(SELECT 'Y'
+          FROM ACC_PATH_EXEC APE
+          WHERE A.DBID = APE.DBID
+          AND B.FILE_NO = APE.FILE_NO
+          AND B.EXPLAIN_EXEC_SEQ = APE.EXPLAIN_EXEC_SEQ
+          AND ROWNUM = 1) AS ACCESS_PATH_EXEC_YN
+          ,A.DBID
+          ,A.FILE_NO
+      FROM DBIO_LOAD_FILE A
+      ,(
+          SELECT FILE_NO
+              ,EXPLAIN_EXEC_SEQ
+              ,(PLAN_CREATE_CNT || ' / ' || PLAN_ERROR_CNT || ' / ' || PLAN_NO_EXEC_CNT) AS PLAN_DESC
+              ,TO_CHAR(REG_DT, 'YYYY-MM-DD HH24:MI:SS') AS REG_DT
+          FROM DBIO_EXPLAIN_EXEC B
+      ) B
+      WHERE A.FILE_NO = B.FILE_NO
+      AND A.DBID = #{dbid}
+      AND A.FILE_NO = #{file_no}
+      ORDER BY B.REG_DT DESC
+    </select>
+    
+    <select id="accessPathList" parameterType="accPathExec" resultType="accPathExec">
+      /* IndexDesignPreProcessingDao.accessPathList */
+      SELECT EXEC_SEQ,
+          ANALYSIS_SQL_CNT,
+          TABLE_COUNT,
+          ACCESS_PATH_COUNT, 
+          TO_CHAR(ACCESS_PATH_EXEC_DT, 'YYYY-MM-DD HH24:MI:SS') AS ACCESS_PATH_EXEC_DT,
+          TO_CHAR(ACCESS_PATH_EXEC_END_DT, 'YYYY-MM-DD HH24:MI:SS') AS ACCESS_PATH_EXEC_END_DT
+      FROM ACC_PATH_EXEC
+      WHERE DBID = #{dbid}
+      AND FILE_NO = #{file_no}
+      AND EXPLAIN_EXEC_SEQ = #{explain_exec_seq}
+      AND ACCESS_PATH_TYPE = 'DBIO'
+      ORDER BY EXEC_SEQ
+    </select>
+    
+    <select id="insertParseLoadingCondition" parameterType="accPathExec" statementType="CALLABLE">
+      /* IndexDesignPreProcessingDao.insertParseLoadingCondition */
+      { CALL SP_SPOP_ACC_PATH_PARSING_ITG (${dbid},${file_no},${explain_exec_seq},NULL,NULL,NULL,'DBIO') }
+    </select>
+    
+    <!-- 
+    <sql id="loadActionPlanListRefId">
+        SELECT A.QUERY_SEQ
+            <choose>
+            <when test="strGubun eq 'EXCEL'">
+                , DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+            </when>
+            <otherwise>
+                , DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+            </otherwise>
+            </choose>
+        <choose>
+            <when test="(explain_exec_seq != null and explain_exec_seq != '')">
+                    ,DECODE(B.EXPLAIN_EXEC_NOTE, NULL, 'Y', 'N') AS PLAN_YN,     
+                    B.EXPLAIN_EXEC_NOTE AS NOTE
+                FROM DBIO_LOAD_SQL A, DBIO_EXPLAIN_EXEC_DTL B
+                WHERE A.FILE_NO = B.FILE_NO(+)
+                AND A.QUERY_SEQ = B.QUERY_SEQ(+)
+                AND A.FILE_NO = ${file_no}
+                AND B.EXPLAIN_EXEC_SEQ (+) = ${explain_exec_seq}
+                <if test="plan_yn != null and plan_yn != '' and plan_yn != 'N'.toString()">
+                    AND B.EXPLAIN_EXEC_NOTE IS NULL
+                </if>
+                <if test="note eq 'Y'.toString()">
+                    AND B.EXPLAIN_EXEC_NOTE IS NOT NULL
+                </if>
+                <if test="note eq 'N'.toString()">
+                    AND B.EXPLAIN_EXEC_NOTE IS NULL
+                </if>
+                ORDER BY A.QUERY_SEQ
+            </when>            
+            <otherwise>
+                    ,'' AS PLAN_YN, '' AS NOTE 
+                FROM DBIO_LOAD_SQL A 
+                WHERE FILE_NO = ${file_no}
+                ORDER BY QUERY_SEQ
+            </otherwise>
+        </choose>
+    </sql>
+     -->
+</mapper>

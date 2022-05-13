@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.08	이원식	OPENPOP V2 최초작업	
+	2018.04.27	이원식	오브젝트 진단 => SPACE 진단으로 변경
+	2018.05.04	이원식	파티셔닝 대상 진단 추가	 
+-->
+<mapper namespace="omc.spop.dao.SpaceDiagnosticsDao">	
+	<select id="oracleReorgTargetTableList" parameterType="odsAsaRecommendations" resultType="odsAsaRecommendations">
+		/* SpaceDiagnosticsDao.oracleReorgTargetTableList */
+		SELECT ROWNUM RECOMMEND_SEQ, A.*
+		FROM (
+			SELECT RECOMMEND_SEQ, BASE_DAY, SEGMENT_OWNER, SEGMENT_NAME, SEGMENT_TYPE, 
+				PARTITION_NAME, TABLESPACE_NAME, 
+				ROUND(ALLOCATED_SPACE/1024/1024, 2) ALLOCATED_SPACE, 
+				ROUND(USED_SPACE/1024/1024, 2) USED_SPACE, 
+				ROUND(RECLAIMABLE_SPACE/1024/1024, 2) RECLAIMABLE_SPACE, 
+				CHAIN_ROWEXCESS
+			FROM ODS_ASA_RECOMMENDATIONS
+			WHERE DBID = #{dbid}
+			AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_ASA_RECOMMENDATIONS WHERE DBID = #{dbid})
+			ORDER BY RECLAIMABLE_SPACE DESC
+		) A
+		WHERE ROWNUM <![CDATA[ <= ]]> 20
+	</select>
+	
+	<select id="openPOPReorgTargetTableList" parameterType="reorgRecommendation" resultType="reorgRecommendation">
+		/* SpaceDiagnosticsDao.openPOPReorgTargetTableList */
+		SELECT ROWNUM RECOMMEND_SEQ, A.*
+		FROM (
+		SELECT OWNER, GATHER_DAY, TABLE_NAME, TABLESPACE_NAME, NUM_ROWS, ALLOCATED_SPACE, 
+				USED_SPACE, RECLAIMABLE_SPACE, RECLAIMABLE_SPACE_RATIO
+			FROM REORG_RECOMMENDATION
+			WHERE DBID = #{dbid}
+			AND GATHER_DAY = (SELECT MAX(GATHER_DAY) FROM REORG_RECOMMENDATION WHERE DBID = #{dbid})	
+			ORDER BY RECLAIMABLE_SPACE DESC
+		) A
+		WHERE ROWNUM <![CDATA[ <= ]]> 20
+	</select>
+	
+	<select id="getOracleRecommendation" parameterType="odsAsaRecommendations" resultType="odsAsaRecommendations">
+		/* SpaceDiagnosticsDao.getOracleRecommendation */
+		SELECT RECOMMENDATIONS, NVL(C3,' ') AS RUN_FIRST, NVL(C2,' ') AS RUN_SECOND, NVL(C1,' ') AS RUN_THIRD
+		FROM ODS_ASA_RECOMMENDATIONS
+		WHERE DBID = #{dbid}
+		AND BASE_DAY = #{base_day}
+		AND RECOMMEND_SEQ = #{recommend_seq}
+	</select>	
+	
+	<select id="getOpenPOPRecommendation" parameterType="reorgRecommendation" resultType="reorgRecommendation">
+		/* SpaceDiagnosticsDao.getOpenPOPRecommendation */
+		SELECT '--part 1: enable row movement' || chr(10) || 'alter table "' || OWNER || '"."' || TABLE_NAME || '" enable row movement;' RUN_FIRST,
+			'--Part 2: Rearrange (All DML''s can happen during this time)' || chr(10) || 'alter table "' || OWNER || '"."' || TABLE_NAME || '" shrink space compact;' RUN_SECOND,
+			'--Part 3: Reset HWM (No DML can happen. but this is fairly quick, infact goes unnoticed.)'|| chr(10) ||'alter table "' || OWNER || '"."' || TABLE_NAME || '" shrink space;' RUN_THIRD
+		FROM REORG_RECOMMENDATION
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY = #{gather_day}
+		AND OWNER = #{owner}
+		AND TABLE_NAME = #{table_name}
+	</select>
+	
+	<select id="partitionRecommendationList" parameterType="partitionRecommendation" resultType="partitionRecommendation">
+		/* SpaceDiagnosticsDao.partitionRecommendationList */
+		SELECT GATHER_DAY,
+			OWNER, 
+			TABLE_NAME, 
+			CUR_SIZE,
+			CUR_NUM_ROWS,
+			MONTH_1_AGO_SIZE,
+			MONTH_2_AGO_SIZE,
+			MONTH_3_AGO_SIZE,
+			MONTH_4_AGO_SIZE,
+			MONTH_5_AGO_SIZE,
+			MONTH_6_AGO_SIZE,
+			MONTH_1_AGO_NUM_ROWS,
+			MONTH_2_AGO_NUM_ROWS,
+			MONTH_3_AGO_NUM_ROWS,
+			MONTH_4_AGO_NUM_ROWS,
+			MONTH_5_AGO_NUM_ROWS,
+			MONTH_6_AGO_NUM_ROWS,
+			READS_ACTIVITY,
+			'RANGE PARTITION' AS RECOMMEND_PART_TYPE
+		FROM PARTITION_RECOMMENDATION
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY = (SELECT MAX(GATHER_DAY) FROM PARTITION_RECOMMENDATION WHERE DBID = #{dbid})	
+	</select>
+	
+	<select id="accessPathList" parameterType="partitionRecommendation" resultType="partitionRecommendation">
+		/* SpaceDiagnosticsDao.accessPathList */
+		SELECT ROWNUM AS RNUM, ACCESS_PATH, ACCESS_PATH_COUNT
+		FROM(
+			SELECT ACCESS_PATH, COUNT(DISTINCT SQL_ID || TO_CHAR(PLAN_HASH_VALUE)) ACCESS_PATH_COUNT 
+			FROM
+			(
+				SELECT C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME, 
+					LISTAGG(ACCESS_PATH, ', ') WITHIN GROUP(ORDER BY ORDERED, ACCESS_PATH) ACCESS_PATH 
+				FROM ACC_PATH_EXEC A,
+				(
+					SELECT DBID, EXEC_SEQ, SNAP_NO, QUERY_SEQ, QBLOCK_NAME, ACCESS_PATH, ORDERED
+					FROM ACC_PATH                                                          
+					WHERE DBID = #{dbid}
+					AND TABLE_OWNER = #{owner}
+					AND TABLE_NAME = #{table_name}
+				) B, VSQL_TEXT C                                                                        
+				WHERE A.DBID = B.DBID
+				AND A.EXEC_SEQ = B.EXEC_SEQ
+				AND B.DBID = C.DBID
+				AND B.SNAP_NO = C.SNAP_NO                                                                
+				AND B.QUERY_SEQ = C.QUERY_SEQ   
+				AND A.ACCESS_PATH_TYPE = 'VSQL'
+				AND A.DBID = #{dbid}
+				AND A.EXEC_SEQ = (SELECT MAX(EXEC_SEQ) FROM ACC_PATH_EXEC WHERE ACCESS_PATH_TYPE = 'VSQL' AND DBID = #{dbid})
+				GROUP BY C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME
+			)                 
+			GROUP BY ACCESS_PATH                                                                 
+			ORDER BY ACCESS_PATH_COUNT DESC, ACCESS_PATH ASC                                                 
+		)
+	</select>
+	
+	<select id="getPartitionKeyRecommendation" parameterType="partitionRecommendation" resultType="partitionRecommendation">
+		/* SpaceDiagnosticsDao.getPartitionKeyRecommendation */
+		SELECT COUNT(DISTINCT C.SQL_ID||C.PLAN_HASH_VALUE||B.QBLOCK_NAME) AS TOTAL_CNT
+		FROM ACC_PATH_EXEC A,
+		(
+			SELECT DBID, EXEC_SEQ, SNAP_NO, QUERY_SEQ, QBLOCK_NAME, ACCESS_PATH, ORDERED, COLUMN_NAME
+			FROM ACC_PATH                                                          
+			WHERE DBID = #{dbid}
+			AND TABLE_OWNER = #{owner}
+			AND TABLE_NAME = #{table_name}
+		) B, VSQL_TEXT C                                                                        
+		WHERE A.DBID = B.DBID
+		AND A.EXEC_SEQ = B.EXEC_SEQ
+		AND B.DBID = C.DBID
+		AND B.SNAP_NO = C.SNAP_NO                                                                
+		AND B.QUERY_SEQ = C.QUERY_SEQ   
+		AND A.ACCESS_PATH_TYPE = 'VSQL'
+		AND A.DBID = #{dbid}
+		AND A.EXEC_SEQ = (SELECT MAX(EXEC_SEQ) FROM ACC_PATH_EXEC WHERE ACCESS_PATH_TYPE = 'VSQL' AND DBID = #{dbid})	
+	</select>
+	
+	<select id="partitionKeyRecommendationList" parameterType="partitionRecommendation" resultType="partitionRecommendation">
+		/* SpaceDiagnosticsDao.partitionKeyRecommendationList */
+		SELECT COLUMN_NAME, USAGE_CNT,
+			RANK() OVER(ORDER BY ORDERED, USAGE_CNT DESC) PARTITION_KEY_RECOMMEND_RANK
+		FROM
+		(
+			SELECT COLUMN_NAME, COUNT(*) USAGE_CNT, MAX(ORDERED) ORDERED
+			FROM
+			(
+				SELECT DISTINCT C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME, B.COLUMN_NAME, B.ORDERED
+				FROM ACC_PATH_EXEC A,
+					(
+					SELECT A.DBID, A.EXEC_SEQ, A.SNAP_NO, A.QUERY_SEQ, A.QBLOCK_NAME, A.ACCESS_PATH, A.COLUMN_NAME,
+						(
+							CASE WHEN 
+							(
+								B.DATA_TYPE LIKE 'DATE%' OR B.DATA_TYPE LIKE 'VARCHAR%' OR B.DATA_TYPE LIKE 'CHAR%' 
+								OR B.DATA_TYPE LIKE 'DATE%' OR B.DATA_TYPE LIKE 'TIMESTAMP%'
+							) AND B.NUM_DISTINCT <![CDATA[ <= ]]> 10000 THEN 1 ELSE 9 END
+						) ORDERED
+					FROM ACC_PATH A, ODS_TAB_COLUMNS B
+					WHERE A.DBID = B.DBID
+					AND A.TABLE_OWNER = B.OWNER
+					AND A.TABLE_NAME = B.TABLE_NAME
+					AND A.COLUMN_NAME = B.COLUMN_NAME
+					AND A.DBID = #{dbid}
+					AND A.TABLE_OWNER = #{owner}
+					AND A.TABLE_NAME = #{table_name}
+					AND B.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_COLUMNS WHERE DBID = #{dbid})
+					) B
+			      , VSQL_TEXT C                                                                        
+                  , (
+                     SELECT B.COLUMN_NAME
+                     FROM ODS_CONSTRAINTS A, ODS_IND_COLUMNS B
+                     WHERE A.DBID = B.DBID
+                     AND A.INDEX_OWNER = B.INDEX_OWNER 
+                     AND A.INDEX_NAME = B.INDEX_NAME
+                     AND A.DBID = #{dbid}
+                     AND A.OWNER = #{owner}
+                     AND A.TABLE_NAME = #{table_name}
+                     AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_CONSTRAINTS WHERE DBID = #{dbid})
+                     AND B.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_IND_COLUMNS WHERE DBID = #{dbid})
+                     AND A.CONSTRAINT_TYPE = 'P'
+                     ) D
+				WHERE A.DBID = B.DBID
+				AND A.EXEC_SEQ = B.EXEC_SEQ
+				AND B.DBID = C.DBID
+				AND B.SNAP_NO = C.SNAP_NO                                                                
+				AND B.QUERY_SEQ = C.QUERY_SEQ   
+                AND B.COLUMN_NAME = D.COLUMN_NAME 
+				AND A.ACCESS_PATH_TYPE = 'VSQL'
+				AND A.DBID = #{dbid}
+				AND A.EXEC_SEQ = (SELECT MAX(EXEC_SEQ) FROM ACC_PATH_EXEC WHERE ACCESS_PATH_TYPE = 'VSQL' AND DBID = #{dbid})
+			)
+			GROUP BY COLUMN_NAME
+		)
+		ORDER BY -- USAGE_CNT DESC, 
+		PARTITION_KEY_RECOMMEND_RANK ASC	
+	</select>
+</mapper>

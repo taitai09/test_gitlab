@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+ * 2018.09.11 	임호경	 최초작성
+-->
+<mapper namespace="omc.spop.dao.PerformanceCheckDao">
+
+
+	<select id="getPerformanceBasicCheckList" parameterType="basicCheckConfig" resultType="basicCheckConfig">
+       	SELECT A.CHECK_PREF_ID, A.CHECK_PREF_NM, A.CHECK_ENABLE_YN, A.CHECK_VALUE_UNIT, A.DEFAULT_THRESHOLD_VALUE, 
+		A.CHECK_GRADE_CD, B.CD_NM AS CHECK_GRADE_CD_NM,
+		A.CHECK_CLASS_DIV_CD, C.CD_NM AS CHECK_CLASS_DIV_CD_NM,
+		A.EMERGENCY_ACTION_YN 
+		FROM BASIC_CHECK_CONFIG A 
+		INNER JOIN (SELECT * FROM CD WHERE GRP_CD_ID = '1043') B ON A.CHECK_GRADE_CD = B.CD
+		INNER JOIN (SELECT * FROM CD WHERE GRP_CD_ID = '1046') C ON A.CHECK_CLASS_DIV_CD = C.CD
+				<trim prefix="WHERE" prefixOverrides="AND |OR">
+					<if test="searchValue != null and searchValue != ''">
+						A.CHECK_PREF_NM LIKE '%' || #{searchValue} || '%'
+					</if>
+					<if test="use_yn != null and use_yn != ''">
+						AND A.CHECK_ENABLE_YN = #{use_yn}
+					</if>
+				</trim>				
+					ORDER BY CHECK_PREF_ID, CHECK_PREF_NM
+	</select>
+
+
+
+	<select id="getPerformanceDBCheckList_old" parameterType="basicCheckConfig" resultType="basicCheckConfig">
+	    SELECT B.DBID, C.DB_NAME, A.CHECK_PREF_ID, A.CHECK_PREF_NM, NVL(B.CHECK_ENABLE_YN, A.CHECK_ENABLE_YN) CHECK_ENABLE_YN, NVL(NVL(B.THRESHOLD_VALUE, A.DEFAULT_THRESHOLD_VALUE),0) THRESHOLD_VALUE
+			FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B
+               , (SELECT *
+                    FROM DATABASE C
+                   WHERE C.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                                    FROM SPOP_PREFERENCES 
+                                                   WHERE PREF_ID = '22001') 
+                 ) C
+				 <trim prefix="WHERE" prefixOverrides="AND |OR">
+					A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+					AND B.DBID = C.DBID(+) AND B.DBID(+) = #{select_dbid}
+		
+					<if test="searchValue != null and searchValue != ''">
+						AND A.CHECK_PREF_NM LIKE '%' || #{searchValue} || '%'
+					</if>
+					<if test="use_yn != null and use_yn != ''">
+						AND A.CHECK_ENABLE_YN = #{use_yn}
+					</if>
+				 </trim>
+		ORDER BY CHECK_PREF_ID, CHECK_PREF_NM
+	
+	</select>
+
+	<select id="getPerformanceDBCheckList" parameterType="basicCheckConfig" resultType="basicCheckConfig">
+		WITH DB_PREF AS
+		(
+		    SELECT DBID, DB_NAME
+		    FROM DATABASE 
+		    WHERE DBID = #{select_dbid}
+		)
+		SELECT DB.DBID, DB.DB_NAME, A.CHECK_PREF_ID, A.CHECK_PREF_NM, NVL(B.CHECK_ENABLE_YN, A.CHECK_ENABLE_YN) CHECK_ENABLE_YN,
+			NVL(NVL(B.THRESHOLD_VALUE, A.DEFAULT_THRESHOLD_VALUE),0) THRESHOLD_VALUE,
+			A.CHECK_VALUE_UNIT,
+			A.EMERGENCY_ACTION_YN,
+			D.CD_NM AS CHECK_GRADE_CD,
+			E.CD_NM AS CHECK_CLASS_DIV_CD
+		FROM BASIC_CHECK_CONFIG A
+			, DB_CHECK_CONFIG B
+			, DB_PREF DB
+			, (SELECT * FROM CD WHERE GRP_CD_ID = '1043') D
+			, (SELECT * FROM CD WHERE GRP_CD_ID = '1046') E
+				 <trim prefix="WHERE" prefixOverrides="AND |OR">
+					A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+					AND B.DBID(+) = #{select_dbid}
+		
+					<if test="searchValue != null and searchValue != ''">
+						AND A.CHECK_PREF_NM LIKE '%' || #{searchValue} || '%'
+					</if>
+					<if test="use_yn != null and use_yn != ''">
+						AND A.CHECK_ENABLE_YN = #{use_yn}
+					</if>
+					AND A.CHECK_GRADE_CD = D.CD
+					AND A.CHECK_CLASS_DIV_CD = E.CD
+				 </trim>
+		ORDER BY CHECK_PREF_ID, CHECK_PREF_NM
+	
+	</select>	
+	
+	<select id="getGradeCd" parameterType="basicCheckConfig" resultType="basicCheckConfig">
+		SELECT CD AS CHECK_GRADE_CD, CD_NM AS CHECK_GRADE_CD_NM 
+		FROM CD WHERE GRP_CD_ID = '1043' AND USE_YN = 'Y'
+	</select>
+	<select id="getClassDivCd" parameterType="basicCheckConfig" resultType="basicCheckConfig">
+        SELECT CD AS CHECK_CLASS_DIV_CD, CD_NM AS CHECK_CLASS_DIV_CD_NM 
+        FROM CD WHERE GRP_CD_ID = '1046' AND USE_YN = 'Y'
+	</select>
+	<select id="getCheckPrefValue" parameterType="basicCheckConfig" resultType="basicCheckConfig">
+		SELECT CHECK_PREF_ID, CHECK_PREF_NM FROM BASIC_CHECK_CONFIG ORDER BY CHECK_PREF_ID
+	</select>
+	
+	
+<!-- 	<insert id="insertBasicCheckConfig" parameterType="basicCheckConfig"> -->
+<!-- 			INSERT INTO BASIC_CHECK_CONFIG  -->
+<!-- 			(CHECK_PREF_ID,CHECK_PREF_NM,CHECK_ENABLE_YN,CHECK_VALUE_UNIT,DEFAULT_THRESHOLD_VALUE,CHECK_GRADE_CD,CHECK_CLASS_DIV_CD,EMERGENCY_ACTION_YN) -->
+<!-- 			VALUES(#{check_pref_id},#{check_pref_nm},#{check_enable_yn},#{check_value_unit},#{default_threshold_value}, -->
+<!-- 			#{check_grade_cd},#{check_class_div_cd},#{emergency_action_yn}) -->
+<!-- 	</insert>	 -->
+	
+	<update id="updateBasicCheckConfig" parameterType="basicCheckConfig">
+			UPDATE BASIC_CHECK_CONFIG
+	
+			<trim prefix="SET" suffixOverrides=",">
+				<if test="check_pref_id != null and check_pref_id != ''">
+					CHECK_PREF_ID =#{check_pref_id},
+				</if>
+				<if test="check_pref_nm != null and check_pref_nm != ''">
+					CHECK_PREF_NM = #{check_pref_nm},
+				</if>
+				<if test="check_enable_yn != null and check_enable_yn != ''">
+					CHECK_ENABLE_YN =#{check_enable_yn},
+				</if>
+				<if test="check_value_unit != null and check_value_unit != ''">
+					CHECK_VALUE_UNIT =#{check_value_unit},
+				</if>
+				<if test="default_threshold_value != null and default_threshold_value != ''">
+					DEFAULT_THRESHOLD_VALUE =#{default_threshold_value},
+				</if>
+				<if test="check_grade_cd != null and check_grade_cd != ''">
+					CHECK_GRADE_CD =#{check_grade_cd},
+				</if>
+				<if test="check_class_div_cd != null and check_class_div_cd != ''">
+					CHECK_CLASS_DIV_CD  =#{check_class_div_cd},
+				</if>
+				<if test="emergency_action_yn != null and emergency_action_yn != ''">
+					EMERGENCY_ACTION_YN =#{emergency_action_yn}
+				</if>
+			</trim>
+			WHERE CHECK_PREF_ID = #{check_pref_id}
+	</update>
+	
+	<delete id="deleteDBCheckConfig" parameterType="basicCheckConfig">
+			DELETE DB_CHECK_CONFIG WHERE 
+				DBID = #{dbid} AND CHECK_PREF_ID = #{check_pref_id}
+	</delete>
+    
+    
+    
+    <update id="SaveBasicCheckConfig" parameterType="basicCheckConfig">
+	    MERGE INTO BASIC_CHECK_CONFIG
+	    <if test="check_pref_id == null or check_pref_id == ''">
+		USING DUAL ON (CHECK_PREF_ID = (SELECT TO_CHAR(MAX(CHECK_PREF_ID+1)) FROM BASIC_CHECK_CONFIG))
+<!-- 		USING DUAL ON (CHECK_PREF_ID = (SELECT MAX(CHECK_PREF_ID+1) FROM BASIC_CHECK_CONFIG)) -->
+		</if>
+	    <if test="check_pref_id != null and check_pref_id != ''">
+		USING DUAL ON (CHECK_PREF_ID = #{check_pref_id})
+		</if>
+	    
+	    WHEN MATCHED THEN
+	        UPDATE SET 
+				CHECK_PREF_NM = #{check_pref_nm},
+				CHECK_ENABLE_YN =#{check_enable_yn},
+				CHECK_VALUE_UNIT =#{check_value_unit},
+				DEFAULT_THRESHOLD_VALUE =#{default_threshold_value},
+				CHECK_GRADE_CD =#{check_grade_cd},
+				CHECK_CLASS_DIV_CD  =#{check_class_div_cd},
+				EMERGENCY_ACTION_YN =#{emergency_action_yn}
+				    
+	    WHEN NOT MATCHED THEN
+				INSERT (CHECK_PREF_ID, CHECK_PREF_NM, CHECK_ENABLE_YN, CHECK_VALUE_UNIT,
+				DEFAULT_THRESHOLD_VALUE, CHECK_GRADE_CD, CHECK_CLASS_DIV_CD, EMERGENCY_ACTION_YN)
+				VALUES ((SELECT MAX(CHECK_PREF_ID)+1 FROM BASIC_CHECK_CONFIG), #{check_pref_nm}, #{check_enable_yn}, #{check_value_unit}, 
+				#{default_threshold_value}, #{check_grade_cd}, #{check_class_div_cd}, #{emergency_action_yn})  
+		<!-- default_threshold_value == threshold_value -->
+    </update>
+    
+    <update id="SaveDBCheckConfig" parameterType="basicCheckConfig">
+	    MERGE INTO DB_CHECK_CONFIG
+	USING DUAL ON (DBID = #{dbid} AND CHECK_PREF_ID = #{check_pref_id})
+	    WHEN MATCHED THEN
+	        UPDATE SET 
+				CHECK_ENABLE_YN = #{check_enable_yn},
+				THRESHOLD_VALUE = #{default_threshold_value}
+	    WHEN NOT MATCHED THEN
+				INSERT (DBID, CHECK_PREF_ID, CHECK_ENABLE_YN, THRESHOLD_VALUE)
+				VALUES (#{dbid}, #{check_pref_id}, #{check_enable_yn}, #{default_threshold_value})  
+		<!-- default_threshold_value == threshold_value -->
+    </update>
+    
+    
+    
+    
+</mapper>

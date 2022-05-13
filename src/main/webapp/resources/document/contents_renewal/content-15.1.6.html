@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>15. 기타</h1>
+		<h2>15.1. 기타 기능</h2>
+		<h3>15.1.6. 공통 화면</h3>
+		
+		<div class="tapScroll">
+			<h5>Table Info 팝업</h5>
+			<p>
+				화면은 다음과 같은 탭으로 구성되어 있다.
+			</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>Tab 명</th>
+							<th>Tab 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>Table Detail</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>Table 통계, Column, Index 정보를 제공한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Statistics History</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>Table 통계 History 정보를 제공한다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Access Path</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>V$에서 수집된 해당 Table을 사용하는 Access Path 정보를 제공한다.</li>
+									<li>‘수집SQL 인덱스 설계’ 메뉴를 이용해 수집 시 조회가 가능하다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Change History</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>Column, Index 생성/변경/삭제에 대한 History 정보를 제공한다.</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<div>
+				<p class="title-h7">[Table Detail] 탭</p>
+				<div class="imageBox" style="width: 800px;">
+					<img class="borderLine" src="/resources/images/menual/bgimg_renewal/common-1.png">
+				</div>
+				
+				<p class="title-h7">[Statistics History] 탭</p>
+				<div class="imageBox" style="width: 800px;">
+					<img class="borderLine" src="/resources/images/menual/bgimg_renewal/common-2.png">
+				</div>
+				
+				<p class="title-h7">[Access Path] 탭</p>
+				<div class="imageBox" style="width: 800px;">
+					<img class="borderLine" src="/resources/images/menual/bgimg_renewal/common-3.png">
+				</div>
+				
+				<p class="title-h7">[Change History] 탭</p>
+				<div class="imageBox" style="width: 800px;">
+					<img class="borderLine" src="/resources/images/menual/bgimg_renewal/common-4.png">
+				</div>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>검증 SQL 목록 팝업</h5>
+			<p>
+				SQL식별자(DBIO)로 조회된 SQL ID별 성능검증 결과를 확인 및 SQL, Bind Value, Execution Plan 확인이 가능하다.
+				 튜닝 필요 시 튜닝요청을 할 수 있다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/common-5.png">
+			</div>
+			
+			<h4 class="titleStyle-none">SQL ID 목록 Area</h4>
+			<p>
+				SQL식별자(DBIO)로 수행된 SQL ID 목록이 조회된다.
+			</p>
+			<div class="imageBox" style="width: 400px;">
+				<img src="/resources/images/menual/bgimg_renewal/common-6.png">
+			</div>
+			<ol class="listStyle-number">
+				<li>부적합 체크 시 성능검증결과 ‘부적합’으로 검증된 SQL ID가 조회된다.<br>
+					부적합 체크 해제 시 적합, 부적합으로 검증된 전체 SQL ID가 조회된다.
+				</li>
+				<li>
+					그리드 클릭 시 해당 SQL ID 에 대한 검증 결과 및 수행된 SQL 정보가 [상세 검증 결과] 탭과 [SQL] 탭에 조회된다.
+				</li>
+			</ol>
+			
+			<p class="title-h7">SQL ID 목록 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>SQL_ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL_ID</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수행일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 SQL ID가 최종 수행된 일시</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>검증결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>검증 결과에 대한 값
+										<ul class="listStyle-dash">
+											<li>적합: 성능 검증 결과 적합</li>
+											<li>부적합: 성능 검증 결과 부적합</li>
+										</ul>
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>상세 검증 결과 탭</h6>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/common-7.png">
+			</div>
+			
+			<p class="title-h7">성능 검증 결과 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 15%;">
+						<col style="width: 15%;">
+						<col style="width: 70%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th colspan="2">컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td colspan="3" class="table-middleTitle">
+								<span class="text-bold">상세 검증 결과</span>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">검증지표</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능 검증 지표명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">적합</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>적합 판단을 하는 기준값. 기준값 이하일 경우 적합</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>성능 검증 결과값</td>
+							<td>실제</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능 검증 시 실제 결과값</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">성능 검증 결과</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능점검지표 기반의 성능점검 결과값(적합 또는 부적합)</li>
+									<li>‘적합’ 값과 ‘실제값’값을 비교하여 적합 또는 부적합을 판단</li>
+									<li>부적합 건에 대해서는 조치가 필요</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">예외등록여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>예외로 등록되었는지 여부(Y: 예외 등록)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">성능 검증 결과 내용</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>부적합 시 부적합 원인 및 조치 방법 기술</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="3" class="table-middleTitle">
+								<span class="text-bold">개선가이드</span>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">검증지표</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능 검증 지표명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">지표설명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>성능 검증 지표에 대한 설명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">개선가이드</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>부적합 지표에 대한 개선 방법을 가이드</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="3" class="table-middleTitle">
+								<span class="text-bold">Execution Plan</span>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">COST(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>실행 단계별 COST(%)의 비율. 누적값이며 해당 라인에서의 COST(%)를 알고 싶다면 이전 단계의 수행시간(%)값을 빼면된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">CPU_COST(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>실행 단계별 CPU_COST(%)의 비율. 누적값이며 해당 라인에서의 CPU_COST(%)를 알고 싶다면 이전 단계의 수행시간(%)값을 빼면된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">IO_COST(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>실행 단계별 IO_COST(%)의 비율. 누적값이며 해당 라인에서의 IO_COST(%)를 알고 싶다면 이전 단계의 수행시간(%)값을 빼면된다.</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>플랜에 순서대로 부여되는 번호</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">OPERATION</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>실행 Operation명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">COST</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 Operation에서 CPU_COST 와 IO_COST를 더하여 계산한 예측 비용</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">CPU_COST</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 Operation에서 CPU_COST 와 IO_COST를 더하여 계산한 예측 비용</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">CPU_COST</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 Operation 작업에 필요한 CPU 사용량을 예측한 비용</li>
+									<li class="text-bold">다른 Operation 보다 CPU 비용이 높은 경우 부하지점</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">IO_COST</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>해당 Operation 작업에 필요한 디스크 I/O 량을 예측한 비용</li>
+									<li class="text-bold">다른 Operation 보다 IO 비용이 높은 경우 부하지점</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>SQL 탭</h6>
+			<p>
+				수행된 SQL ID의 SQL문 및 Bind Value를 확인할 수 있으며 튜닝을 요청할 수 있다.
+			</p>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/common-8.png">
+			</div>
+			
+			<p class="title-h7">튜닝요청</p>
+			<ol class="listStyle-number">
+				<li>튜닝 필요 시 [튜닝요청] 버튼을 클릭한다. 이미 튜닝요청 된 SQL ID는 재요청할 수 없다.</li>
+				<li>튜닝요청 건에 대한 진행상황은 메뉴 ‘성능 개선 관리’에서 조회가 가능하다.</li>
+			</ol>
+		</div>
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

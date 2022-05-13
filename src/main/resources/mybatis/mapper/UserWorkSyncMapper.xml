@@ -1,0 +1,452 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2019.01.16	
+-->
+<mapper namespace="UserWorkSyncDao">
+<!-- 
+<IQMS연동>
+1. 단위업무코드 조회(INSTC.VWSKIHR57)
+
+<통합계정관리시스템(EAM) 연동>
+2. 직원(사용자)조회(INSTC.VWWDBIT01)
+3. 직원(사용자)업무조회(INSTC.VWWDBIT02) 
+
+<OPENPOP>
+4. ODS_KBCD_VWWDBIT01, ODS_KBCD_VWWDBIT02, ODS_KBCD_VWSKIHR57 테이블에 저장
+5. 신규 업무 등록
+6. 신규 사용자 등록
+7. 신규 사용자 업무 등록
+ -->
+
+<!--1. 단위업무코드 조회(INSTC.VWSKIHR57) 하여 ODS_KBCD_VWSKIHR57 테이블에 저장 -->
+
+<!-- IQMS DB -->
+<select id="searchWorkJobCd" resultType="wrkJobCd">
+	/* UserWorkSyncDao.searchWorkJobCd */
+	SELECT 레벨 LVL, 단위업무코드 WRKJOB_CD , 상위단위업무코드 UPPER_WRKJOB_CD , 단위업무명 WRKJOB_CD_NM
+	 , 시작년월일 START_YMD, 종료년월일 END_YMD, 순서 LINE_UP, 단위업무표시명 WRKJOB_CD_DESC_NM 
+	FROM INSTC.VWSKIHR57
+</select>
+
+<!-- OPENPOP DB -->
+<delete id="deleteKbcdWrkJobCd" parameterType="wrkJobCd">
+	/* UserWorkSyncDao.deleteKbcdWrkJobCd */
+	DELETE FROM ODS_KBCD_VWSKIHR57
+</delete>
+
+<insert id="insertKbcdWrkJobCd" parameterType="wrkJobCd" useGeneratedKeys="false">
+	/* UserWorkSyncDao.insertKbcdWrkJobCd */
+	INSERT INTO ODS_KBCD_VWSKIHR57(레벨, 단위업무코드, 상위단위업무코드, 단위업무명, 시작년월일, 종료년월일, 순서, 단위업무표시명, 등록일시 )
+	VALUES (#{lvl},#{wrkjob_cd},#{upper_wrkjob_cd},#{wrkjob_cd_nm},#{start_ymd},#{end_ymd},#{line_up},#{wrkjob_cd_desc_nm}, SYSDATE)
+</insert>
+
+<insert id="insertKbcdWrkJobCdAtOnce" parameterType="list" useGeneratedKeys="false">
+	/* UserWorkSyncDao.insertKbcdWrkJobCd */
+	<foreach collection="list" item="item" index="index" separator=" " open="INSERT ALL" close="SELECT * FROM DUAL">
+		INTO
+		ODS_KBCD_VWSKIHR57
+		(
+			레벨
+			, 단위업무코드
+			<if test="item.upper_wrkjob_cd != null and item.upper_wrkjob_cd != ''">
+				, 상위단위업무코드
+			</if>
+			<if test="item.wrkjob_cd_nm != null and item.wrkjob_cd_nm != ''">
+				, 단위업무명
+			</if>
+			<if test="item.start_ymd != null and item.start_ymd != ''">
+				, 시작년월일
+			</if>
+			<if test="item.end_ymd != null and item.end_ymd != ''">
+				, 종료년월일
+			</if>
+			<if test="item.line_up != null and item.line_up != ''">
+				, 순서
+			</if>
+			<if test="item.wrkjob_cd_desc_nm != null and item.wrkjob_cd_desc_nm != ''">
+				, 단위업무표시명
+			</if>
+			, 등록일시 
+		)
+		VALUES
+		(
+			#{item.lvl}
+			,#{item.wrkjob_cd}
+			<if test="item.upper_wrkjob_cd != null and item.upper_wrkjob_cd != ''">
+				,#{item.upper_wrkjob_cd}
+			</if>
+			<if test="item.wrkjob_cd_nm != null and item.wrkjob_cd_nm != ''">
+				,#{item.wrkjob_cd_nm}
+			</if>
+			<if test="item.start_ymd != null and item.start_ymd != ''">
+				,#{item.start_ymd}
+			</if>
+			<if test="item.end_ymd != null and item.end_ymd != ''">
+				,#{item.end_ymd}
+			</if>
+			<if test="item.line_up != null and item.line_up != ''">
+				,#{item.line_up}
+			</if>
+			<if test="item.wrkjob_cd_desc_nm != null and item.wrkjob_cd_desc_nm != ''">
+				,#{item.wrkjob_cd_desc_nm}
+			</if>
+			, SYSDATE
+		)
+	</foreach>
+</insert>
+
+
+<!-- 2. 직원(사용자)정보조회(INSTC.VWWDBIT01) 하여 ODS_KBCD_VWWDBIT01 테이블에 저장 -->
+
+<!-- EAM DB -->
+<select id="searchUsers" resultType="users">
+	/* UserWorkSyncDao.searchUsers */
+	SELECT 한글부점명 BRANCH_NM
+	, 직원번호 USER_ID, 한글직원명 USER_NM, 한글인사직위구분명 GRADE_DIV_NM
+	, 팀장직원번호 SENIOR_USER_ID, 한글팀장명 SENIOR_USER_NM
+	, IT부서전입년월일 IN_YMD, IT부서전출년월일 OUT_YMD, 외주지원팀명 SUPPORT_TEAM_NM, 외주소속회사명 BELONG_COM_NM 
+	FROM INSTC.VWWDBIT01
+</select>
+
+<!-- OPENPOP DB
+ -->
+<delete id="deleteKbcdUsers">
+	/* UserWorkSyncDao.deleteKbcdUsers */
+	DELETE FROM ODS_KBCD_VWWDBIT01
+</delete>
+
+<insert id="insertKbcdUser" parameterType="users" useGeneratedKeys="false">
+	/* UserWorkSyncDao.insertKbcdUser */
+	INSERT INTO ODS_KBCD_VWWDBIT01
+	(
+		한글부점명
+		, 직원번호
+		, 한글직원명
+		<if test="grade_div_nm != null and grade_div_nm != ''">
+			, 한글인사직위구분명
+		</if>
+		<if test="senior_user_id != null and senior_user_id != ''">
+			, 팀장직원번호
+		</if>
+		<if test="senior_user_nm != null and senior_user_nm != ''">
+			, 한글팀장명
+		</if>
+		<if test="in_ymd != null and in_ymd != ''">
+			, IT부서전입년월일
+		</if>
+		<if test="out_ymd != null and out_ymd != ''">
+			, IT부서전출년월일
+		</if>
+		<if test="support_team_nm != null and support_team_nm != ''">
+			, 외주지원팀명
+		</if>
+		<if test="belong_com_nm != null and belong_com_nm != ''">
+			, 외주소속회사명
+		</if>	
+		, 등록일시 
+	)
+	VALUES 
+	(
+		#{branch_nm}
+		, #{user_id}
+		, #{user_nm}
+		<if test="grade_div_nm != null and grade_div_nm != ''">
+		, #{grade_div_nm}
+		</if>
+		<if test="senior_user_id != null and senior_user_id != ''">
+			, #{senior_user_id}
+		</if>
+		<if test="senior_user_nm != null and senior_user_nm != ''">
+			, #{senior_user_nm}
+		</if>
+		<if test="in_ymd != null and in_ymd != ''">
+			, #{in_ymd}
+		</if>
+		<if test="out_ymd != null and out_ymd != ''">
+			, #{out_ymd}
+		</if>
+		<if test="support_team_nm != null and support_team_nm != ''">
+			, #{support_team_nm}
+		</if>
+		<if test="belong_com_nm != null and belong_com_nm != ''">
+			, #{belong_com_nm}
+		</if>
+		, SYSDATE
+	)
+</insert>
+
+<insert id="insertKbcdUserAtOnce" parameterType="list" useGeneratedKeys="false">
+	/* UserWorkSyncDao.insertKbcdUserAtOnce */
+	<foreach collection="list" item="item" index="index" separator=" " open="INSERT ALL" close="SELECT * FROM DUAL">
+		INTO ODS_KBCD_VWWDBIT01
+		(
+			직원번호
+			<if test="item.branch_nm != null and item.branch_nm != ''">
+				,한글부점명
+			</if>
+			<if test="item.user_nm != null and item.user_nm != ''">
+				, 한글직원명
+			</if>
+			<if test="item.grade_div_nm != null and item.grade_div_nm != ''">
+				, 한글인사직위구분명
+			</if>
+			<if test="item.senior_user_id != null and item.senior_user_id != ''">
+				, 팀장직원번호
+			</if>
+			<if test="item.senior_user_nm != null and item.senior_user_nm != ''">
+				, 한글팀장명
+			</if>
+			<if test="item.in_ymd != null and item.in_ymd != ''">
+				, IT부서전입년월일
+			</if>
+			<if test="item.out_ymd != null and item.out_ymd != ''">
+				, IT부서전출년월일
+			</if>
+			<if test="item.support_team_nm != null and item.support_team_nm != ''">
+				, 외주지원팀명
+			</if>
+			<if test="item.belong_com_nm != null and item.belong_com_nm != ''">
+				, 외주소속회사명
+			</if>	
+			, 등록일시 
+		)
+		VALUES 
+		(
+			 #{item.user_id}
+			<if test="item.branch_nm != null and item.branch_nm != ''">
+				,#{item.branch_nm}
+			</if>
+			<if test="item.user_nm != null and item.user_nm != ''">
+				, #{item.user_nm}
+			</if>
+			<if test="item.grade_div_nm != null and item.grade_div_nm != ''">
+				, #{item.grade_div_nm}
+			</if>
+			<if test="item.senior_user_id != null and item.senior_user_id != ''">
+				, #{item.senior_user_id}
+			</if>
+			<if test="item.senior_user_nm != null and item.senior_user_nm != ''">
+				, #{item.senior_user_nm}
+			</if>
+			<if test="item.in_ymd != null and item.in_ymd != ''">
+				, #{item.in_ymd}
+			</if>
+			<if test="item.out_ymd != null and item.out_ymd != ''">
+				, #{item.out_ymd}
+			</if>
+			<if test="item.support_team_nm != null and item.support_team_nm != ''">
+				, #{item.support_team_nm}
+			</if>
+			<if test="item.belong_com_nm != null and item.belong_com_nm != ''">
+				, #{item.belong_com_nm}
+			</if>
+			, SYSDATE
+		)
+	</foreach>
+</insert>
+
+<!--3. 직원(사용자)업무조회(INSTC.VWWDBIT02) 하여 ODS_KBCD_VWWDBIT02 테이블에 저장 -->
+
+<!-- EAM DB -->
+<select id="searchUserWrkjob" resultType="userWrkjob">
+	/* UserWorkSyncDao.searchUserWrkjob */
+	SELECT 직원번호 USER_ID, 담당어플리케이션코드 CHARGE_APP_CD, 단위업무구분코드 WRKJOB_CD, 적용시작년월일 WORKJOB_START_DAY, 적용종료년월일 WORKJOB_END_DAY 
+	FROM INSTC.VWWDBIT02
+</select>
+
+<!-- OPENPOP DB -->
+<delete id="deleteKbcdUserWrkjob">
+	/* UserWorkSyncDao.deleteKbcdUserWrkjob */
+	DELETE FROM ODS_KBCD_VWWDBIT02
+</delete>
+
+<insert id="insertKbcdUserWrkjob" parameterType="userWrkjob" useGeneratedKeys="false">
+	/* UserWorkSyncDao.insertKbcdUserWrkjob */
+	INSERT INTO ODS_KBCD_VWWDBIT02(직원번호, 담당어플리케이션코드, 단위업무구분코드, 적용시작년월일, 적용종료년월일, 등록일시 )
+	VALUES (#{user_id},#{charge_app_cd},#{wrkjob_cd},#{workjob_start_day},#{workjob_end_day}, SYSDATE)
+</insert>
+
+<insert id="insertKbcdUserWrkjobAtOnce" parameterType="list" useGeneratedKeys="false">
+	/* UserWorkSyncDao.insertKbcdUserWrkjob */
+	<foreach collection="list" item="item" index="index" separator=" " open="INSERT ALL" close="SELECT * FROM DUAL">
+		INTO ODS_KBCD_VWWDBIT02
+		(
+			직원번호
+			<if test="item.charge_app_cd != null and item.charge_app_cd != ''">
+				, 담당어플리케이션코드
+			</if>
+			<if test="item.wrkjob_cd != null and item.wrkjob_cd != ''">
+				, 단위업무구분코드
+			</if>
+			<if test="item.workjob_start_day != null and item.workjob_start_day != ''">
+				, 적용시작년월일
+			</if>
+			<if test="item.workjob_end_day != null and item.workjob_end_day != ''">
+				, 적용종료년월일
+			</if>
+			, 등록일시 
+		)
+		VALUES 
+		(
+			#{item.user_id}
+			<if test="item.charge_app_cd != null and item.charge_app_cd != ''">
+				,#{item.charge_app_cd}
+			</if>
+			<if test="item.wrkjob_cd != null and item.wrkjob_cd != ''">
+				,#{item.wrkjob_cd}
+			</if>
+			<if test="item.workjob_start_day != null and item.workjob_start_day != ''">
+				,#{item.workjob_start_day}
+			</if>
+			<if test="item.workjob_end_day != null and item.workjob_end_day != ''">
+				,#{item.workjob_end_day}
+			</if>
+			, SYSDATE
+		)
+	</foreach>
+</insert>
+
+<!--5. 신규 업무 등록 -->
+<insert id="insertWrkjobCd_20190909" parameterType="userWrkjob" useGeneratedKeys="false">
+	/* UserWorkSyncDao.insertWrkjobCd_20190909 */
+	INSERT INTO WRKJOB_CD(WRKJOB_CD, WRKJOB_CD_NM, UPPER_WRKJOB_CD, WRKJOB_DIV_CD, USE_YN, DEPLOY_CHECK_TARGET_YN )
+	SELECT (SELECT MAX(TO_NUMBER(WRKJOB_CD)) FROM WRKJOB_CD) + (ROWNUM*10) AS WRKJOB_CD
+		 , 단위업무명 AS WRKJOB_CD_NM
+		 , NULL UPPER_WRKJOB_CD
+		 , 단위업무코드
+		 , 'N' USE_YN
+		 , 'N' DEPLOY_CHECK_TARGET_YN
+	FROM ODS_KBCD_VWSKIHR57
+	WHERE 단위업무코드 NOT IN (
+		SELECT WRKJOB_DIV_CD
+		  FROM WRKJOB_CD)
+</insert>
+
+<insert id="insertWrkjobCd" parameterType="userWrkjob" useGeneratedKeys="false">
+   /* UserWorkSyncDao.insertWrkjobCd */
+   INSERT INTO WRKJOB_CD 
+		(
+		  WRKJOB_CD
+		, WRKJOB_CD_NM
+		, UPPER_WRKJOB_CD
+		, WRKJOB_DIV_CD
+		, USE_YN
+		, DEPLOY_CHECK_TARGET_YN
+		)
+   SELECT 
+		(
+			SELECT 
+				   MAX(TO_NUMBER(WRKJOB_CD))
+				  FROM WRKJOB_CD
+		) + ROWNUM AS WRKJOB_CD
+		, A.WRKJOB_CD_NM
+		, A.UPPER_WRKJOB_CD
+		, A.WRKJOB_DIV_CD
+		, A.USE_YN
+		, A.DEPLOY_CHECK_TARGET_YN
+	FROM (
+		   SELECT 단위업무명  AS WRKJOB_CD_NM
+				, NULL      AS UPPER_WRKJOB_CD
+				, 단위업무코드  AS WRKJOB_DIV_CD
+				, 'N'       AS USE_YN
+				, 'N'       AS DEPLOY_CHECK_TARGET_YN
+				, 시작년월일
+				, ROW_NUMBER() OVER (PARTITION BY 단위업무코드 ORDER BY 시작년월일) AS RNUM
+			 FROM ODS_KBCD_VWSKIHR57
+			WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN 시작년월일 AND 종료년월일
+			  AND 단위업무코드 NOT IN (SELECT WRKJOB_DIV_CD FROM WRKJOB_CD)
+		 ) A
+   WHERE RNUM = 1
+
+<!--    MERGE INTO WRKJOB_CD A -->
+<!--        USING ( -->
+<!--               SELECT * -->
+<!--                 FROM ( -->
+<!--                       SELECT (SELECT NVL(MAX(WRKJOB_CD) + 1 , 10000) FROM WRKJOB_CD) AS WRKJOB_CD -->
+<!--                            , 단위업무명     AS WRKJOB_CD_NM -->
+<!--                            , NULL      AS UPPER_WRKJOB_CD -->
+<!--                            , 단위업무코드  AS WRKJOB_DIV_CD -->
+<!--                            , 'N'       AS USE_YN -->
+<!--                            , 'N'       AS DEPLOY_CHECK_TARGET_YN -->
+<!--                            , 시작년월일 -->
+<!--                            , ROW_NUMBER() OVER (PARTITION BY 단위업무코드 ORDER BY 시작년월일) AS RNUM -->
+<!--                         FROM ODS_KBCD_VWSKIHR57 -->
+<!--                        WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN 시작년월일 AND 종료년월일 -->
+<!--                      ) A -->
+<!--                WHERE RNUM = 1 -->
+<!--              ) B -->
+<!--    ON (A.WRKJOB_DIV_CD = B.WRKJOB_DIV_CD) -->
+<!--    WHEN NOT MATCHED THEN -->
+<!--        INSERT (A.WRKJOB_CD, A.WRKJOB_CD_NM, A.UPPER_WRKJOB_CD, A.WRKJOB_DIV_CD, A.USE_YN, A.DEPLOY_CHECK_TARGET_YN) -->
+<!--        VALUES (B.WRKJOB_CD, B.WRKJOB_CD_NM, B.UPPER_WRKJOB_CD, B.WRKJOB_DIV_CD, B.USE_YN, B.DEPLOY_CHECK_TARGET_YN) -->
+</insert>
+
+<!--6. 신규 사용자 등록 -->
+<!-- 비밀번호 암호화 해서 저장 -->
+<insert id="mergeUsers" parameterType="users" useGeneratedKeys="false">
+	/* UserWorkSyncDao.mergeUsers */
+	MERGE INTO USERS A 
+	USING (
+		SELECT 직원번호, 한글직원명 
+		FROM ODS_KBCD_VWWDBIT01
+		WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN IT부서전입년월일 AND NVL(IT부서전출년월일,'99991231')
+		) B
+	ON (A.USER_ID = B.직원번호)
+	WHEN NOT MATCHED THEN
+		INSERT (A.USER_ID, A.USER_NM, A.PASSWORD, A.USE_YN, A.DEFAULT_PASSWORD_YN, A.PASSWORD_CHG_DT, A.REG_DT, A.APPROVE_YN, A.APPROVE_DT, A.APPROVE_ID)
+		VALUES (B.직원번호, B.한글직원명, 'SfGtcdbfOL5U9vLXkZ6cXA==', 'Y', 'N', SYSDATE, SYSDATE, 'Y', SYSDATE, 'dbmanager')
+</insert>
+
+<!-- USER_AUTH 를 개발자로 저장 -->
+<insert id="mergeUserAuth" parameterType="users" useGeneratedKeys="false">
+	MERGE INTO USER_AUTH A 
+	USING (
+	    SELECT 직원번호, 4 AUTH_GRP_ID, IT부서전입년월일, NVL(IT부서전출년월일, '99991231') IT부서전출년월일
+	    FROM ODS_KBCD_VWWDBIT01
+	    WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN IT부서전입년월일 AND NVL(IT부서전출년월일,'99991231')
+	    ) B
+	ON (A.USER_ID = B.직원번호)
+	WHEN NOT MATCHED THEN
+	    INSERT (A.USER_ID, A.AUTH_GRP_ID,  A.AUTH_START_DAY, A.AUTH_END_DAY)
+	    VALUES (B.직원번호, B.AUTH_GRP_ID, B.IT부서전입년월일, B.IT부서전출년월일)
+</insert>
+
+<!--7. 신규 사용자 업무 등록 -->
+<insert id="insertUserWrkjob_20190909" parameterType="users" useGeneratedKeys="false">
+	/* UserWorkSyncDao.insertUserWrkjob_20190909 */
+	INSERT INTO USER_WRKJOB(USER_ID, WRKJOB_CD, WORKJOB_START_DAY, WORKJOB_END_DAY, LEADER_YN )
+	SELECT 직원번호, B.WRKJOB_CD, 적용시작년월일, 적용종료년월일, 'N' AS LEADER_YN
+	  FROM ODS_KBCD_VWWDBIT02 A
+		 , WRKJOB_CD B
+	 WHERE A.담당어플리케이션코드 = B.WRKJOB_DIV_CD
+	   AND (A.직원번호, A.담당어플리케이션코드) NOT IN (
+			SELECT A.USER_ID, B.WRKJOB_DIV_CD
+			  FROM USER_WRKJOB A 
+				 , WRKJOB_CD B
+			 WHERE A.WRKJOB_CD = B.WRKJOB_CD)
+</insert>
+
+<insert id="insertUserWrkjob" parameterType="users" useGeneratedKeys="false">
+   /* UserWorkSyncDao.insertUserWrkjob */
+   MERGE INTO USER_WRKJOB A
+       USING (
+              SELECT A.*
+                FROM (
+                      SELECT S.직원번호, T.WRKJOB_CD, S.적용시작년월일, S.적용종료년월일, 'N' AS LEADER_YN
+                           , ROW_NUMBER() OVER (PARTITION BY S.직원번호, T.WRKJOB_CD ORDER BY S.적용시작년월일) AS RNUM
+                        FROM ODS_KBCD_VWWDBIT02 S
+                          , WRKJOB_CD T
+                       WHERE S.담당어플리케이션코드 = T.WRKJOB_DIV_CD
+                         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN S.적용시작년월일 AND S.적용종료년월일
+                     ) A
+               WHERE RNUM = 1
+             ) B
+   ON (    A.USER_ID = B.직원번호
+       AND A.WRKJOB_CD = B.WRKJOB_CD)
+   WHEN NOT MATCHED THEN
+       INSERT (A.USER_ID, A.WRKJOB_CD, A.WORKJOB_START_DAY, A.WORKJOB_END_DAY, A.LEADER_YN)
+       VALUES (B.직원번호, B.WRKJOB_CD, B.적용시작년월일, B.적용종료년월일, B.LEADER_YN)
+</insert>
+
+</mapper>

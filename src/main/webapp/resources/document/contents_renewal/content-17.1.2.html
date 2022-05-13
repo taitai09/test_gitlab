@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="UTF-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+	
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+	
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-mㄹigrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>17. Eclipse Plug-in</h1>
+		<h2>17.1. SQL 표준 점검</h2>
+		<h3>17.1.2 SQL 표준 점검</h3>
+		
+		<div>
+			<h4>[SQL Code Inspection Result] 탭 활성화</h4>
+			<p>
+				품질점검 결과를 보기 위해서는 [SQL Code Inspection Result] 탭이 활성화 되어야 한다. Window &#62; Show View &#62; Other…를 클릭한다.
+			</p>
+			<div class="imageBox" style="width: 560px;">
+				<img src="/resources/images/menual/bgimg_renewal/17-1-1-4.png">
+			</div>
+			
+			<p>
+				Show View 팝업창에서 “SQL Code Inspection Result”를 선택하고 [Open] 버튼을 클릭한다.
+			</p>
+			<div class="imageBox" style="width: 350px;">
+				<img src="/resources/images/menual/bgimg_renewal/17-1-1-5.png">
+			</div>
+			
+			<p>
+				하단View에 [SQL Code Inspection Result] 탭이 활성화된다.
+			</p>
+			<div class="imageBox" style="width: 727px;">
+				<img src="/resources/images/menual/bgimg_renewal/17-1-1-6.png">
+			</div>
+			
+			<h4>SQL 표준 점검 실행</h4>
+			<p>SQL 표준 점검은 2가지 방법으로 가능하다.</p>
+			
+			<p>[Package Explorer] 탭에서 파일명을 클릭 > 우측 마우스 클릭 > Inspect SQL Code를 클릭하거나, /p>
+			<div class="imageBox" style="width: 600px;">
+				<img src="/resources/images/menual/bgimg_renewal/17-1-1-7.png">
+			</div>
+			
+			<p>코드 에디터 창의 소스를 클릭하고 우측 마우스 클릭 > Inspect SQL Code를 클릭한다.</p>
+			<div class="imageBox" style="width: 727px;">
+				<img src="/resources/images/menual/bgimg_renewal/17-1-1-8.png">
+			</div>
+			
+			<p>
+				Inspect SQL Code를 클릭하면 해당 파일 내의 전체 SQL에 대한 SQL 표준 점검을 수행한다.
+				작업이 완료되면 “SQL code inspection completed”라는 메시지 창과 [SQL Code Inspection Result] 탭에 점검 결과가 조회된다.
+			</p>
+			
+			<p>결과 탭에서 행을 더블클릭하면 해당 소스의 위치로 이동한다.</p>
+			<div class="imageBox" style="width: 727px;">
+				<img src="/resources/images/menual/bgimg_renewal/17-1-1-9.png">
+			</div>
+			
+			<ul class="listStyle-dash">
+				<li>Resource: 표준점검 대상 xml 파일명</li>
+				<li>ID: xml 파일 내의 SQL에 부여된 고유ID</li>
+				<li>Quality Inspection Index: 품질점검 결과 표준을 위배한 점검지표명</li>
+				<li>Description: 품질점검 결과에 대한 상세 설명</li>
+				<li>Path: xml 파일의 경로</li>
+			</ul>
+			
+			<table class="table-black">
+				<colgroup>
+					<col style="width: 33%;">
+					<col style="width: 33%;">
+					<col style="width: 33%;">
+				</colgroup>
+				<tbody>
+					<tr>
+						<td>품질 점검 지표</td>
+						<td>결과 예시</td>
+						<td>설명</td>
+					</tr>
+					<tr>
+						<td>테이블 ALIAS 미사용</td>
+						<td>EMP …</td>
+						<td>ALIAS 미사용 테이블명</td>
+					</tr>
+					<tr>
+						<td>컬럼 ALIAS 미사용</td>
+						<td>DBID: (25,20)</td>
+						<td>
+							ALIAS 미사용 컬럼명 및 컬럼이 위치한 (행, 열)<br>
+							※ 해당 SQL ID 부터 위치 계산
+						</td>
+					</tr>
+					<tr>
+						<td>SQL 실행 오류</td>
+						<td>ORA-00600: 테이블 또는 뷰가 존재하지 않습니다.</td>
+						<td>Oracle 오류 코드</td>
+					</tr>
+					<tr>
+						<td>비인가된 타 어플리케이션 테이블 CRUD금지</td>
+						<td>MIGPOST.MIG_EMP</td>
+						<td>미준수한 오너명.테이블명</td>
+					</tr>
+					<tr>
+						<td>물리 삭제 금지 테이블에 DELETE문 사용</td>
+						<td>MIGPOST.CUST</td>
+						<td>삭제 금지 대상의 오너명.테이블명</td>
+					</tr>
+				</tbody>
+			</table>
+			
+			<p>SQL 표준 점검 결과 정상일 경우 아래와 같은 메시지 박스가 뜬다.</p>
+			<div class="imageBox" style="width: 560px;">
+				<img src="/resources/images/menual/bgimg_renewal/17-1-1-10.png">
+			</div>
+		</div>
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

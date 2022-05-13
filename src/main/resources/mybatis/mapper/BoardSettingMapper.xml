@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.08	이원식	OPENPOP V2 최초작업(오픈메이드 관리자용)
+-->
+<mapper namespace="omc.spop.dao.BoardSettingDao">	
+	<select id="boardSettingList" parameterType="boardManagement" resultType="boardManagement">
+	/* BoardSettingDao.boardSettingList */
+		SELECT BOARD_MGMT_NO, BOARD_TYPE_CD, CD1.CD_NM AS BOARD_TYPE_NM, BOARD_NM, FILE_ADD_YN, COMMENT_USE_YN, BOARD_USE_YN, 
+			TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI') AS REG_DT, REG_ID, B.USER_NM AS REG_NM, UPD_DT, UPD_ID
+		FROM BOARD_MANAGEMENT A, USERS B, CD CD1
+		WHERE A.REG_ID = B.USER_ID
+		AND CD1.GRP_CD_ID = '1016'
+		AND BOARD_TYPE_CD = CD1.CD	
+		<if test="searchKey != null and searchKey != '' and (searchKey eq '01'.toString)">
+			AND A.REG_ID LIKE '%' || #{searchValue} || '%'
+		</if>
+		<if test="board_use_yn != null and board_use_yn != ''">
+			AND A.BOARD_USE_YN = #{board_use_yn}
+		</if>
+		ORDER BY BOARD_MGMT_NO
+	</select>
+
+	<select id="getMaxBoardMgmtNo" parameterType="boardManagement" resultType="string">
+	/* BoardSettingDao.getMaxBoardMgmtNo */
+		SELECT NVL(MAX(BOARD_MGMT_NO) + 1, 1) AS BOARD_MGMT_NO
+		FROM BOARD_MANAGEMENT
+	</select>
+	
+	<insert id="insertBoardSetting" parameterType="boardManagement">
+	/* BoardSettingDao.insertBoardSetting */
+		INSERT INTO BOARD_MANAGEMENT(BOARD_MGMT_NO, BOARD_TYPE_CD, BOARD_NM, FILE_ADD_YN, COMMENT_USE_YN, BOARD_USE_YN, REG_DT, REG_ID)
+		VALUES((SELECT NVL(MAX(BOARD_MGMT_NO) + 1, 1) AS BOARD_MGMT_NO
+		FROM BOARD_MANAGEMENT), #{board_type_cd}, #{board_nm}, #{file_add_yn}, #{comment_use_yn}, #{board_use_yn}, SYSDATE, #{reg_id})	
+	</insert>
+	
+	<update id="updateBoardSetting" parameterType="boardManagement">
+	/* BoardSettingDao.updateBoardSetting */
+		UPDATE BOARD_MANAGEMENT SET
+			BOARD_TYPE_CD = #{board_type_cd},
+			BOARD_NM = #{board_nm},
+			FILE_ADD_YN = #{file_add_yn},
+			COMMENT_USE_YN = #{comment_use_yn},
+			BOARD_USE_YN = #{board_use_yn},
+			UPD_DT = SYSDATE,
+			UPD_ID = #{upd_id}
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no}
+	</update>
+	
+	<update id="deleteBoardSetting" parameterType="boardManagement">
+	/* BoardSettingDao.deleteBoardSetting */
+		DELETE BOARD_MANAGEMENT WHERE BOARD_MGMT_NO = #{board_mgmt_no}
+	</update>
+	
+	<select id="getBoardTypeCd" resultType="boardManagement" parameterType="boardManagement">
+		SELECT CD AS BOARD_TYPE_CD, CD_NM AS BOARD_NM FROM CD WHERE GRP_CD_ID = '1016'
+	</select>
+	
+	
+</mapper>

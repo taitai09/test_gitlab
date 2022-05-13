@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.14	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.PreDeploymentCheckDao">
+	<select id="sourceCheckList" parameterType="beforeAccidentCheck" resultType="beforeAccidentCheck">
+		/* PreDeploymentCheckDao.sourceCheckList */
+		SELECT A.BFAC_CHK_NO, DB.DB_NAME, TO_CHAR(A.BFAC_CHK_REQUEST_DT, 'YYYY-MM-DD HH24:MI:SS') AS BFAC_CHK_REQUEST_DT, 
+			U1.USER_NM AS WRKJOB_MGR_NM, W1.WRKJOB_CD_NM AS WRKJOB_MGR_WRKJOB_NM, 
+			B.TUNING_NO,
+			C.TUNING_COMPLETE_DT, 
+			B.PERFR_ID, 
+			A.BFAC_CHKR_ID, 
+			TO_CHAR(A.BFAC_CHK_DT, 'YYYY-MM-DD HH24:MI:SS') AS BFAC_CHK_DT
+		FROM BEFORE_ACCIDENT_CHECK A, TUNING_TARGET_SQL B, SQL_TUNING C, DATABASE DB, USERS U1, WRKJOB_CD W1
+		WHERE A.TUNING_NO = B.TUNING_NO
+		AND B.TUNING_NO = C.TUNING_NO(+)
+		AND B.DBID = DB.DBID(+)
+		AND B.WRKJOB_MGR_ID = U1.USER_ID(+)
+		AND B.WRKJOB_MGR_WRKJOB_CD = W1.WRKJOB_CD(+)
+		AND B.DBID = #{dbid}
+		AND A.BFAC_CHK_REQUEST_DT BETWEEN TO_DATE(#{strStartDt}, 'YYYY-MM-DD') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		ORDER BY A.BFAC_CHK_NO DESC
+	</select>
+	
+	<select id="sourceCheckView" parameterType="beforeAccidentCheck" resultType="beforeAccidentCheck">
+		/* PreDeploymentCheckDao.sourceCheckView */
+		SELECT BFAC_CHK_NO, TUNING_NO, BFAC_CHK_SOURCE, BFAC_CHK_RESULT_SBST
+		FROM BEFORE_ACCIDENT_CHECK
+		WHERE BFAC_CHK_NO = #{bfac_chk_no}
+	</select>
+	
+	<update id="updateSourceCheck" parameterType="beforeAccidentCheck">
+		/* PreDeploymentCheckDao.updateSourceCheck */
+		UPDATE BEFORE_ACCIDENT_CHECK SET
+			BFAC_CHKR_ID = #{bfac_chkr_id}
+			,BFAC_CHK_DT = SYSDATE
+			,BFAC_CHK_RESULT_SBST = #{bfac_chk_result_sbst}
+		WHERE BFAC_CHK_NO = #{bfac_chk_no}	
+	</update>
+	
+	<select id="applicationCheckList" parameterType="deployPerfCheck" resultType="deployPerfCheck">
+		/* PreDeploymentCheckDao.applicationCheckList */
+		SELECT A.DEPLOY_PERF_CHECK_NO,
+			A.WRKJOB_CD, 
+			D.WRKJOB_CD_NM,
+			A.DEPLOY_DAY,
+			TO_CHAR(A.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT,
+			TO_CHAR(A.PERF_CHECK_DT,'YYYY-MM-DD HH24:MI:SS') AS PERF_CHECK_DT, 
+			B.APP_CNT,
+			DECODE(A.PERF_CHECK_DT, NULL, NULL, B.PERF_FITNESS_CNT)      PERF_FITNESS_CNT,
+			DECODE(A.PERF_CHECK_DT, NULL, NULL, B.PERF_NOT_FITNESS_CNT)  PERF_NOT_FITNESS_CNT,
+			DECODE(A.PERF_CHECK_DT, NULL, NULL, B.PERF_NOT_CHECK_CNT)    PERF_NOT_CHECK_CNT,
+			DECODE(A.PERF_CHECK_DT, NULL, NULL, C.PROHIBIT_HINT_USE_CNT) PROHIBIT_HINT_USE_CNT,
+			E.USER_NM REG_NM
+		FROM DEPLOY_PERF_CHECK A,
+			(SELECT DEPLOY_PERF_CHECK_NO, 
+				COUNT(*) APP_CNT,
+				SUM(CASE WHEN PERF_FITNESS_YN = 'Y' THEN 1 ELSE 0 END) PERF_FITNESS_CNT,
+				SUM(CASE WHEN PERF_FITNESS_YN = 'N' THEN 1 ELSE 0 END) PERF_NOT_FITNESS_CNT,
+				SUM(CASE WHEN PERF_FITNESS_YN IS NULL THEN 1 ELSE 0 END) PERF_NOT_CHECK_CNT
+			FROM DEPLOY_APP_PERF_STAT
+			GROUP BY DEPLOY_PERF_CHECK_NO) B,
+			(SELECT DEPLOY_PERF_CHECK_NO, 
+		    	SUM(CASE WHEN PROHIBIT_HINT_USE_YN = 'Y' THEN 1 ELSE 0 END) PROHIBIT_HINT_USE_CNT
+			FROM DEPLOY_APP_DBIO_PERF_STAT
+		    GROUP BY DEPLOY_PERF_CHECK_NO) C,  
+			WRKJOB_CD D,
+			USERS E
+		WHERE A.DEPLOY_PERF_CHECK_NO = B.DEPLOY_PERF_CHECK_NO(+)
+		AND A.DEPLOY_PERF_CHECK_NO = C.DEPLOY_PERF_CHECK_NO(+)
+		AND A.WRKJOB_CD = D.WRKJOB_CD
+		AND A.REG_ID = E.USER_ID
+		AND A.DEPLOY_PERF_CHECK_TYPE_CD = '1'
+		AND A.REG_DT <![CDATA[ > ]]> TO_DATE(REPLACE(#{strStartDt},'-',''), 'YYYYMMDD') AND A.REG_DT <![CDATA[ < ]]> TO_DATE(REPLACE(#{strEndDt},'-',''), 'YYYYMMDD')+1
+		<if test="wrkjob_cd != null and wrkjob_cd != ''">
+			AND A.WRKJOB_CD = #{wrkjob_cd}		
+		</if>
+		<if test="perf_check_yn != null and (perf_check_yn eq 'Y'.toString())">
+			AND PERF_CHECK_DT IS NOT NULL		
+		</if>
+		ORDER BY A.REG_DT DESC
+	</select>
+	
+	<select id="applicationDetailCheckList" parameterType="deployPerfCheck" resultType="deployPerfCheck">
+		/* PreDeploymentCheckDao.applicationDetailCheckList */
+		SELECT A.DEPLOY_PERF_CHECK_NO,
+			A.WRKJOB_CD,
+			C.WRKJOB_CD_NM,
+			A.TR_CD,
+			B.DBIO_CNT,
+			TO_CHAR(A.LAST_EXEC_DT,'YYYY-MM-DD HH24:MI:SS') AS LAST_EXEC_DT,
+			A.ELAPSED_TIME, 
+			(CASE A.PERF_FITNESS_YN
+				WHEN 'Y' THEN '적합'
+				WHEN 'N' THEN '부적합'
+				ELSE '미점검'
+			END) AS PERF_FITNESS_YN, 
+			(CASE WHEN B.PROHIBIT_HINT_USE_CNT > 0 THEN '사용' ELSE '미사용' END) AS PROHIBIT_HINT_USE_YN
+		FROM DEPLOY_APP_PERF_STAT A,
+			(SELECT DEPLOY_PERF_CHECK_NO, WRKJOB_CD, TR_CD, COUNT(*) DBIO_CNT,
+				SUM(CASE WHEN PROHIBIT_HINT_USE_YN = 'Y' THEN 1 ELSE 0 END) PROHIBIT_HINT_USE_CNT
+			FROM DEPLOY_APP_DBIO_PERF_STAT
+			GROUP BY DEPLOY_PERF_CHECK_NO, WRKJOB_CD, TR_CD) B, WRKJOB_CD C
+		WHERE A.DEPLOY_PERF_CHECK_NO = B.DEPLOY_PERF_CHECK_NO(+)
+		AND A.WRKJOB_CD = B.WRKJOB_CD(+)
+		AND A.TR_CD = B.TR_CD(+)
+		AND A.WRKJOB_CD = C.WRKJOB_CD
+		AND A.DEPLOY_PERF_CHECK_NO = #{deploy_perf_check_no}
+		<if test="lst_tr_cd != null and lst_tr_cd != ''">
+			AND UPPER(A.TR_CD) LIKE '%' || UPPER(#{lst_tr_cd}) || '%'
+		</if>
+		<choose>
+			<when test="perf_fitness_yn != null and (perf_fitness_yn eq 'N'.toString() or perf_fitness_yn eq 'Y'.toString())">
+				AND A.PERF_FITNESS_YN = #{perf_fitness_yn}
+			</when>
+			<when test="perf_fitness_yn == null or perf_fitness_yn == ''">
+				AND A.PERF_FITNESS_YN IS NULL
+			</when>
+		</choose>
+		<if test="prohibit_hint_use_yn != null and (prohibit_hint_use_yn eq 'Y'.toString())">
+			AND B.PROHIBIT_HINT_USE_CNT > 0
+		</if>
+	</select>
+	
+	<select id="applicationDBIOCheckList" parameterType="deployPerfCheck" resultType="deployPerfCheck">
+		/* PreDeploymentCheckDao.applicationDBIOCheckList */
+		SELECT A.DEPLOY_PERF_CHECK_NO, 
+			A.WRKJOB_CD,
+			C.WRKJOB_CD_NM,
+			B.TR_CD,
+			B.DBIO,
+			B.ELAPSED_TIME, 
+			(CASE WHEN B.PROHIBIT_HINT_USE_YN = 'Y' THEN '사용' ELSE '미사용' END) AS PROHIBIT_HINT_USE_YN,
+			DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) AS SQL_TEXT
+		FROM DEPLOY_APP_PERF_STAT A, DEPLOY_APP_DBIO_PERF_STAT B, WRKJOB_CD C
+		WHERE A.DEPLOY_PERF_CHECK_NO = B.DEPLOY_PERF_CHECK_NO(+)
+		AND A.WRKJOB_CD = B.WRKJOB_CD
+		AND A.TR_CD = B.TR_CD
+		AND A.WRKJOB_CD = C.WRKJOB_CD
+		AND A.DEPLOY_PERF_CHECK_NO = #{deploy_perf_check_no}
+		AND A.WRKJOB_CD  = #{wrkjob_cd}
+		AND A.TR_CD = #{tr_cd}
+		<if test="dbio != null and dbio != ''">
+			AND UPPER(B.DBIO) LIKE '%' || UPPER(#{dbio}) || '%'
+		</if>
+		<if test="prohibit_hint_use_yn != null and (prohibit_hint_use_yn eq 'Y'.toString())">
+			AND B.PROHIBIT_HINT_USE_YN = 'Y'
+		</if>		
+	</select>
+	
+	<select id="dbioCheckList" parameterType="deployPerfCheck" resultType="deployPerfCheck">
+		/* PreDeploymentCheckDao.dbioCheckList */
+		SELECT A.DEPLOY_PERF_CHECK_NO, 
+			A.WRKJOB_CD,
+			C.WRKJOB_CD_NM,
+			A.DEPLOY_DAY, 
+			B.DBIO_CNT,
+			TO_CHAR(A.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT,
+			TO_CHAR(A.PERF_CHECK_DT,'YYYY-MM-DD HH24:MI:SS') AS PERF_CHECK_DT,
+			DECODE(A.PERF_CHECK_DT, NULL, NULL, B.PERF_FITNESS_CNT)      PERF_FITNESS_CNT,
+			DECODE(A.PERF_CHECK_DT, NULL, NULL, B.PERF_NOT_FITNESS_CNT)  PERF_NOT_FITNESS_CNT,
+			DECODE(A.PERF_CHECK_DT, NULL, NULL, B.PERF_NOT_CHECK_CNT)    PERF_NOT_CHECK_CNT,
+			DECODE(A.PERF_CHECK_DT, NULL, NULL, B.PROHIBIT_HINT_USE_CNT) PROHIBIT_HINT_USE_CNT,
+			D.USER_NM REG_NM
+		FROM DEPLOY_PERF_CHECK A,
+			(SELECT DEPLOY_PERF_CHECK_NO, 
+				COUNT(*) DBIO_CNT,
+				SUM(CASE WHEN PERF_FITNESS_YN = 'Y' THEN 1 ELSE 0 END) PERF_FITNESS_CNT,
+				SUM(CASE WHEN PERF_FITNESS_YN = 'N' THEN 1 ELSE 0 END) PERF_NOT_FITNESS_CNT,
+				SUM(CASE WHEN PERF_FITNESS_YN IS NULL THEN 1 ELSE 0 END) PERF_NOT_CHECK_CNT,
+				SUM(CASE WHEN PROHIBIT_HINT_USE_YN = 'Y' THEN 1 ELSE 0 END) PROHIBIT_HINT_USE_CNT
+			FROM DEPLOY_DBIO_PERF_STAT
+			GROUP BY DEPLOY_PERF_CHECK_NO) B,
+			WRKJOB_CD C,
+			USERS D
+		WHERE A.DEPLOY_PERF_CHECK_NO = B.DEPLOY_PERF_CHECK_NO(+)
+		AND A.WRKJOB_CD = C.WRKJOB_CD
+		AND A.REG_ID = D.USER_ID
+		AND DEPLOY_PERF_CHECK_TYPE_CD = '2'
+		AND A.REG_DT <![CDATA[ > ]]> TO_DATE(REPLACE(#{strStartDt},'-',''), 'YYYYMMDD') AND A.REG_DT <![CDATA[ < ]]> TO_DATE(REPLACE(#{strEndDt},'-',''), 'YYYYMMDD')+1
+		<if test="wrkjob_cd != null and wrkjob_cd != ''">
+			AND A.WRKJOB_CD = #{wrkjob_cd}		
+		</if>
+		<if test="perf_check_yn != null and (perf_check_yn eq 'Y'.toString())">
+			AND PERF_CHECK_DT IS NOT NULL		
+		</if>
+		ORDER BY A.REG_DT DESC
+	</select>
+	
+	<select id="dbioDetailCheckList" parameterType="deployPerfCheck" resultType="deployPerfCheck">
+		/* PreDeploymentCheckDao.dbioDetailCheckList */
+		SELECT A.DEPLOY_PERF_CHECK_NO,
+			A.WRKJOB_CD,
+			C.WRKJOB_CD_NM,
+			B.DBIO,
+			B.SQL_ID,
+			B.ELAPSED_TIME, 
+			B.BUFFER_GETS, 
+			(CASE B.PERF_FITNESS_YN
+				WHEN 'Y' THEN '적합' 
+				WHEN 'N' THEN '부적합'
+				ELSE '미점검'
+			END) AS PERF_FITNESS_YN,
+			(CASE WHEN B.PROHIBIT_HINT_USE_YN = 'Y' THEN '사용' ELSE '미사용' END) AS PROHIBIT_HINT_USE_YN, 
+			DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) SQL_TEXT,
+			C.DBID
+		FROM DEPLOY_PERF_CHECK A, DEPLOY_DBIO_PERF_STAT B, WRKJOB_CD C
+		WHERE A.DEPLOY_PERF_CHECK_NO = B.DEPLOY_PERF_CHECK_NO
+		AND A.WRKJOB_CD = C.WRKJOB_CD
+		AND A.DEPLOY_PERF_CHECK_NO = #{deploy_perf_check_no}
+		<if test="dbio != null and dbio != ''">
+			AND UPPER(B.DBIO) LIKE '%' || UPPER(#{dbio}) || '%'
+		</if>
+		<choose>
+			<when test="perf_fitness_yn != null and (perf_fitness_yn eq 'N'.toString() or perf_fitness_yn eq 'Y'.toString())">
+				AND A.PERF_FITNESS_YN = #{perf_fitness_yn}
+			</when>
+			<when test="perf_fitness_yn == null or perf_fitness_yn == ''">
+				AND A.PERF_FITNESS_YN IS NULL
+			</when>
+		</choose>		
+		<if test="prohibit_hint_use_yn != null and (prohibit_hint_use_yn eq 'Y'.toString())">
+			AND B.PROHIBIT_HINT_USE_YN = 'Y'
+		</if>
+	</select>
+	
+	<insert id="insertDeployPerfCheck" parameterType="deployPerfCheck">
+		/* PreDeploymentCheckDao.insertDeployPerfCheck */
+		INSERT INTO DEPLOY_PERF_CHECK(DEPLOY_PERF_CHECK_NO, WRKJOB_CD, DEPLOY_DAY, DEPLOY_PERF_CHECK_TYPE_CD, PERF_CHECK_DT, REG_DT, REG_ID )
+		VALUES (SQ_SPOP_DEPLOY_PERF_CHECK_NO.NEXTVAL, #{wrkjob_cd}, REPLACE(#{deploy_day},'-',''), #{deploy_perf_check_type_cd}, NULL, SYSDATE, #{reg_id})
+	</insert>
+	
+	<insert id="insertDeployAppPerfStat" parameterType="deployPerfCheck">
+		/* PreDeploymentCheckDao.insertDeployAppPerfStat */
+		INSERT INTO DEPLOY_APP_PERF_STAT(DEPLOY_PERF_CHECK_NO, WRKJOB_CD, TR_CD)
+		VALUES(SQ_SPOP_DEPLOY_PERF_CHECK_NO.CURRVAL, #{wrkjob_cd}, #{tr_cd})
+	</insert>	
+	
+	<insert id="insertDeployDBIOPerfStat" parameterType="deployPerfCheck">
+		/* PreDeploymentCheckDao.insertDeployDBIOPerfStat */
+		INSERT INTO DEPLOY_DBIO_PERF_STAT(DEPLOY_PERF_CHECK_NO, DBIO)
+		VALUES(SQ_SPOP_DEPLOY_PERF_CHECK_NO.CURRVAL, #{tr_cd})
+	</insert>
+
+	<select id="applicationRequestCheck" parameterType="deployPerfCheck" statementType="CALLABLE">
+		{ CALL SP_SPOP_DEPLOY_CHECK_APP (${deploy_perf_check_no},${wrkjob_cd},${deploy_perf_check_type_cd}) }
+	</select>
+	
+	<select id="dbioRequestCheck" parameterType="deployPerfCheck" statementType="CALLABLE">
+		{ CALL SP_SPOP_DEPLOY_CHECK_DBIO (${deploy_perf_check_no},${wrkjob_cd},${deploy_perf_check_type_cd}) }
+	</select>
+	
+</mapper>

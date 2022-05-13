@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+    2021.09.16    이재우    최초작성
+-->
+<mapper namespace="omc.spop.dao.MainDao">
+    <select id="licenseInquiry" parameterType="licence" resultType="licence" >
+        /* LicenseCheckDao.licenseInquiry */
+        /* 라이선스 조회 */
+        SELECT A.REG_LICENCE_CPU_CNT
+             , B.UNREG_LICENCE_CPU_CNT
+             , C.OVER_LICENCE_SET_CNT
+             , D.POPUP_LICENCE_CPU_CNT
+             , E.RCOUNT
+             , F.RNUM
+          FROM ( 
+                SELECT /* 라이선스 미등록 */
+                       COUNT(*) AS REG_LICENCE_CPU_CNT
+                  FROM LICENCE
+                 WHERE LICENCE_DIV_CD = '01'
+               ) A  
+             , (
+                SELECT /* 계약 CPU 미셋팅 */
+                       COUNT(*) AS UNREG_LICENCE_CPU_CNT
+                  FROM LICENCE
+                 WHERE NVL(LICENCE_CPU_CNT, 0) = 0
+                   AND LICENCE_DIV_CD = '01'
+               ) B
+             , ( 
+                 SELECT /* 계약 라이선스 초과 */
+                       COUNT(*) AS OVER_LICENCE_SET_CNT
+                  FROM LICENCE A
+                     , DATABASE B 
+                 WHERE A.DBID = B.DBID 
+                   AND A.LICENCE_DIV_CD = '01'
+                   AND B.LICENCE_CHK_ACTION_DB_YN = 'Y'
+                   AND A.REAL_CPU_CNT > A.LICENCE_CPU_CNT 
+               ) C
+             , (
+                SELECT /* 라이선스 초과 팝업 확인 */
+                       COUNT(*) AS POPUP_LICENCE_CPU_CNT
+                  FROM LICENCE A
+                     , DATABASE B
+                     , LICENCE_OVER_USER_CHECK C
+                 WHERE A.DBID = B.DBID
+                   AND A.LICENCE_DIV_CD = '01'
+                   AND B.LICENCE_CHK_ACTION_DB_YN = 'Y'
+                   AND A.LICENCE_ID = C.LICENCE_ID
+                   AND A.REAL_CPU_CNT > A.LICENCE_CPU_CNT
+                   AND USER_ID = #{user_id}
+                   AND TRUNC(SYSDATE) > TRUNC(TO_DATE(LICENCE_CHECK_DAY, 'YYYYMMDD') + 7)
+               ) D
+             , (
+                SELECT /* LICENCE_OVER_USER_CHECK 등록된 값이 없는지 확인 */
+                        COUNT(*) RCOUNT
+                  FROM LICENCE_OVER_USER_CHECK
+                 WHERE USER_ID = #{user_id}
+               ) E
+             , (
+                SELECT /* LICENCE 새로 추가시 비교 CHECK */
+                       COUNT(*) RNUM
+                  FROM LICENCE A
+                     , DATABASE B
+                 WHERE LICENCE_ID NOT IN ( SELECT LICENCE_ID
+                                             FROM LICENCE_OVER_USER_CHECK
+                                            WHERE USER_ID = #{user_id})
+                   AND A.DBID = B.DBID
+                   AND A.LICENCE_DIV_CD = '01'
+                   AND B.LICENCE_CHK_ACTION_DB_YN = 'Y'
+                   AND A.REAL_CPU_CNT > A.LICENCE_CPU_CNT
+               ) F
+            
+    </select>
+    
+    <update id="updateCloseLicensePopupForWeek" parameterType="licence">
+        /* LicenseCheckDao.updateCloseLicensePopupForWeek */
+        MERGE INTO LICENCE_OVER_USER_CHECK A
+             USING DUAL  
+                   ON ( 
+                        LICENCE_ID = #{licence_id}
+                        AND USER_ID = #{user_id}
+                      )
+              WHEN MATCHED THEN
+                   UPDATE 
+                          SET LICENCE_CHECK_DAY = TO_CHAR(SYSDATE, 'YYYYMMDD')
+              WHEN NOT MATCHED THEN
+                   INSERT ( LICENCE_ID
+                          , USER_ID
+                          , LICENCE_CHECK_DAY
+                          )
+                           VALUES 
+                          ( #{licence_id}
+                          , #{user_id}
+                          , TO_CHAR(SYSDATE, 'YYYYMMDD')
+                          )
+    </update>
+    
+    <select id="getLicenseExceeded" parameterType="licence" resultType="licence">
+        /* LicenseCheckDao.getLicenseExceeded */
+            SELECT /* 계약 CPU 개수 초과 */
+                   A.DBID                                             /* DBID        */
+                 , B.DB_NAME                                          /* DB명               */
+                 , A.INST_ID                                          /* INSTANCE ID */
+                 , A.LICENCE_CPU_CNT                                  /* 계약 CPU 수     */
+                 , A.REAL_CPU_CNT                                     /* 실체 CPU 수     */
+                 , A.REAL_CPU_CNT - A.LICENCE_CPU_CNT AS OVER_CPU_CNT /* 초과 CPU 수     */
+                 /* hidden */
+                 , A.LICENCE_ID
+              FROM LICENCE A
+                 , DATABASE B
+             WHERE A.LICENCE_ID NOT IN ( SELECT LICENCE_ID
+                                           FROM LICENCE_OVER_USER_CHECK
+                                          WHERE USER_ID = #{user_id}
+                                           AND TRUNC(SYSDATE) <![CDATA[<=]]> TRUNC(TO_DATE(LICENCE_CHECK_DAY, 'YYYYMMDD') + 7)
+                                       )
+               AND A.DBID = B.DBID 
+               AND A.LICENCE_DIV_CD = '01'
+               AND B.LICENCE_CHK_ACTION_DB_YN = 'Y'
+               AND A.REAL_CPU_CNT > A.LICENCE_CPU_CNT
+             ORDER BY A.DBID
+    </select>
+    
+    <select id="getNoLicense" resultType="licence">
+        /* LicenseCheckDao.getNoLicense */
+        SELECT /* 계약 CPU 미셋팅 */
+               A.DBID                                             /* DBID        */
+             , B.DB_NAME                                          /* DB명               */
+             , A.INST_ID                                          /* INSTANCE ID */
+             , A.LICENCE_CPU_CNT                                  /* 계약 CPU 수     */
+             , A.REAL_CPU_CNT                                     /* 실체 CPU 수     */
+          FROM LICENCE A
+             , DATABASE B
+         WHERE A.DBID = B.DBID 
+           AND A.LICENCE_DIV_CD = '01'
+           AND NVL(A.LICENCE_CPU_CNT, 0) = 0
+         ORDER BY A.DBID
+    </select>
+</mapper>

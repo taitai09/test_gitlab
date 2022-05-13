@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.mqm.dao.ProjectModelMngDao">
+	
+	<sql id="getProjectModelListRefId">
+		/* ProjectModelMngDao.getProjectModelListRefId */
+		SELECT B.PROJECT_NM AS PROJECT_NM                                    -- 프로젝트
+		     , A.LIB_NM AS LIB_NM                                            -- 라이브러리명
+		     , A.MODEL_NM AS MODEL_NM                                        -- 모델명
+		     , A.SUB_NM AS SUB_NM                                            -- 주제영역명
+		     -- HIDDEN
+		     , A.PROJECT_ID AS PROJECT_ID                                    -- 프로젝트ID
+		     , A.CHECK_TARGET_SEQ AS CHECK_TARGET_SEQ                        -- 점검대상일련번호
+		     , A.PROJECT_CHECK_TARGET_TYPE_CD AS PROJECT_CHECK_TARGET_TYPE_CD-- 프로젝트점검대상유형코드
+		  FROM PROJECT_CHK_TARGET A
+		     , PROJECT B
+		 WHERE A.PROJECT_ID = #{project_id}
+		   AND A.PROJECT_CHECK_TARGET_TYPE_CD = '1'
+		   AND A.PROJECT_ID = B.PROJECT_ID
+		ORDER BY A.LIB_NM, A.MODEL_NM, A.SUB_NM     
+	</sql>
+
+<!-- 	<select id="getProjectModelList" parameterType="projectModel" resultType="projectModel"> -->
+<!-- 		/* ProjectModelMngDao.getProjectModelList */ -->
+<!-- 		SELECT * -->
+<!-- 		FROM ( -->
+<!-- 		    SELECT ROWNUM RNUM, A.* -->
+<!-- 		    FROM ( -->
+<!-- 				<include refid="getProjectModelListRefId"/> -->
+<!-- 		    ) A -->
+<!-- 		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1) -->
+<!-- 		) A -->
+<!-- 		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1) -->
+<!-- 	</select>   	 -->
+	<select id="getProjectModelList" parameterType="projectModel" resultType="projectModel">
+		/* ProjectModelMngDao.getProjectModelList */
+		<include refid="getProjectModelListRefId"/>
+	</select>   	
+
+	<select id="excelDownload" parameterType="projectModel" resultType="java.util.LinkedHashMap">
+		/* ProjectModelMngDao.excelDownload */
+		<include refid="getProjectModelListRefId"/>
+	</select>   	
+   	 
+	<select id="getDupCnt" parameterType="projectModel" resultType="int">
+		/* ProjectModelMngDao.getDupCnt */
+		SELECT COUNT(*) AS DUB_CNT
+		  FROM PROJECT_CHK_TARGET A
+		 WHERE A.PROJECT_ID = #{project_id}
+		   AND A.PROJECT_CHECK_TARGET_TYPE_CD = '1'
+		   AND A.LIB_NM = #{lib_nm}
+		   AND A.MODEL_NM = #{model_nm}
+		   <choose>
+			   <when test="sub_nm != null and sub_nm != ''">
+				   AND A.SUB_NM = #{sub_nm}
+			   </when>
+			   <otherwise>
+				   AND A.SUB_NM IS NULL
+			   </otherwise>
+		   </choose>
+	</select>
+	   	 
+    <insert id="insertProjectModel" parameterType="projectModel">
+		/* ProjectModelMngDao.insertProjectModel */
+		INSERT INTO   PROJECT_CHK_TARGET     -- 프로젝트점검대상(TABLE)
+		        ( PROJECT_ID                                                  -- 프로젝트ID
+		        , CHECK_TARGET_SEQ                                            -- 점검대상일련번호
+		        , PROJECT_CHECK_TARGET_TYPE_CD                                -- 프로젝트점검대상유형코드
+				<if test="lib_nm != null and lib_nm != ''">
+					, LIB_NM                                                      -- 라이브러리명
+		        </if>
+				<if test="model_nm != null and model_nm != ''">
+					, MODEL_NM                                                    -- 모델명
+		        </if>
+				<if test="sub_nm != null and sub_nm != ''">
+					, SUB_NM                                                      -- 주제영역명
+		        </if>
+		 ) VALUES (  #{project_id}
+		        , (SELECT NVL(MAX(CHECK_TARGET_SEQ), 0)+1 FROM PROJECT_CHK_TARGET)
+		        , '1'
+				<if test="lib_nm != null and lib_nm != ''">
+					, #{lib_nm}                                                     -- 라이브러리명
+		        </if>
+				<if test="model_nm != null and model_nm != ''">
+					, #{model_nm}                                                   -- 모델명
+		        </if>
+				<if test="sub_nm != null and sub_nm != ''">
+					, #{sub_nm}                                                     -- 주제영역명
+		        </if>
+		        ) 
+    </insert> 
+    
+    <update id="updateProjectModel" parameterType="projectModel">
+    	/* ProjectModelMngDao.updateProjectModel */
+		UPDATE PROJECT_CHK_TARGET       -- 프로젝트점검대상(TABLE)
+		   SET
+		       LIB_NM = #{lib_nm}                                            -- 라이브러리명
+		     , MODEL_NM = #{model_nm}                                        -- 모델명
+		     , SUB_NM = #{sub_nm}                                            -- 주제영역명
+		 WHERE PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+		   AND CHECK_TARGET_SEQ = #{check_target_seq}                        -- 점검대상일련번호 
+	</update>
+    
+    <delete id="deleteProjectModel" parameterType="projectModel">
+    	/* ProjectModelMngDao.deleteProjectModel */
+		DELETE PROJECT_CHK_TARGET A     -- 프로젝트점검대상(TABLE)
+		WHERE A.PROJECT_ID = #{project_id}                                    -- 프로젝트ID
+		AND A.CHECK_TARGET_SEQ = #{check_target_seq}                        -- 점검대상일련번호
+    </delete>
+	
+</mapper>

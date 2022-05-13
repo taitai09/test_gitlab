@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="omc.spop.dao.AISQLPVIndexRecommendDao">
+
+	<select id="getCreationOrDropHistory" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+		/*
+		  AISQLPVIndexRecommendDao.getCreationOrDropHistory
+		*/
+	  <![CDATA[
+		SELECT *
+		FROM (
+				 SELECT (
+                    CASE WHEN C.IDX_WORK_DIV_CD = 'C' THEN '인덱스 생성>'
+                    WHEN C.IDX_WORK_DIV_CD = 'D' THEN '인덱스 제거>'
+                    END ||
+                    CASE WHEN NVL(C.FORCE_CLOSE_YN, 'N') = 'Y' AND NVL(C.ERR_YN, 'N') = 'Y' AND C.IDX_WORK_DIV_CD = 'C' THEN '강제완료-인덱스생성시 오류'
+						 WHEN NVL(C.FORCE_CLOSE_YN, 'N') = 'Y' AND NVL(C.ERR_YN, 'N') = 'Y' AND C.IDX_WORK_DIV_CD = 'D' THEN '강제완료-인덱스제거시 오류'
+						 WHEN NVL(C.FORCE_CLOSE_YN, 'N') = 'Y' AND NVL(C.ERR_YN, 'N') = 'N' THEN '강제완료-사용자요청'
+						 WHEN NVL(C.FORCE_CLOSE_YN, 'N') <> 'Y' AND C.EXEC_END_DT IS NOT NULL THEN '완료'
+						 ELSE '수행중'
+					 END)  AS EXEC_STATUS /* 수행상태 */
+					  , C.IDX_DB_WORK_CNT /* 전체     */
+					  , D.COMPLETED_CNT /* 완료     */
+					  , D.ERR_CNT /* 오류     */
+					  , ROUND(((D.COMPLETED_CNT + ERR_CNT) / C.IDX_DB_WORK_CNT * 100), 2) AS COMPLETE_PERCENT /* 수행률(%) */
+					  , C.EXEC_START_DT /* 작업시작일시 */
+					  , C.EXEC_END_DT /* 작업종료일시 */
+					  , (
+					 CASE
+						 WHEN EXEC_END_DT IS NULL
+							 THEN TRUNC(((SYSDATE - EXEC_START_DT) * 86400) / (60 * 60 * 24)) || '일 '
+							 || LPAD(MOD(TRUNC(((SYSDATE - EXEC_START_DT) * 86400) / (60 * 60)), 24), 2, 0) || '시 '
+							 || LPAD(MOD(TRUNC(((SYSDATE - EXEC_START_DT) * 86400) / 60), 60), 2, 0) || '분 '
+							 || LPAD(TRUNC(MOD(((SYSDATE - EXEC_START_DT) * 86400), 60)), 2, 0) || '초'
+						 ELSE TRUNC(((EXEC_END_DT - EXEC_START_DT) * 86400) / (60 * 60 * 24)) || '일 '
+							 || LPAD(MOD(TRUNC(((EXEC_END_DT - EXEC_START_DT) * 86400) / (60 * 60)), 24), 2, 0) || '시 '
+							 || LPAD(MOD(TRUNC(((EXEC_END_DT - EXEC_START_DT) * 86400) / 60), 60), 2, 0) || '분 '
+							 || LPAD(TRUNC(MOD(((EXEC_END_DT - EXEC_START_DT) * 86400), 60)), 2, 0) || '초'
+						 END
+					 )  AS EXEC_TIME /* 수행시간 */
+					  , COUNT (*) OVER () AS TOT_CNT
+				 	  , E.USER_NM /* 작업자 */
+				 	  , C.IDX_DB_WORK_ID
+				 FROM SQL_AUTO_PERF_CHK A
+					, (
+					 SELECT DBID
+						  , EXEC_SEQ
+						  , PROJECT_ID
+						  , SQL_AUTO_PERF_CHECK_ID
+						  , ROW_NUMBER() OVER(PARTITION BY PROJECT_ID, SQL_AUTO_PERF_CHECK_ID ORDER BY EXEC_SEQ DESC) AS RNUM
+					 FROM ACC_PATH_EXEC
+					 WHERE ACCESS_PATH_TYPE = 'AUTOINDEX'
+				 	) B
+					, IDX_DB_WORK C
+					, (
+					 SELECT IDX_DB_WORK_ID
+						  , SUM(CASE WHEN IDX_WORK_SUCCESS_YN = 'Y' THEN 1 ELSE 0 END) AS COMPLETED_CNT
+						  , SUM(CASE WHEN IDX_WORK_SUCCESS_YN = 'N' THEN 1 ELSE 0 END) AS ERR_CNT
+					 FROM IDX_DB_WORK_DEATIL
+					 GROUP BY IDX_DB_WORK_ID
+				 	) D
+				 	,  USERS E
+				 WHERE A.PROJECT_ID = #{project_id}
+				   AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+				   AND A.PERF_CHECK_TYPE_CD = '4'
+				   AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+				   AND B.PROJECT_ID = A.PROJECT_ID
+				   AND B.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+				   AND B.DBID = A.ORIGINAL_DBID
+				   AND B.RNUM = 1
+				   AND C.DBID = B.DBID
+				   AND C.EXEC_SEQ = B.EXEC_SEQ
+				   AND D.IDX_DB_WORK_ID(+) = C.IDX_DB_WORK_ID
+				   AND E.USER_ID(+) = C.IDX_DB_WORKER_ID
+				 ORDER BY C.IDX_DB_WORK_ID DESC
+			 ) A
+		WHERE ROWNUM = 1
+		]]>
+	</select>
+
+	<select id="getCreationOrDropHistoryAll" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+		/*
+		  AISQLPVIndexRecommendDao.getCreationOrDropHistoryAll
+		*/
+	  <![CDATA[
+	  	SELECT *
+		FROM (
+				SELECT ROWNUM RNUM
+					, AA.*
+				FROM (
+						 SELECT (
+		                    CASE WHEN C.IDX_WORK_DIV_CD = 'C' THEN '인덱스 생성 > '
+		                    WHEN C.IDX_WORK_DIV_CD = 'D' THEN '인덱스  제거 > '
+		                    END ||
+		                    CASE WHEN NVL(C.FORCE_CLOSE_YN, 'N') = 'Y' AND NVL(C.ERR_YN, 'N') = 'Y' AND C.IDX_WORK_DIV_CD = 'C' THEN '강제완료-인덱스생성시 오류'
+								 WHEN NVL(C.FORCE_CLOSE_YN, 'N') = 'Y' AND NVL(C.ERR_YN, 'N') = 'Y' AND C.IDX_WORK_DIV_CD = 'D' THEN '강제완료-인덱스제거시 오류'
+								 WHEN NVL(C.FORCE_CLOSE_YN, 'N') = 'Y' AND NVL(C.ERR_YN, 'N') = 'N' THEN '강제완료-사용자요청'
+								 WHEN NVL(C.FORCE_CLOSE_YN, 'N') <> 'Y' AND C.EXEC_END_DT IS NOT NULL THEN '완료'
+								 ELSE '수행중'
+							 END)                                                             AS EXEC_STATUS /* 수행상태 */
+							  , C.IDX_DB_WORK_CNT  /* 전체     */
+							  , D.COMPLETED_CNT /* 완료     */
+							  , D.ERR_CNT /* 오류     */
+							  , ROUND(((D.COMPLETED_CNT + ERR_CNT) / C.IDX_DB_WORK_CNT  * 100), 2) AS COMPLETE_PERCENT /* 수행률(%) */
+							  , C.EXEC_START_DT /* 작업시작일시 */
+							  , C.EXEC_END_DT /* 작업종료일시 */
+							  , (
+							 CASE
+								 WHEN EXEC_START_DT IS NULL
+									 THEN TRUNC(((SYSDATE - EXEC_START_DT) * 86400) / (60 * 60 * 24)) || '일 '
+									 || LPAD(MOD(TRUNC(((SYSDATE - EXEC_START_DT) * 86400) / (60 * 60)), 24), 2, 0) || '시 '
+									 || LPAD(MOD(TRUNC(((SYSDATE - EXEC_START_DT) * 86400) / 60), 60), 2, 0) || '분 '
+									 || LPAD(TRUNC(MOD(((SYSDATE - EXEC_START_DT) * 86400), 60)), 2, 0) || '초'
+								 ELSE TRUNC(((EXEC_END_DT - EXEC_START_DT) * 86400) / (60 * 60 * 24)) || '일 '
+									 || LPAD(MOD(TRUNC(((EXEC_END_DT - EXEC_START_DT) * 86400) / (60 * 60)), 24), 2, 0) || '시 '
+									 || LPAD(MOD(TRUNC(((EXEC_END_DT - EXEC_START_DT) * 86400) / 60), 60), 2, 0) || '분 '
+									 || LPAD(TRUNC(MOD(((EXEC_END_DT - EXEC_START_DT) * 86400), 60)), 2, 0) || '초'
+								 END
+							 ) AS EXEC_TIME /* 수행시간 */
+							  , E.USER_NM /* 작업자 */
+						 	  , C.IDX_DB_WORK_ID
+						 FROM SQL_AUTO_PERF_CHK A
+							, (
+							 SELECT DBID
+								  , EXEC_SEQ
+								  , PROJECT_ID
+								  , SQL_AUTO_PERF_CHECK_ID
+								  , ROW_NUMBER() OVER(PARTITION BY PROJECT_ID, SQL_AUTO_PERF_CHECK_ID ORDER BY EXEC_SEQ DESC) AS RNUM
+							 FROM ACC_PATH_EXEC
+							 WHERE ACCESS_PATH_TYPE = 'AUTOINDEX'
+							) B
+							, IDX_DB_WORK C
+							, (
+							 SELECT IDX_DB_WORK_ID
+								  , COUNT(*)                                                   AS ALL_IDX_CNT
+								  , SUM(CASE WHEN IDX_WORK_SUCCESS_YN = 'Y' THEN 1 ELSE 0 END) AS COMPLETED_CNT
+								  , SUM(CASE WHEN IDX_WORK_SUCCESS_YN = 'N' THEN 1 ELSE 0 END) AS ERR_CNT
+							 FROM IDX_DB_WORK_DEATIL
+							 GROUP BY IDX_DB_WORK_ID
+							 ) D
+							 ,  USERS E
+						 WHERE A.PROJECT_ID = #{project_id}
+						   AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+						   AND A.PERF_CHECK_TYPE_CD = '4'
+						   AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+						   AND B.PROJECT_ID = A.PROJECT_ID
+						   AND B.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+						   AND B.DBID = A.ORIGINAL_DBID
+						   AND B.RNUM = 1
+						   AND C.DBID = B.DBID
+						   AND C.EXEC_SEQ = B.EXEC_SEQ
+						   AND D.IDX_DB_WORK_ID(+) = C.IDX_DB_WORK_ID
+						   AND E.USER_ID(+) = C.IDX_DB_WORKER_ID
+						 ORDER BY C.IDX_DB_WORK_ID ASC
+					 ) AA
+				)A
+			ORDER BY RNUM DESC
+		]]>
+	</select>
+
+	<select id="getIndexRecommend" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+	  /*AISQLPVIndexRecommendDao.getIndexRecommend*/
+	  <![CDATA[
+	  SELECT MIN(C.RUNNING_TABLE_CNT) AS RUNNING_TABLE_CNT      /* 추천 테이블수      */
+		   , MIN(C.RECOMMEND_INDEX_CNT) AS RECOMMEND_INDEX_CNT  /* 추천 인덱스수-전체 */
+		   , SUM(CASE WHEN C.RECOMMEND_INDEX_CNT > 0 AND D.RECOMMEND_TYPE = 'ADD' THEN 1
+					  WHEN C.RECOMMEND_INDEX_CNT > 0 THEN 0
+				  END) AS RECOMMEND_INDEX_ADD_CNT               /* ADD     */
+		   , SUM(CASE WHEN C.RECOMMEND_INDEX_CNT > 0 AND D.RECOMMEND_TYPE = 'MODIFY' THEN 1
+					  WHEN C.RECOMMEND_INDEX_CNT > 0 THEN 0
+				  END) AS RECOMMEND_INDEX_MODIFY_CNT            /* MODIFY  */
+		   , SUM(CASE WHEN C.RECOMMEND_INDEX_CNT > 0 AND D.RECOMMEND_TYPE = 'UNUSED' THEN 1
+					  WHEN C.RECOMMEND_INDEX_CNT > 0 THEN 0
+				  END) AS RECOMMEND_INDEX_UNUSED_CNT            /* UNUSED  */
+		   , C.IDX_AD_NO
+		   , MAX(A.PERF_CHECK_TARGET_DBID) AS PERF_CHECK_TARGET_DBID
+		   , MAX(A.ORIGINAL_DBID) AS ORIGINAL_DBID
+		   , MAX(A.PERF_CHECK_TARGET_DBID) AS PERF_CHECK_TARGET_DBID
+		   , MAX(B.EXEC_SEQ) AS EXEC_SEQ
+		   , MAX(DB2.DB_NAME) AS TOBE_DB_NAME
+		FROM SQL_AUTO_PERF_CHK A
+			 , (
+				SELECT PROJECT_ID
+					 , SQL_AUTO_PERF_CHECK_ID
+					 , DBID
+					 , EXEC_SEQ
+					 , ACCESS_PATH_EXEC_DT AS INDEX_EXEC_BEGIN_DT
+					 , FORCE_CLOSE_YN
+					 , ACCESS_PATH_EXEC_END_DT
+					 , ROW_NUMBER() OVER(PARTITION BY PROJECT_ID, SQL_AUTO_PERF_CHECK_ID ORDER BY EXEC_SEQ DESC) AS RNUM
+				  FROM ACC_PATH_EXEC
+				 WHERE ACCESS_PATH_TYPE = 'AUTOINDEX'
+			   ) B
+			 , (
+				SELECT IDX_AD_NO
+					 , DBID
+					 , EXEC_SEQ
+					 , TABLE_CNT
+					 , RUNNING_TABLE_CNT
+					 , RECOMMEND_INDEX_CNT
+					 , FORCE_CLOSE_YN
+					 , END_DT
+					 , ROW_NUMBER() OVER(PARTITION BY DBID, EXEC_SEQ ORDER BY IDX_AD_NO DESC) AS RNUM
+				  FROM IDX_AD_MST
+			   ) C
+			 , IDX_AD_RECOMMEND_INDEX D
+			 , DATABASE DB1
+			 , DATABASE DB2
+	   WHERE A.PROJECT_ID = #{project_id}
+		 AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+		 AND A.PERF_CHECK_TYPE_CD = '4'
+		 AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+		 AND B.PROJECT_ID = A.PROJECT_ID
+		 AND B.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+		 AND B.DBID = A.ORIGINAL_DBID
+		 AND B.RNUM = 1
+		 AND NVL(B.FORCE_CLOSE_YN, 'N') <> 'Y'
+		 AND B.ACCESS_PATH_EXEC_END_DT IS NOT NULL
+		 AND C.DBID = B.DBID
+		 AND C.EXEC_SEQ = B.EXEC_SEQ
+		 AND C.RNUM = 1
+		 AND NVL(C.FORCE_CLOSE_YN, 'N') <> 'Y'
+		 AND C.END_DT IS NOT NULL
+		 AND D.IDX_AD_NO(+) = C.IDX_AD_NO
+		 AND A.ORIGINAL_DBID = DB1.DBID
+		 AND A.PERF_CHECK_TARGET_DBID = DB2.DBID
+	  GROUP BY C.IDX_AD_NO
+	]]>
+
+	</select>
+	<select id="getAutoError" parameterType="sqlAutoPerformanceCompare" resultType="HashMap" >
+	  /*AISQLPVIndexRecommendDao.getAutoError*/
+	  SELECT ROWNUM RNUM ,
+	         B.TEMP_INDEX_NAME ,
+	  		 A.ERR_SBST ,
+			 B.TABLE_NAME ,
+    		 B.ACCESS_PATH_COLUMN_LIST
+	    FROM IDX_DB_WORK_DEATIL A,
+	  	   IDX_AD_RECOMMEND_INDEX B
+	   WHERE A.IDX_DB_WORK_ID = #{idx_db_work_id}
+	     AND A.IDX_WORK_SUCCESS_YN = 'N'
+	     AND B.IDX_AD_NO = A.IDX_AD_NO
+	     AND B.IDX_RECOMMEND_SEQ = A.IDX_RECOMMEND_SEQ
+	</select>
+	<select id="getPerformanceAnalysis" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+	  /*AISQLPVIndexRecommendDao.getPerformanceAnalysis*/
+		<![CDATA[
+	  SELECT CASE WHEN A.PERF_CHECK_STOP_CAUSE IS NOT NULL THEN '오류'
+				  WHEN C.PROJECT_ID IS NOT NULL AND NVL(C.PERF_CHECK_FORCE_CLOSE_YN, 'N') = 'Y' THEN '2차 검증>강제완료'
+				  WHEN C.PROJECT_ID IS NOT NULL AND NVL(C.PERF_CHECK_FORCE_CLOSE_YN, 'N') <> 'Y' AND C.PERF_CHECK_EXEC_END_DT IS NULL THEN '2차 검증>수행중'
+				  WHEN C.PROJECT_ID IS NOT NULL AND NVL(C.PERF_CHECK_FORCE_CLOSE_YN, 'N') <> 'Y' AND C.PERF_CHECK_EXEC_END_DT IS NOT NULL THEN '완료'
+				  WHEN NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') = 'Y' THEN '1차 검증>강제완료'
+				  WHEN NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') <> 'Y' AND A.PERF_CHECK_EXEC_END_DT IS NULL THEN '1차 검증>수행중'
+				  WHEN NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') <> 'Y' AND A.PERF_CHECK_EXEC_END_DT IS NOT NULL THEN '1차 검증>완료'
+			 END AS EXEC_STATUS                                                                      /* 수행상태               */
+			 , B.TOTAL_CNT AS TOTAL_CNT_1ST                                                             /* 1차 검증(SQL 수)-전체  */
+			 , B.COMPLETED_CNT AS COMPLETED_CNT_1ST                                                     /* 1차 검증(SQL 수)-완료  */
+			 , B.ERR_CNT AS ERR_CNT_1ST                                                                 /* 1차 검증(SQL 수)-오류  */
+			 , CASE WHEN C.PROJECT_ID IS NOT NULL THEN NVL(D.TOTAL_CNT, 0) END AS TOTAL_CNT_2ND         /* 2차 검증(SQL 수)-전체  */
+			 , CASE WHEN C.PROJECT_ID IS NOT NULL THEN NVL(D.COMPLETED_CNT, 0) END AS COMPLETED_CNT_2ND /* 2차 검증(SQL 수)-완료  */
+			 , CASE WHEN C.PROJECT_ID IS NOT NULL THEN NVL(D.ERR_CNT, 0) END AS ERR_CNT_2ND             /* 2차 검증(SQL 수)-오류  */
+			 , CASE WHEN C.PROJECT_ID IS NOT NULL AND C.PERF_CHECK_EXEC_END_DT IS NULL THEN
+							ROUND((D.COMPLETED_CNT+D.ERR_CNT)/D.TOTAL_CNT*100, 2)
+				    WHEN C.PROJECT_ID IS NOT NULL AND C.PERF_CHECK_EXEC_END_DT IS NOT NULL THEN
+							NVL(ROUND((D.COMPLETED_CNT+D.ERR_CNT)/D.TOTAL_CNT*100, 2), 100)
+					WHEN A.PERF_CHECK_EXEC_END_DT IS NULL OR NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') = 'Y' OR A.PERF_CHECK_STOP_CAUSE IS NOT NULL THEN
+											ROUND((B.COMPLETED_CNT+B.ERR_CNT)/B.TOTAL_CNT*100, 2)
+			   END AS COMPLETE_PERCENT                                                                /* 수행률(%)     */
+			 , A.PERF_CHECK_EXEC_BEGIN_DT                                                              /* 작업시작일시  */
+			 , CASE WHEN A.PERF_CHECK_STOP_CAUSE IS NOT NULL OR NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') = 'Y' THEN A.PERF_CHECK_EXEC_END_DT
+			        ELSE C.PERF_CHECK_EXEC_END_DT
+			   END AS PERF_CHECK_EXEC_END_DT                                                          /* 작업종료일시  */
+			 , CASE WHEN A.PERF_CHECK_STOP_CAUSE IS NOT NULL OR NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') = 'Y' THEN
+						 TRUNC (((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / (60 * 60 * 24)) || '일 '
+								 || LPAD (MOD (TRUNC (((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / (60 * 60)), 24), 2, 0) || '시 '
+								 || LPAD (MOD (TRUNC (((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / 60), 60), 2, 0) || '분 '
+								 || LPAD (TRUNC(MOD (((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400), 60)), 2, 0) || '초'
+					WHEN A.PERF_CHECK_EXEC_END_DT IS NULL OR C.PERF_CHECK_EXEC_END_DT IS NULL THEN
+						 TRUNC (((SYSDATE - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / (60 * 60 * 24)) || '일 '
+								 || LPAD (MOD (TRUNC (((SYSDATE - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / (60 * 60)), 24), 2, 0) || '시 '
+								 || LPAD (MOD (TRUNC (((SYSDATE - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / 60), 60), 2, 0) || '분 '
+								 || LPAD (TRUNC(MOD (((SYSDATE - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400), 60)), 2, 0) || '초'
+					ELSE TRUNC (((C.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / (60 * 60 * 24)) || '일 '
+					 			 || LPAD (MOD (TRUNC (((C.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / (60 * 60)), 24), 2, 0) || '시 '
+								 || LPAD (MOD (TRUNC (((C.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400) / 60), 60), 2, 0) || '분 '
+								 || LPAD (TRUNC(MOD (((C.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT) * 86400), 60)), 2, 0) || '초'
+			   END AS EXEC_TIME                                                                      /* 수행시간       */
+			 , CASE WHEN A.PERF_CHECK_STOP_CAUSE IS NOT NULL THEN '['||A.PERF_CHECK_STOP_CAUSE||'] '||A.PERF_CHECK_STOP_CAUSE_DETAIL
+			   END AS ERR_MSG
+			 , A.PROJECT_ID
+			 , A.SQL_AUTO_PERF_CHECK_ID
+			 , A.PARALLEL_DEGREE
+			 , A.MULTIPLE_EXEC_CNT
+			 , A.MULTIPLE_BIND_EXEC_CNT
+			 , A.SQL_TIME_LIMT_CD
+			 , A.SQL_TIME_DIRECT_PREF_VALUE
+			 , A.MAX_FETCH_CNT
+			 , A.DML_EXEC_YN
+	  FROM SQL_AUTO_PERF_CHK A
+			 , (
+				 SELECT A.PROJECT_ID
+				 		, A.SQL_AUTO_PERF_CHECK_ID
+						, COUNT(*) AS TOTAL_CNT
+						, NVL(SUM(CASE WHEN (B.PROJECT_ID IS NULL OR A.PERF_IMPACT_TYPE_CD IN ('4', '5')) AND A.SQL_COMMAND_TYPE_CD IS NOT NULL THEN 1 ELSE 0 END), 0) AS COMPLETED_CNT
+						, NVL(SUM(CASE WHEN B.PROJECT_ID IS NULL AND A.SQL_COMMAND_TYPE_CD IS NULL THEN 1 ELSE 0 END), 0) AS PERFORMING_CNT
+						, NVL(SUM(CASE WHEN B.PROJECT_ID IS NOT NULL AND (A.PERF_IMPACT_TYPE_CD IS NULL OR A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3')) THEN 1 ELSE 0 END), 0) AS ERR_CNT
+				 FROM SQL_AUTO_PERF_CHK_TARGET A
+					  , SQL_AUTO_PERF_CHK_ERROR B
+				 WHERE A.PROJECT_ID = B.PROJECT_ID(+)
+					   AND A.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID(+)
+					   AND A.SQL_ID = B.SQL_ID(+)
+					   AND A.PROJECT_ID = #{project_id}
+					   AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+				 GROUP BY A.PROJECT_ID, A.SQL_AUTO_PERF_CHECK_ID
+				 HAVING COUNT(*) > 0
+			 ) B
+		     , SQL_AUTO_PERF_CHK C
+			 , (
+				 SELECT A.PROJECT_ID
+						, A.SQL_AUTO_PERF_CHECK_ID
+						, COUNT(*) AS TOTAL_CNT
+						, NVL(SUM(CASE WHEN (B.PROJECT_ID IS NULL OR A.PERF_IMPACT_TYPE_CD IN ('4', '5')) AND A.SQL_COMMAND_TYPE_CD IS NOT NULL THEN 1 ELSE 0 END), 0) AS COMPLETED_CNT
+						, NVL(SUM(CASE WHEN B.PROJECT_ID IS NULL AND A.SQL_COMMAND_TYPE_CD IS NULL THEN 1 ELSE 0 END), 0) AS PERFORMING_CNT
+						, NVL(SUM(CASE WHEN B.PROJECT_ID IS NOT NULL AND (A.PERF_IMPACT_TYPE_CD IS NULL OR A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3')) THEN 1 ELSE 0 END), 0) AS ERR_CNT
+				 FROM SQL_AUTO_PERF_CHK M
+				 	  , SQL_AUTO_PERF_CHK_TARGET A
+					  , SQL_AUTO_PERF_CHK_ERROR B
+				 WHERE M.PARENT_PROJECT_ID = #{project_id}
+				 AND M.PARENT_SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+				 AND A.PROJECT_ID = M.PROJECT_ID
+				 AND A.SQL_AUTO_PERF_CHECK_ID = M.SQL_AUTO_PERF_CHECK_ID
+				 AND B.PROJECT_ID(+) = A.PROJECT_ID
+				 AND B.SQL_AUTO_PERF_CHECK_ID(+) = A.SQL_AUTO_PERF_CHECK_ID
+				 AND B.SQL_ID(+) = A.SQL_ID
+				 GROUP BY A.PROJECT_ID, A.SQL_AUTO_PERF_CHECK_ID
+				 HAVING COUNT(*) > 0
+			) D
+	  WHERE A.PROJECT_ID = #{project_id}
+		AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+		AND A.PERF_CHECK_TYPE_CD = '4'
+		AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+		AND A.PERF_CHECK_EXEC_BEGIN_DT IS NOT NULL
+		AND B.PROJECT_ID(+) = A.PROJECT_ID
+		AND B.SQL_AUTO_PERF_CHECK_ID(+) = A.SQL_AUTO_PERF_CHECK_ID
+		AND C.PARENT_PROJECT_ID(+) = A.PROJECT_ID
+		AND C.PARENT_SQL_AUTO_PERF_CHECK_ID(+) = A.SQL_AUTO_PERF_CHECK_ID
+		AND D.PROJECT_ID(+) = C.PROJECT_ID
+		AND D.SQL_AUTO_PERF_CHECK_ID(+) = C.SQL_AUTO_PERF_CHECK_ID
+		]]>
+
+	</select>
+
+	<!-- 강제완료 처리 -->
+	<update id="forceUpdateSqlAutoPerformance" parameterType="sqlAutomaticPerformanceCheck">
+		/* AISQLPVIndexRecommendDao.forceUpdateSqlAutoPerformance */
+		/* 02: 강제완료처리 UPDATE */
+		UPDATE SQL_AUTO_PERF_CHK A SET PERF_CHECK_EXEC_END_DT = SYSDATE
+			, PERF_CHECK_FORCE_CLOSE_YN = 'Y'
+		WHERE A.PROJECT_ID = #{project_id}
+		  AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+		  AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+	</update>
+
+	<!-- SQL-25 성능비교 수행 체크 -->
+	<select id="countExecuteTms" parameterType="sqlAutoPerformanceCompare" resultType="int">
+	  /* AISQLPVIndexRecommendDao.countExecuteTms */
+	  /* 01: 프로젝트에 자동성능점검 수행중인 회차가 있는지 조회 */
+	  SELECT SUM(ECOUNT) AS ECOUNT
+	  FROM (
+	  		/* 1차 */
+	  		SELECT COUNT(*) AS ECOUNT
+				FROM SQL_AUTO_PERF_CHK A
+				WHERE A.PROJECT_ID = #{project_id}
+				AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+				AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+				AND A.PERF_CHECK_EXEC_BEGIN_DT IS NOT NULL
+				AND A.PERF_CHECK_EXEC_END_DT IS NULL
+	  		UNION ALL
+	  		/* 2차 */
+	  		SELECT COUNT(*) AS ECOUNT
+				FROM SQL_AUTO_PERF_CHK A
+				WHERE A.PARENT_PROJECT_ID = #{project_id}
+				AND A.PARENT_SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+				AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+				AND A.PERF_CHECK_EXEC_BEGIN_DT IS NOT NULL
+				AND A.PERF_CHECK_EXEC_END_DT IS NULL
+	  		)
+	</select>
+
+	<!-- SQL-27 이전 일괄 검증 수행했던 회차가 있는지 체크 (재사용) -->
+	<select id="countPerformanceRecord" parameterType="sqlAutoPerformanceCompare" resultType="int">
+		/* AISQLPVIndexRecommendDao.countPerformanceRecord */
+		/* 02: 프로젝트에 자동성능점검 수행했던 회차가 있는지 조회 */
+		SELECT COUNT(*) AS RCOUNT
+		  FROM SQL_AUTO_PERF_CHK A
+		 WHERE A.PROJECT_ID = #{project_id}
+		   AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+		   AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+		   AND A.PERF_CHECK_EXEC_END_DT IS NOT NULL
+		   AND ROWNUM = 1
+	</select>
+
+	<select id="getAuthoritySQL" parameterType="authoritySQL" resultType="authoritySQL">
+		/* AISQLPVIndexRecommendDao.getAuthoritySQL */
+		${authority_sql}
+	</select>
+
+	<update id="setExcuteAnalyzeSqlAutoPerfChk" parameterType="HashMap">
+		UPDATE SQL_AUTO_PERF_CHK
+		   SET PERF_COMPARE_METH_CD = '2'                                   /* 성능점검유형코드      */
+			 , PARALLEL_DEGREE = #{parallel_degree}                           /* 병렬처리쓰레드수      */
+			 , DML_EXEC_YN = #{dml_exec_yn}                                   /* DML실행여부           */
+			 , MULTIPLE_EXEC_CNT = #{multiple_exec_cnt}                       /* 다중실행수            */
+			 , MULTIPLE_BIND_EXEC_CNT = #{multiple_bind_exec_cnt}             /* 다중바인드실행수      */
+			 , SQL_TIME_LIMT_CD = #{sql_time_limt_cd}                        /* SQL수행시간제한코드   */
+			 , SQL_TIME_DIRECT_PREF_VALUE = #{sql_time_direct_pref_value}     /* SQL수행시간직접설정값 */
+			 , MAX_FETCH_CNT = #{max_fetch_cnt}									/*최대 Fetch 건수*/
+		 WHERE PROJECT_ID = #{project_id}
+		   AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+	</update>
+
+
+</mapper>

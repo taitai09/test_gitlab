@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="UTF-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+	
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+	
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-mㄹigrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>12. 성능 시험</h1>
+		<h2>12.2. DB 변경 SQL 성능 영향도 분석</h2>
+		
+		<div>
+			<h4 class="titleStyle-none">개요</h4>
+			<p>
+				기존에 지원되던 힌트(HINT), 문법, 정렬(SORT) 등이 DB 업그레이드에 따라 더 이상 지원되지 않아 오류 또는 성능에 영향을 줄 수 있다.
+				 업그레이드 이전에 영향을 받는 SQL을 검색할 수 있는 기능 및 가이드를 제공하며, 해당 SQL은 가이드에 따른 조치가 필요하다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/148-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 수행한 프로젝트를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능 영향도 분석을 수행한 SQL점검팩을 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ASIS Oracle Ver.</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										ASIS Oracle DB Version
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOBE Oracle Ver.</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOBE Oracle DB Version
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		
+			<div>
+				<ol class="listStyle-number">
+					<li>프로젝트 &#62; SQL점검팩 선택  [검색] 버튼을 클릭한다.
+						<div class="imageBox" style="width: 800px;">
+							<img src="/resources/images/menual/bgimg_renewal/148-2.png">
+						</div>
+					</li>
+					<li>ASIS Oracle Ver. &#62; TOBE Oracle Ver. 을 선택하고 [검색] 버튼을 클릭한다.
+						<div class="imageBox" style="width: 600px;">
+							<img src="/resources/images/menual/bgimg_renewal/148-3.png">
+						</div>
+					</li>
+				</ol>
+			</div>
+		</div>
+		
+		<h6>SQL 영향도 현황 Area</h6>
+		<p class="title-h7">그리드 컬럼</p>
+		<div>
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>전체 SQL</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									DB 변경 영향도 분석한 전체 SQL 수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>변경대상</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									미지원 힌트 + ORA-01719 + ORA-00979 + Order by 추가
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>미지원 힌트</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									지원하지 않는 힌트(Hint)를 사용한 SQL 수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ORA-01719</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									OUTER 조인이 되는 컬럼에 OR, IN을 사용한 SQL 수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ORA-00979</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Select-List 절의 그룹 컬럼이 Group By절에 없는 SQL 수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Order by 추가</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Order by 절을 추가해야 하는 SQL 수
+								</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		
+		<h6>SQL 내역 Area</h6>
+		<p class="title-h7">그리드 컬럼</p>
+		<div>
+			<table>
+				<colgroup>
+					<col style="width: 20%;">
+					<col style="width: 80%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>컬럼</th>
+						<th>컬럼 설명</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>SQL ID</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									SQL ID
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>미지원 힌트</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									지원하지 않는 힌트(Hint)를 사용한 SQL일 경우 &xcirc;
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ORA-01719</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									OUTER 조인이 되는 컬럼에 OR, IN을 사용한 SQL 일 경우  &xcirc;
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ORA-00979</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Select-List 절의 그룹 컬럼이 Group By절에 없는 SQL 일 경우  &xcirc;
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Order by 추가</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Order by 절을 추가해야 하는 SQL 일 경우 &xcirc;
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>성능 임팩트유형</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									SELECT문 성능임팩트
+									<ul class="listStyle-dash">
+										<li>Improved:  성능향상. TOBE BUFFER GETS &#60; ASIS BUFFER GETS(평균)</li>
+										<li>Regressed: 성능저하. TOBE BUFFER GETS &#62; ASIS BUFFER GETS(평균)</li>
+										<li>Unchanged: 성능동일. TOBE BUFFER GETS &#61; ASIS BUFFER GETS(평균)</li>
+									</ul>
+								</li>
+								<li>
+									DML문 성능임팩트
+									<ul class="listStyle-dash">
+										<li>Improved: FULL SCAN이 사라지거나 PARTITION ALL ACCESS가 사라진 경우</li>
+										<li>Regressed: FULL SCAN이 추가 발생하거나 PARTITION ALL ACCESS가 추가 발생할 경우</li>
+										<li>Unchanged: PLAN이 동일하거나, FULL SCAN 또는 PARTITION ALL ACCESS가 추가 발생하지 않은 경우</li>
+									</ul>
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>버퍼 임팩트(배)</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Buffer Gets이 ASIS 대비 TOBE 성능이 향상(+) 또는 저하(-)된 비율
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>수행시간 임팩트(배)</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Elapsed Time이 ASIS 대비 TOBE 성능이 향상(+) 또는 저하(-)된 비율
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>Plan 변경여부</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									Y: 플랜변경, N: 플랜동일
+								</li>
+								<li>
+									DML문의 경우 예측 실행계획과 ASIS 실제 실행계획을 비교하여 Plan 변경 여부를 확인한다.
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ASIS EXECUTIONS</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									ASIS EXECUTIONS
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ASIS ELAPSED TIME</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									ASIS ELAPSED TIME
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>TOBE ELAPSED TIME</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									TOBE ELAPSED TIME
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ASIS BUFFER GETS</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									ASIS BUFFER GETS
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>TOBE BUFFER GETS</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									TOBE BUFFER GETS
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>SQL TEXT</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									화면: 앞에서 자른 SQL의 일부분
+								</li>
+								<li>
+									엑셀: 전체 SQL(수용 가능한 엑셀 셀 크기까지)
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>BYPASS_UJVC</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									BYPASS_UJVC 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>AND_EQUAL</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									AND_EQUAL 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>MERGE_AJ</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									MERGE_AJ 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>HASH_AJ</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									HASH_AJ 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>NL_AJ</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									NL_AJ 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>MERGE_SJ</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									MERGE_SJ 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>HASH_SJ</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									HASH_SJ 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>NL_SJ</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									NL_SJ 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ORDERED_PREDICATES</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									ORDERED_PREDICATES 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>ROWID</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									ROWID 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>STAR</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									STAR 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>NOPARALLEL</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									NOPARALLEL 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>NOPARALLEL_INDEX</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									NOPARALLEL_INDEX 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>NOREWRITE</td>
+						<td>
+							<ul class="listStyle-dot">
+								<li>
+									NOREWRITE 힌트 사용 개수
+								</li>
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		
+		<h6>SQL 고려사항</h6>
+		<p>
+			DB 업그레이드에 따라 영향을 받는 기능 및 가이드를 제공한다. 해당 SQL은 가이드에 따른 조치가 필요하다.
+		</p>
+		
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

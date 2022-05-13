@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+	
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+	<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+	<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+	
+	<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>11. 성능 최적화</h1>
+		<h2>11.1. 성능 최적화 관리</h2>
+		<h3>11.1.2. 성능 개선 관리</h3>
+		
+		<div>
+			<h4 class="titleStyle-none">개요</h4>
+			<p>
+				성능개선요청 화면 또는 성능진단/분석 화면을 통해 요청된 SQL에 대하여 요청 -&gt; 튜닝 -&gt; 적용 등의 성능개선관리 프로세스를 처리한다.
+			</p>
+			
+			<h6>성능개선 관리 목록 조회</h6>
+			<p>
+				개발자, DBA, 튜너, 관리자 모두 동일한 화면을 사용하지만 각 역할별 목록 대상은 아래와 같다.
+			</p>
+			<p class="title-h7">역할별 목록 대상</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>역할</th>
+							<th>역할 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>관리자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										전체 조회 권한
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>DBA</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										담당하는 DB에 요청된 건에 대한 권한
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜너</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DBA가 지정하여 할당 받은 건에 대한 권한
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>개발자</td>
+							<td></td>
+						</tr>
+						<tr>
+							<td class="table-indent">상위 부서의 부서장</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										하위 부서의 전체 요청 건
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">PL</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										팀원의 전체 요청 건
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">개발자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										본인 요청 건
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DB를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>기준일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										기준일자(튜닝요청일자, 튜닝반려일자, 튜닝완료일자, 튜닝적용일자, 튜닝종료일자)를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>요청유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										요청유형을 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>진행상태</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										진행상태를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>완료여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										완료여부를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										담당자
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL ID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>소스파일명(Full Path)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스파일명(Full Path)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL식별자(DBIO)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL식별자(DBIO)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로젝트
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝진행단계</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝진행단계
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL점검팩
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>튜닝요약 Area</h6>
+			<p>
+				튜닝 진행 상태별 건수와 건수 클릭 시 해당 상태의 목록을 조회한다.
+			</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>전체</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 전체 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝요청</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 요청 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝대기</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 대기 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝중</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝중 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>적용대기</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										적용대기상태 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝종료</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝종료 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>적용반려</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										적용 반려된 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝반려</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 반려된 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>튜닝번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>이전튜닝번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전튜닝번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>요청유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										요청유형
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DB 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL_ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL_ID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>소스파일명(Full Path)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스파일명(Full Path)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL식별자(DBIO)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL식별자(DBIO)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>MODULE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										MODULE 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝담당자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>업무담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										업무담당자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>진행상태</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										진행상태
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>완료/종료 사유</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										완료/종료 사유
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝요청일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝요청일시
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝요청자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝요청자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝완료일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝완료일시
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>적용일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										적용일시
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로젝트 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝진행단계</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝진행단계
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL점검팩</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL점검팩 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 클릭</p>
+			<ol class="listStyle-number">
+				<li>
+					그리드를 클릭한다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-2.png">
+					</div>
+				</li>
+				<li>
+					그리드 클릭 시 성능 개선 관리 상세 (튜닝번호별) 페이지로 이동한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-3.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7 titleStyle-none">전체 선택</p>
+			<ol class="listStyle-number">
+				<li>
+					‘전체’ 체크 박스를 클릭하면 하위의 모든 체크 박스가 체크된다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-4.png">
+					</div>
+				</li>
+				<li>
+					튜닝처리 이벤트 버튼을 클릭한다. (버튼 상세설명은 아래의 튜닝 처리 상태를 참고한다.)
+				</li>
+			</ol>
+			
+			<p class="title-h7 titleStyle-none">개별 선택</p>
+			<ol class="listStyle-number">
+				<li>
+					튜닝대상 SQL에 대한 체크 박스를 클릭한다. 멀티 선택이 가능하다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-5.png">
+					</div>
+				</li>
+				<li>
+					튜닝처리 이벤트 버튼을 클릭한다. (버튼 상세설명은 아래의 튜닝 처리 상태를 참고한다.)
+				</li>
+			</ol>
+			
+			<h6>튜닝 처리 상태</h6>
+			<p class="title-h7">튜닝 담당자 지정</p>
+			<p>
+				성능관리자(DBA) 권한을 가진 사용자만 튜닝 담당자 지정이 가능하다.
+			</p>
+			
+			<ol class="listStyle-number">
+				<li>
+					그리드를 선택한 후 [튜닝담당자 지정] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-6.png">
+					</div>
+				</li>
+				<li>
+					튜닝담당자 지정 팝업이 뜬다. 튜닝담당자를 선택 후 [담당자 지정] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-7.png">
+					</div>
+				</li>
+				<li>
+					튜닝담당자 지정이 완료 메시지창이 뜨며 담당자가 지정된다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-8.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">튜닝중 처리</p>
+			<p>
+				성능관리자(DBA), 튜닝담당자 권한을 가진 사용자만 튜닝중 처리가 가능하다.<br>
+				(성능 개선 관리 상세 > 개선 프로세스 [튜닝중 처리] 버튼도 동일하다.)
+			</p>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					진행상태가 튜닝대기 또는 적용반려 상태가 아니면 튜닝중 처리가 불가능하다.
+				</p>
+			</div>
+			
+			<ol class="listStyle-number">
+				<li>
+					그리드를 선택한 후  [튜닝중 처리] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-9.png">
+					</div>
+				</li>
+				<li>
+					그리드 컬럼의 진행상태가 튜닝대기에서 튜닝중으로 변경된다.
+					<div class="imageBox" style="width: 200px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-10.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">튜닝취소 처리</p>
+			<p>
+				성능관리자(DBA), 튜닝담당자 권한을 가진 사용자만 튜닝취소 처리가 가능하다.<br>
+				(성능 개선 관리 상세 > 개선 프로세스 [튜닝취소 처리] 버튼도 동일하다.)
+			</p>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					진행상태가 튜닝중이 아니면 튜닝취소가 불가능하다.
+				</p>
+			</div>
+			
+			<ol class="listStyle-number">
+				<li>
+					그리드를 선택 후 [튜닝취소 처리] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-11.png">
+					</div>
+				</li>
+				<li>
+					그리드 컬럼의 진행상태가 튜닝중에서 튜닝대기로 변경된다.
+					<div class="imageBox" style="width: 200px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-12.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">요청취소 처리</p>
+			<p>
+				모든 사용자가 요청취소 처리를 할 수 있다.
+			</p>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					진행상태가 요청중이 아니거나 자신의 요청건이 아니면 튜닝취소가 불가능하다.
+				</p>
+			</div>
+			
+			<ol class="listStyle-number">
+				<li>
+					[요청취소 처리] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-13.png">
+					</div>
+				</li>
+				<li>
+					그리드 컬럼의 진행상태가 요청에서 요청취소로 변경된다.
+					<div class="imageBox" style="width: 200px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-14.png">
+					</div>
+				</li>
+			</ol>
+			
+			
+			<h6>성능 개선 관리 상세</h6>
+			<p>
+				성능개선관리 튜닝목록을 선택하면 성능개선 상세화면으로 이동하며 성능개선과 
+				관련된 모든 이벤트는 상세화면의 [개선 프로세스] 탭에서 처리한다.
+			</p>
+			
+			<p class="title-h7">상세 화면 페이지 이동</p>
+			<p>
+				성능 개선 관리 그리드 클릭 시 상세화면으로 이동한다.
+			</p>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-15.png">
+			</div>
+			
+			<h6>Tab Area</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>Tab 명</th>
+							<th>Tab 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>SQL 요청 상세</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										요청유형에 따른 요청상세 화면이다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 개선 상세</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝결과 입력 및 조회가 가능한 화면이다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>개선 프로세스</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										성능개선관리에서 필요한 이벤트 처리 화면이다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL 개선 이력</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 이력을 보여주는 화면이다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQL요청 상세] 탭</h5>
+			<p>
+				요청내용을 보여주는 화면으로 개발자 요청, 성능분석/진단을 통한 요청 등 요청 유형(채널)에 따라 
+				요청 상세 화면의 항목이 조금씩 다르게 보여 진다.<br>
+				예를 들어 SQL진단 &gt; PLAN변경을 통해 요청된 SQL은 PLAN 변경 전과 변경 후의 
+				성능정보가 함께 요청 정보로 전달되어 SQL요청상세 화면에 보여짐으로 튜닝을 진행하는데 도움되는 정보로 활용할 수 있다.<br>
+				<br>
+				SQL요청상세화면은 추가적으로 현재 요청에 대한 프로세스처리이력 조회, 튜닝이력 조회, SQL정보 조회 기능을 제공한다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-16.png">
+			</div>
+			
+			<h6>등록 Area</h6>
+			<p class="title-h7">등록 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>튜닝번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정일자
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝요청구분</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝요청구분
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>업무담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										업무담당자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>담당업무</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										담당업무 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>업무담당자 연락처</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										업무담당자 연락처
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DB 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL_ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL_ID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>PLAN_HASH_VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										PLAN_HASH_VALUE
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Elapsed Time per Exec(s)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Elapsed Time per Exec(s)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Buffer Gets per Exec</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Buffer Gets per Exec
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Row Processed per Exec</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Row Processed per Exec
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Executions</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Executions
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Module
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Parsing Schema Name</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Parsing Schema Name
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>소스파일명(Full Path)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										소스파일명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL식별자(DBIO)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL식별자(DBIO)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL TEXT</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL TEXT 내용 ([SQL 복사] 버튼 클릭 시 SQL이 복사된다.<br>
+										[SQL Format] 버튼 클릭 시 SQL 포맷을 맞춰준다.)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>첨부파일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										첨부파일 첨부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>프로세스 처리이력</h6>
+			<p>
+				튜닝상태(프로세스) 변경 이력을 보여준다.
+			</p>
+			<div class="imageBox" style="width: 600px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-17.png">
+			</div>
+			
+			<h6>SQL정보</h6>
+			<p>
+				SQL 상세 성능 정보가 새 탭으로 오른쪽에 생성되어 튜닝 시에 유용하게 활용할 수 있다.
+			</p>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-18.png">
+			</div>
+			
+			<h6>튜닝이력조회</h6>
+			<p>
+				새 탭에서 DBIO 기반의 튜닝이력조회 화면으로 이동한다. (튜닝 이력 조회 참조)
+			</p>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-19.png">
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQL개선 상세] 탭</h5>
+			<p>
+				튜닝결과를 입력하거나 보여주는 화면으로 응답시간, 블록수, PGA사용량, 문제점, 
+				개선내역, 개선후SQL, 실행계획 항목이 있다.<br>
+				진행상태가 튜닝중일 때 입력이 활성화 되고 인덱스 변경 버튼이 나타난다.
+			</p>
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-20.png">
+			</div>
+			
+			<h6>등록 Area</h6>
+			<p class="title-h7">등록 컬럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>문제점</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										문제점 내용
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>개선내역</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선내역 내용
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>개선SQL</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선SQL 텍스트
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>개선전 실행계획</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선전 실행계획 텍스트
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">응답시간 (Sec)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선전 응답시간 (Sec)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">블럭수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선전 블럭수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">PGA 사용량(MB)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선전 PGA 사용량 (MB)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>개선후 실행계획</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선후 실행계획 텍스트
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">응답시간 (Sec)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선후 응답시간 (Sec)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">블럭수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선후 블럭수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">PGA 사용량(MB)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선후 PGA 사용량 (MB)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>개선율(%)</td>
+							<td></td>
+						</tr>
+						<tr>
+							<td class="table-indent">응답시간</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										응답시간
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">블럭수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										블럭수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">PGA 사용량</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										PGA 사용량
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>인덱스내역</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										인덱스내역 데이터를 그리드 형태로 보여준다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">개선유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										개선유형
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">테이블명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										테이블명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">인덱스명</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										인덱스명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">인덱스컬럼</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										인덱스컬럼
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>인덱스 변경</h6>
+			<p>
+				인덱스 변경 및 추가가 필요할 경우 등록한다.
+			</p>
+			<ol class="listStyle-number">
+				<li>
+					[인덱스 변경] 버튼을 클릭한다. 인덱스 요청 팝업창이 뜬다.
+				</li>
+				<li>
+					OWNER, 테이블명을 입력 후 [검색] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-21.png">
+					</div>
+				</li>
+				<li>
+					체크박스 선택 후 [선택 반영] 버튼을 클릭한다. 하단그리드에 데이터가 반영된다.
+				</li>
+				<li>
+					하단 그리드 체크 박스 선택 후 [반영]을 클릭한다. 적용이 완료된다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/30-22.png">
+					</div>
+				</li>
+			</ol>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[개선 프로세스] 탭</h5>
+			<p>
+				성능개선관리에서 필요한 모든 이벤트를 처리하는 화면이다. 진행상태와 권한에 따라 화면이 다르다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-23.png">
+			</div>
+			
+			<h6>튜닝 사례 게시 등록</h6>
+			<p>
+				튜닝 사례 공유가 필요한 튜닝 건의 경우 사례 게시를 선택하고, 
+				사례 제목을 입력 한 후 튜닝완료하면 자동으로 사례로 등록된다. 
+				SQL 튜닝 사례/가이드 메뉴에서 확인이 가능하다.(상단 우측 
+				<img class="text-image" src="/resources/images/menual/bgimg_renewal/bg28_icon.jpg"> 
+				아이콘 클릭)
+			</p>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[SQL개선 이력] 탭</h5>
+			<p>
+				해당 튜닝 건에 대한 튜닝 이력을 보여주는 화면이다. 
+				요청 -&gt; 튜닝 -&gt; 적용반려 -&gt; 튜닝 -&gt; 적용반려 -&gt; 튜닝 -&gt; 적용완료 와 같이 
+				튜닝 프로세스가 순환되는 과정에서 튜너가 과거에 튜닝한 이력을 확인할 수 있다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/30-24.png">
+			</div>
+		</div>
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

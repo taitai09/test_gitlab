@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.mqm.dao.ModelEntityTypeMngDao">
+
+	<sql id="getModelEntityTypeListRefId">
+		/* ModelEntityTypeMngDao.getModelEntityTypeListRefId */
+		SELECT A.LIB_NM AS LIB_NM                                            -- 라이브러리명
+		     , A.MODEL_NM AS MODEL_NM                                        -- 모델명
+		     , A.SUB_NM AS SUB_NM                                            -- 주제영역명
+		     , A.ENT_TYPE_CD AS ENT_TYPE_CD                                  -- 엔터티유형
+		     , A.REF_ENT_TYPE_NM AS REF_ENT_TYPE_NM                          -- 참조엔터티명PREFIX
+		     , A.ENT_TYPE_NM AS ENT_TYPE_NM                                  -- 엔터티유형명
+		     , A.TBL_TYPE_NM AS TBL_TYPE_NM                                  -- 테이블유형명
+		     , A.TBL_TYPE_CD AS TBL_TYPE_CD                                  -- 테이블유형코드
+		     , A.ENT_TYPE_DESC AS ENT_TYPE_DESC                              -- 엔터티유형설명
+		  FROM TB_OPENM_MODEL_ENT_TYPE A    -- TB_OPENM_모델별엔터티유형(TABLE)
+		 WHERE 1 = 1
+		 <if test="lib_nm != null and lib_nm != ''">
+		   -- 라이브러리명 선택
+		   AND A.LIB_NM = #{lib_nm}
+		 </if>
+		 <if test="model_nm != null and model_nm != ''">
+		   -- 모델명 선택
+		   AND A.MODEL_NM = #{model_nm}
+		 </if>
+		 <if test="sub_nm != null and sub_nm != ''">
+		   -- 주제영역명 선택
+		   AND A.SUB_NM = #{sub_nm}
+		 </if>
+		ORDER BY A.LIB_NM, A.MODEL_NM, A.SUB_NM 
+	</sql>
+
+<!-- 	<select id="getModelEntityTypeList" parameterType="modelEntityType" resultType="modelEntityType"> -->
+<!-- 		/* ModelEntityTypeMngDao.getModelEntityTypeList */ -->
+<!-- 		SELECT * -->
+<!-- 		FROM ( -->
+<!-- 		    SELECT ROWNUM RNUM, A.* -->
+<!-- 		    FROM ( -->
+<!-- 				<include refid="getModelEntityTypeListRefId"/> -->
+<!-- 		    ) A -->
+<!-- 		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1) -->
+<!-- 		) A -->
+<!-- 		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1) -->
+<!-- 	</select>   	 -->
+	<select id="getModelEntityTypeList" parameterType="modelEntityType" resultType="modelEntityType">
+		/* ModelEntityTypeMngDao.getModelEntityTypeList */
+		<include refid="getModelEntityTypeListRefId"/>
+	</select>   	
+
+	<select id="excelDownload" parameterType="modelEntityType" resultType="java.util.LinkedHashMap">
+		/* ModelEntityTypeMngDao.excelDownload */
+		<include refid="getModelEntityTypeListRefId"/>
+	</select>   	
+   	 
+	<select id="getDupCnt" parameterType="modelEntityType" resultType="int">
+		/* ModelEntityTypeMngDao.getDupCnt */
+		SELECT COUNT(*) AS DUB_CNT
+		FROM TB_OPENM_MODEL_ENT_TYPE A    -- TB_OPENM_모델별엔터티유형(TABLE)
+		WHERE A.LIB_NM = #{lib_nm}                                            -- 라이브러리명
+			<choose>
+				<when test="model_nm != null and model_nm != ''">
+				   AND A.MODEL_NM = #{model_nm}                                        -- 모델명
+				</when>
+				<otherwise>
+				   AND A.MODEL_NM IS NULL                                        -- 모델명
+				</otherwise>
+			</choose>
+
+			<choose>
+				<when test="sub_nm != null and sub_nm != ''">
+				   AND A.SUB_NM = #{sub_nm}                                            -- 주제영역명
+				</when>
+				<otherwise>
+				   AND A.SUB_NM IS NULL                                           -- 주제영역명
+				</otherwise>
+			</choose>
+		   AND A.ENT_TYPE_CD = #{ent_type_cd}                                  -- 엔터티유형
+	</select>
+	   	 
+    <insert id="insertModelEntityType" parameterType="modelEntityType">
+		/* ModelEntityTypeMngDao.insertModelEntityType */
+		INSERT INTO   TB_OPENM_MODEL_ENT_TYPE     -- TB_OPENM_모델별엔터티유형(TABLE)
+		        ( 
+		        	  LIB_NM                                                      -- 라이브러리명
+					, ENT_TYPE_CD                                                 -- 엔터티유형
+				<if test="model_nm != null and model_nm != ''">
+					, MODEL_NM                                                    -- 모델명
+		        </if>
+				<if test="sub_nm != null and sub_nm != ''">
+					, SUB_NM                                                      -- 주제영역명
+		        </if>
+				<if test="ref_ent_type_nm != null and ref_ent_type_nm != ''">
+					, REF_ENT_TYPE_NM                                             -- 참조엔터티명PREFIX
+		        </if>
+				<if test="ent_type_nm != null and ent_type_nm != ''">
+					, ENT_TYPE_NM                                                 -- 엔터티유형명
+		        </if>
+				<if test="tbl_type_nm != null and tbl_type_nm != ''">
+					, TBL_TYPE_NM                                                 -- 테이블유형명
+		        </if>
+				<if test="tbl_type_cd != null and tbl_type_cd != ''">
+					, TBL_TYPE_CD                                                 -- 테이블유형코드
+		        </if>
+				<if test="ent_type_desc != null and ent_type_desc != ''">
+					, ENT_TYPE_DESC                                               -- 엔터티유형설명
+		        </if>
+		 ) VALUES (
+		 			  #{lib_nm}
+					, #{ent_type_cd}
+				<if test="model_nm != null and model_nm != ''">
+					, #{model_nm}
+		        </if>
+				<if test="sub_nm != null and sub_nm != ''">
+					, #{sub_nm}
+		        </if>
+				<if test="ref_ent_type_nm != null and ref_ent_type_nm != ''">
+					, #{ref_ent_type_nm}
+		        </if>
+				<if test="ent_type_nm != null and ent_type_nm != ''">
+					, #{ent_type_nm}
+		        </if>
+				<if test="tbl_type_nm != null and tbl_type_nm != ''">
+					, #{tbl_type_nm}
+		        </if>
+				<if test="tbl_type_cd != null and tbl_type_cd != ''">
+					, #{tbl_type_cd}
+		        </if>
+				<if test="ent_type_desc != null and ent_type_desc != ''">
+					, #{ent_type_desc}
+		        </if>
+		        )  
+    </insert> 
+    
+    <update id="updateModelEntityType" parameterType="modelEntityType">
+    	/* ModelEntityTypeMngDao.updateModelEntityType */
+		UPDATE TB_OPENM_MODEL_ENT_TYPE       -- TB_OPENM_모델별엔터티유형(TABLE)
+		   SET REF_ENT_TYPE_NM = #{ref_ent_type_nm}                          -- 참조엔터티명PREFIX
+		     , ENT_TYPE_NM = #{ent_type_nm}                                  -- 엔터티유형명
+		     , TBL_TYPE_NM = #{tbl_type_nm}                                  -- 테이블유형명
+		     , TBL_TYPE_CD = #{tbl_type_cd}                                  -- 테이블유형코드
+		     , ENT_TYPE_DESC = #{ent_type_desc}                              -- 엔터티유형설명
+		 WHERE LIB_NM = #{lib_nm}
+		   AND NVL(MODEL_NM, ' ') = NVL(#{model_nm}, ' ')
+		   AND NVL(SUB_NM, ' ') = NVL(#{sub_nm}, ' ')
+		   AND ENT_TYPE_CD = #{ent_type_cd}
+	</update>
+    
+    <delete id="deleteModelEntityType" parameterType="modelEntityType">
+    	/* ModelEntityTypeMngDao.deleteModelEntityType */
+		DELETE TB_OPENM_MODEL_ENT_TYPE       -- TB_OPENM_모델별엔터티유형(TABLE)
+		 WHERE LIB_NM = #{lib_nm}
+		   AND NVL(MODEL_NM, ' ') = NVL(#{model_nm}, ' ')
+		   AND NVL(SUB_NM, ' ') = NVL(#{sub_nm}, ' ')
+		   AND ENT_TYPE_CD = #{ent_type_cd}
+    </delete>
+	
+</mapper>

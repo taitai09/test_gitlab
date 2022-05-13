@@ -1,0 +1,583 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  	
+	2018.03.15	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.IndexDesignMaintenanceDao">
+	<select id="getAccessPathExec" parameterType="odsTables" resultType="string">
+		/* IndexDesignMaintenanceDao.getAccessPathExec */
+		SELECT EXEC_SEQ || '|' || START_SNAP_NO || '|' || END_SNAP_NO || '|' || ANALYSIS_SQL_CNT || '|' || TO_CHAR(ACCESS_PATH_EXEC_DT, 'YYYY-MM-DD HH24:MI:SS') AS ACCESS_PATH_VALUE
+		FROM ACC_PATH_EXEC
+		WHERE DBID = #{dbid}
+		AND ACCESS_PATH_TYPE = #{access_path_type}
+		<if test="(file_no != null and file_no != '')">
+			AND FILE_NO = #{file_no}
+		</if>
+		AND EXEC_SEQ = #{exec_seq}
+	</select>
+
+	<select id="getAccessPathExecAddSec" parameterType="odsTables" resultType="string">
+		/* IndexDesignMaintenanceDao.getAccessPathExecAddSec */
+		SELECT 
+			-- EXEC_SEQ
+		     EXEC_SEQ || '|' || TO_CHAR(B.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') 
+		       || '|' || TO_CHAR(C.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') 
+		       || '|' || ANALYSIS_SQL_CNT || '|' 
+		       || TO_CHAR(ACCESS_PATH_EXEC_DT, 'YYYY-MM-DD HH24:MI:SS') AS ACCESS_PATH_VALUE  --> 변경
+		  FROM ACC_PATH_EXEC  A
+		     , VSQL_SNAPSHOT B
+		     , VSQL_SNAPSHOT C
+		 WHERE A.DBID = B.DBID
+		   AND A.START_SNAP_NO = B.SNAP_NO
+		   AND A.DBID = C.DBID
+		   AND A.END_SNAP_NO = C.SNAP_NO
+		   AND A.DBID = #{dbid}
+		   AND A.ACCESS_PATH_TYPE = #{access_path_type}
+   		<if test="(file_no != null and file_no != '')">
+			AND A.FILE_NO = #{file_no}
+		</if>
+		AND A.EXEC_SEQ = #{exec_seq}
+		ORDER BY A.EXEC_SEQ DESC
+	</select>
+	
+	<select id="collectionOdsTableList" parameterType="odsTables" resultType="odsTables">
+		/* IndexDesignMaintenanceDao.collectionOdsTableList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="collectionOdsTableListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>
+	<select id="collectionOdsTableList4Excel" parameterType="odsTables" resultType="java.util.LinkedHashMap">
+		/* IndexDesignMaintenanceDao.collectionOdsTableList4Excel */
+		<include refid="collectionOdsTableListRefId"/>
+	</select>
+	<sql id="collectionOdsTableListRefId">
+		SELECT OWNER, TABLE_NAME, ACC_CNT, TABLE_H_NAME, LAST_ANALYZED, NUM_ROWS, BLOCKS, PARTITIONED, PART_KEY_COLUMN, SUBPART_KEY_COLUMN, PARTITIONING_TYPE
+		FROM (
+			SELECT A.OWNER, A.TABLE_NAME,
+				(SELECT COUNT(DISTINCT SNAP_NO || QUERY_SEQ || TABLE_NAME || SQL_ID || PLAN_HASH_VALUE || QBLOCK_NAME)
+					FROM ACC_PATH AC
+					WHERE AC.DBID = A.DBID
+					AND EXEC_SEQ = #{exec_seq}
+					AND AC.TABLE_OWNER = A.OWNER
+					AND AC.TABLE_NAME = A.TABLE_NAME) ACC_CNT,		
+				E.COMMENTS AS TABLE_H_NAME, 
+				TO_CHAR(A.LAST_ANALYZED, 'YYYY-MM-DD HH24:MI:SS') AS LAST_ANALYZED, A.NUM_ROWS, A.BLOCKS, 
+				A.PARTITIONED, B.PART_KEY_COLUMN, C.SUBPART_KEY_COLUMN, 
+				(CASE  
+					WHEN PARTITIONING_TYPE IS NULL THEN '' 
+					WHEN PARTITIONING_TYPE IS NOT NULL AND SUBPARTITIONING_TYPE = 'NONE' THEN PARTITIONING_TYPE
+					<![CDATA[ 
+						WHEN PARTITIONING_TYPE IS NOT NULL AND SUBPARTITIONING_TYPE <> 'NONE' THEN PARTITIONING_TYPE || ', ' || SUBPARTITIONING_TYPE
+					]]>	
+				END) AS PARTITIONING_TYPE
+			FROM ODS_TABLES A, 
+				(SELECT DBID, OWNER, NAME, LISTAGG(COLUMN_NAME, ',') WITHIN GROUP(ORDER BY COLUMN_POSITION) PART_KEY_COLUMN 
+					FROM ODS_PART_KEY_COLUMNS  
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_PART_KEY_COLUMNS WHERE DBID = #{dbid} AND OWNER = #{owner})
+				GROUP BY DBID, OWNER, NAME) B, 
+				(SELECT DBID, OWNER, NAME, LISTAGG(COLUMN_NAME, ',') WITHIN GROUP(ORDER BY COLUMN_POSITION) SUBPART_KEY_COLUMN 
+					FROM ODS_SUBPART_KEY_COLUMNS  
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SUBPART_KEY_COLUMNS WHERE DBID = #{dbid} AND OWNER = #{owner})
+				GROUP BY DBID, OWNER, NAME) C, 
+				(SELECT DBID, OWNER, TABLE_NAME, PARTITIONING_TYPE, SUBPARTITIONING_TYPE
+					FROM ODS_PART_TABLES 
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_PART_TABLES WHERE DBID = #{dbid} AND OWNER = #{owner}) ) D,   
+				(SELECT DBID, OWNER, TABLE_NAME, COMMENTS
+					FROM ODS_TAB_COMMENTS 
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_COMMENTS WHERE DBID = #{dbid} AND OWNER = #{owner})) E   
+			WHERE A.DBID = B.DBID(+)
+			AND A.OWNER = B.OWNER(+) 
+			AND A.TABLE_NAME = B.NAME(+) 
+			AND A.DBID = C.DBID(+)
+			AND A.OWNER = C.OWNER(+) 
+			AND A.TABLE_NAME = C.NAME(+) 
+			AND A.DBID = D.DBID(+)
+			AND A.OWNER = D.OWNER(+) 
+			AND A.TABLE_NAME = D.TABLE_NAME(+) 
+			AND A.DBID = E.DBID(+)
+			AND A.OWNER = E.OWNER(+) 
+			AND A.TABLE_NAME = E.TABLE_NAME(+) 
+			AND A.OWNER = #{owner} 
+			AND A.DBID = #{dbid}
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLES WHERE DBID = #{dbid} AND OWNER = #{owner})
+			<if test="table_name != '' and table_name != ''">
+				AND A.TABLE_NAME LIKE '%'||#{table_name}||'%'
+			</if>
+			)
+		WHERE ACC_CNT > 0
+		ORDER BY OWNER, TABLE_NAME ASC
+	</sql>	
+
+	<select id="collectionAccessPathList" parameterType="accPath" resultType="accPath">
+		/* IndexDesignMaintenanceDao.collectionAccessPathList */
+		SELECT ROWNUM AS RNUM
+			, ACCESS_PATH
+			, ACCESS_PATH_COUNT
+			, TABLE_NAME
+		FROM (
+			SELECT TABLE_NAME, ACCESS_PATH, COUNT(DISTINCT SQL_ID || TO_CHAR(PLAN_HASH_VALUE)) ACCESS_PATH_COUNT 
+			FROM (
+				SELECT /*+ LEADING(B) USE_NL(C) */
+				      B.SNAP_NO, B.QUERY_SEQ, B.TABLE_NAME                                                
+					, C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME                                          
+					, LISTAGG(ACCESS_PATH, ', ') WITHIN GROUP(ORDER BY ORDERED, ACCESS_PATH) ACCESS_PATH 
+				FROM ACC_PATH B, VSQL_TEXT C                                                                        
+				WHERE B.DBID = #{dbid}
+				AND B.EXEC_SEQ = #{exec_seq}
+				AND B.DBID = C.DBID
+                AND B.SQL_ID = C.SQL_ID
+                AND B.PLAN_HASH_VALUE = C.PLAN_HASH_VALUE
+				AND B.TABLE_OWNER = #{owner} 
+				AND B.TABLE_NAME = #{table_name}
+				GROUP BY B.SNAP_NO, B.QUERY_SEQ, B.TABLE_NAME, C.SQL_ID, C.PLAN_HASH_VALUE, B.QBLOCK_NAME
+			)                 
+			GROUP BY TABLE_NAME, ACCESS_PATH                                                                 
+			ORDER BY ACCESS_PATH_COUNT DESC, ACCESS_PATH ASC                                                 
+		)
+	</select>
+	
+	<select id="collectionSqlStatusList" parameterType="vsqlText" resultType="vsqlText">
+		/* IndexDesignMaintenanceDao.collectionSqlStatusList */
+		SELECT ROWNUM AS RNUM
+		     , A.SQL_ID
+		     , A.PLAN_HASH_VALUE
+		     , DBMS_LOB.SUBSTR(A.SQL_FULLTEXT, 1000, 1) AS SQL_TEXT
+		FROM (SELECT DISTINCT B.DBID, B.EXEC_SEQ, B.SQL_ID, B.PLAN_HASH_VALUE                             
+				,LISTAGG(ACCESS_PATH, ', ') WITHIN GROUP(ORDER BY ORDERED, ACCESS_PATH) ACCESS_PATH 
+				FROM ACC_PATH B
+				WHERE B.DBID = #{dbid}
+				AND B.EXEC_SEQ = #{exec_seq}
+				AND B.TABLE_OWNER = #{owner} 
+				AND B.TABLE_NAME = #{table_name} 
+			GROUP BY B.DBID, B.EXEC_SEQ, B.SQL_ID, B.PLAN_HASH_VALUE, B.TABLE_NAME, B.QBLOCK_NAME ) B, VSQL_TEXT A                                                                              
+		WHERE A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+		AND A.PLAN_HASH_VALUE = B.PLAN_HASH_VALUE
+		AND B.ACCESS_PATH = #{access_path}
+		ORDER BY RNUM
+	</select>	
+
+	<select id="collectionIndexUsageList" parameterType="odsIndexs" resultType="odsIndexs">
+		/* IndexDesignMaintenanceDao.collectionIndexUsageList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="collectionIndexUsageListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>
+	<select id="collectionIndexUsageList4Excel" parameterType="odsIndexs" resultType="java.util.LinkedHashMap">
+		/* IndexDesignMaintenanceDao.collectionIndexUsageList4Excel */
+		<include refid="collectionIndexUsageListRefId"/>
+	</select>
+	<sql id="collectionIndexUsageListRefId">
+		SELECT ROWNUM AS NO,  
+		       TABLE_NAME, TABLE_HNAME, INDEX_NAME, PK_YN, NVL(USAGE_COUNT, 0) USAGE_COUNT  
+		FROM (SELECT A.TABLE_NAME,  
+				D.COMMENTS TABLE_HNAME,  
+				A.INDEX_NAME,  
+				DECODE(B.CONSTRAINT_TYPE, 'P', 'Y', 'N') PK_YN,  
+				C.USAGE_COUNT,  
+				DECODE(B.CONSTRAINT_TYPE, 'P', 1, 2) ORDERED  
+			FROM ODS_INDEXES A,  
+				(SELECT *
+					FROM ODS_CONSTRAINTS
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_CONSTRAINTS WHERE DBID = #{dbid})
+				) B,  
+				(SELECT  <if test="table_name == ''"> /*+ FULL(A) */ </if>
+				         OBJECT_OWNER AS OWNER ,OBJECT_NAME AS INDEX_NAME ,COUNT(*) USAGE_COUNT  
+					FROM VSQL_PLAN A
+		            WHERE DBID = #{dbid}
+		            AND OBJECT_TYPE LIKE 'INDEX%'  
+					AND OBJECT_NAME IS NOT NULL  
+					AND REGEXP_SUBSTR(STATEMENT_ID,'[^_]+',1,2) BETWEEN ${start_snap_no} AND ${end_snap_no}
+					GROUP BY OBJECT_OWNER, OBJECT_NAME) C,
+				(SELECT *
+					FROM ODS_TAB_COMMENTS
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_COMMENTS WHERE DBID = #{dbid})
+				) D  
+			WHERE A.OWNER = B.OWNER(+)  
+			AND A.INDEX_NAME = B.CONSTRAINT_NAME(+)  
+			AND A.TABLE_NAME = B.TABLE_NAME(+)  
+			AND B.CONSTRAINT_TYPE (+)= 'P'  
+			AND A.OWNER = C.OWNER(+)  
+			AND A.INDEX_NAME = C.INDEX_NAME(+)  
+			AND A.OWNER = D.OWNER(+)    
+			AND A.TABLE_NAME = D.TABLE_NAME  (+)  
+			AND A.DBID = #{dbid}
+			AND A.OWNER = #{owner} 
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_INDEXES WHERE DBID = #{dbid})
+			AND A.INDEX_TYPE NOT IN ('LOB', 'DOMAIN') 
+			<if test="table_name != ''">
+				AND A.TABLE_NAME LIKE '%'||#{table_name}||'%'
+			</if>
+			ORDER BY A.TABLE_NAME, ORDERED, A.INDEX_NAME )
+		WHERE 1 = 1
+		<if test="(usage_yn != null and (usage_yn eq 'Y'.toString()))">
+			AND NVL(USAGE_COUNT, 0) = 0
+		</if>
+		<if test="(pk_yn != null and (pk_yn eq 'Y'.toString()))">		
+			AND PK_YN = 'N'
+		</if>
+	</sql>	
+	
+	<select id="loadOdsTableList" parameterType="odsTables" resultType="odsTables">
+		/* IndexDesignMaintenanceDao.loadOdsTableList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, A.*
+			FROM (
+				<include refid="loadOdsTableListRefId"/>
+			) A
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>
+	
+	<sql id="loadOdsTableListRefId">
+		SELECT OWNER, TABLE_NAME, ACC_CNT, TABLE_H_NAME, LAST_ANALYZED, NUM_ROWS, BLOCKS, PARTITIONED, PART_KEY_COLUMN, SUBPART_KEY_COLUMN, PARTITIONING_TYPE
+		FROM (
+			SELECT A.OWNER, A.TABLE_NAME,
+				(SELECT COUNT(DISTINCT QUERY_SEQ || TABLE_NAME || QBLOCK_NAME)
+	        		FROM ACC_PATH AC
+	        		WHERE AC.DBID = A.DBID
+	        		AND EXEC_SEQ = ${exec_seq}
+	        		AND AC.TABLE_OWNER = A.OWNER
+	        		AND AC.TABLE_NAME = A.TABLE_NAME) ACC_CNT,		
+				E.COMMENTS AS TABLE_H_NAME, 
+				TO_CHAR(A.LAST_ANALYZED, 'YYYY-MM-DD HH24:MI:SS') AS LAST_ANALYZED, A.NUM_ROWS, A.BLOCKS, 
+				A.PARTITIONED, B.PART_KEY_COLUMN, C.SUBPART_KEY_COLUMN, 
+				(CASE  
+					WHEN PARTITIONING_TYPE IS NULL THEN '' 
+					WHEN PARTITIONING_TYPE IS NOT NULL AND SUBPARTITIONING_TYPE = 'NONE' THEN PARTITIONING_TYPE
+					<![CDATA[ 
+						WHEN PARTITIONING_TYPE IS NOT NULL AND SUBPARTITIONING_TYPE <> 'NONE' THEN PARTITIONING_TYPE || ', ' || SUBPARTITIONING_TYPE
+					]]>	
+				END) AS PARTITIONING_TYPE
+			FROM ODS_TABLES A, 
+				(SELECT DBID, OWNER, NAME, LISTAGG(COLUMN_NAME, ',') WITHIN GROUP(ORDER BY COLUMN_POSITION) PART_KEY_COLUMN 
+					FROM ODS_PART_KEY_COLUMNS  
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_PART_KEY_COLUMNS WHERE DBID = #{dbid} AND OWNER = #{owner})
+				GROUP BY DBID, OWNER, NAME) B, 
+				(SELECT DBID, OWNER, NAME, LISTAGG(COLUMN_NAME, ',') WITHIN GROUP(ORDER BY COLUMN_POSITION) SUBPART_KEY_COLUMN 
+					FROM ODS_SUBPART_KEY_COLUMNS  
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_SUBPART_KEY_COLUMNS WHERE DBID = #{dbid} AND OWNER = #{owner})
+				GROUP BY DBID, OWNER, NAME) C, 
+				(SELECT DBID, OWNER, TABLE_NAME, PARTITIONING_TYPE, SUBPARTITIONING_TYPE
+					FROM ODS_PART_TABLES 
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_PART_TABLES WHERE DBID = #{dbid} AND OWNER = #{owner}) ) D,   
+				(SELECT DBID, OWNER, TABLE_NAME, COMMENTS
+					FROM ODS_TAB_COMMENTS 
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_COMMENTS WHERE DBID = #{dbid} AND OWNER = #{owner})) E   
+			WHERE A.DBID = B.DBID(+)
+			AND A.OWNER = B.OWNER(+) 
+			AND A.TABLE_NAME = B.NAME(+) 
+			AND A.DBID = C.DBID(+)
+			AND A.OWNER = C.OWNER(+) 
+			AND A.TABLE_NAME = C.NAME(+) 
+			AND A.DBID = D.DBID(+)
+			AND A.OWNER = D.OWNER(+) 
+			AND A.TABLE_NAME = D.TABLE_NAME(+) 
+			AND A.DBID = E.DBID(+)
+			AND A.OWNER = E.OWNER(+) 
+			AND A.TABLE_NAME = E.TABLE_NAME(+) 
+			AND A.OWNER = #{owner} 
+			AND A.DBID = #{dbid}
+			<if test="table_name != '' and table_name != ''">
+				AND A.TABLE_NAME LIKE '%'||#{table_name}||'%'
+			</if>
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLES WHERE DBID = #{dbid} AND OWNER = #{owner})
+			)
+		WHERE ACC_CNT > 0
+	</sql>
+
+	<select id="loadAccessPathList" parameterType="accPath" resultType="accPath">
+		/* IndexDesignMaintenanceDao.loadAccessPathList */
+		SELECT ROWNUM AS RNUM                                                                                           
+		     , ACCESS_PATH                                                                                         
+		     , ACCESS_PATH_COUNT                                                                                   
+		     , TABLE_NAME            
+		FROM (
+			SELECT TABLE_NAME, ACCESS_PATH, COUNT(DISTINCT QUERY_SEQ) ACCESS_PATH_COUNT 
+			FROM (
+				SELECT B.QUERY_SEQ, B.TABLE_NAME                                                
+					, B.QBLOCK_NAME                                          
+					, LISTAGG(ACCESS_PATH, ', ') WITHIN GROUP(ORDER BY ORDERED, ACCESS_PATH) ACCESS_PATH 
+				FROM ACC_PATH_EXEC A, ACC_PATH B, DBIO_LOAD_SQL C
+				WHERE A.DBID = #{dbid}
+				AND A.EXEC_SEQ = #{exec_seq}
+				AND A.DBID = B.DBID
+				AND A.EXEC_SEQ = B.EXEC_SEQ
+				AND A.FILE_NO = C.FILE_NO                                                                
+				AND B.QUERY_SEQ = C.QUERY_SEQ                                                            
+				AND B.TABLE_OWNER = #{owner} 
+				AND B.TABLE_NAME = #{table_name} 
+				GROUP BY B.QUERY_SEQ, B.TABLE_NAME, B.QBLOCK_NAME
+			)                 
+			GROUP BY TABLE_NAME, ACCESS_PATH                                                                 
+			ORDER BY ACCESS_PATH_COUNT DESC, ACCESS_PATH ASC                                                 
+		) 
+	</select>
+	
+	<select id="loadSqlStatusList" parameterType="dbioLoadSql" resultType="dbioLoadSql">
+		/* IndexDesignMaintenanceDao.loadSqlStatusList */
+		SELECT ROWNUM AS RNUM
+		     , DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) AS SQL_TEXT
+		     , B.EXEC_SEQ
+		     , B.FILE_NO		     
+		     , B.EXPLAIN_EXEC_SEQ
+		     , B.QUERY_SEQ
+		FROM (
+			SELECT DISTINCT A.FILE_NO
+				,A.EXPLAIN_EXEC_SEQ
+				,B.QUERY_SEQ
+				,B.EXEC_SEQ
+				,LISTAGG(ACCESS_PATH, ', ') WITHIN GROUP(ORDER BY ORDERED, ACCESS_PATH) ACCESS_PATH 
+			FROM ACC_PATH_EXEC A, ACC_PATH B                                                          
+			WHERE A.DBID = #{dbid}
+			AND A.EXEC_SEQ = #{exec_seq}
+			AND A.DBID = B.DBID
+			AND A.EXEC_SEQ = B.EXEC_SEQ                                                         
+			AND B.TABLE_OWNER = #{owner} 
+			AND B.TABLE_NAME = #{table_name} 
+			GROUP BY A.FILE_NO, A.EXPLAIN_EXEC_SEQ, B.QUERY_SEQ, B.EXEC_SEQ, B.TABLE_NAME, B.QBLOCK_NAME ) B, DBIO_LOAD_SQL A                                                                              
+		WHERE A.FILE_NO = B.FILE_NO                                                                      
+		AND A.QUERY_SEQ = B.QUERY_SEQ                                                                  
+		AND B.ACCESS_PATH = #{access_path}
+		ORDER BY RNUM 		     
+	</select>	
+	
+	<select id="loadUsingIndexList" parameterType="odsIndexs" resultType="odsIndexs">
+		/* IndexDesignMaintenanceDao.loadUsingIndexList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="loadUsingIndexListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>
+
+	<select id="loadUsingIndexList4Excel" parameterType="odsIndexs" resultType="java.util.LinkedHashMap">
+		/* IndexDesignMaintenanceDao.loadUsingIndexList4Excel */
+		<include refid="loadUsingIndexListRefId"/>
+	</select>
+
+	<sql id="loadUsingIndexListRefId">
+		SELECT ROWNUM AS NO,  
+		       TABLE_NAME, TABLE_HNAME, INDEX_NAME, PK_YN, NVL(USAGE_COUNT, 0) USAGE_COUNT  
+		FROM (SELECT A.TABLE_NAME,  
+				D.COMMENTS TABLE_HNAME,  
+				A.INDEX_NAME,  
+				DECODE(B.CONSTRAINT_TYPE, 'P', 'Y', 'N') PK_YN,  
+				C.USAGE_COUNT,  
+				DECODE(B.CONSTRAINT_TYPE, 'P', 1, 2) ORDERED  
+			FROM ODS_INDEXES A,  
+				(SELECT *
+					FROM ODS_CONSTRAINTS
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_CONSTRAINTS WHERE DBID = #{dbid})
+				) B,  
+				(SELECT <if test="table_name == ''"> /*+ FULL(A) */ </if>
+				        OBJECT_OWNER AS OWNER ,OBJECT_NAME AS INDEX_NAME ,COUNT(*) USAGE_COUNT  
+					FROM DBIO_PLAN_TABLE A
+		            WHERE OBJECT_TYPE LIKE 'INDEX%'  
+					AND OBJECT_NAME IS NOT NULL  
+					AND STATEMENT_ID LIKE #{file_no} || '_' || #{explain_exec_seq} || '%'
+					GROUP BY OBJECT_OWNER, OBJECT_NAME) C,
+				(SELECT *
+					FROM ODS_TAB_COMMENTS
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TAB_COMMENTS WHERE DBID = #{dbid})
+				) D  
+			WHERE A.OWNER = B.OWNER(+)  
+			AND A.INDEX_NAME = B.CONSTRAINT_NAME(+)  
+			AND A.TABLE_NAME = B.TABLE_NAME(+)  
+			AND B.CONSTRAINT_TYPE (+)= 'P'  
+			AND A.OWNER = C.OWNER(+)  
+			AND A.INDEX_NAME = C.INDEX_NAME(+)  
+			AND A.OWNER = D.OWNER(+)    
+			AND A.TABLE_NAME = D.TABLE_NAME  (+)  
+			AND A.DBID = #{dbid}
+			AND A.OWNER = #{owner} 
+			<if test="table_name != ''">
+				AND A.TABLE_NAME LIKE '%'||#{table_name}||'%'
+			</if>
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_INDEXES WHERE DBID = #{dbid})
+			AND A.INDEX_TYPE NOT IN ('LOB', 'DOMAIN') 
+			ORDER BY A.TABLE_NAME, ORDERED, A.INDEX_NAME )
+		WHERE 1 = 1
+		<if test="(usage_yn != null and (usage_yn eq 'Y'.toString()))">
+			AND NVL(USAGE_COUNT, 0) = 0
+		</if>
+		<if test="(pk_yn != null and (pk_yn eq 'Y'.toString()))">		
+			AND PK_YN = 'N'
+		</if>
+	</sql>
+	
+	<select id="columnsList" parameterType="odsTabColumns" resultType="odsTabColumns">
+		/* IndexDesignMaintenanceDao.columnsList */
+		SELECT /*+ LEADING(A) USE_NL(B) INDEX(A PK_ODS_TAB_COLUMNS) INDEX(B PK_ODS_COL_COMMENTS) */
+		       A.COLUMN_ID, A.COLUMN_NAME, B.COMMENTS, DATA_TYPE || 
+			(CASE 
+				WHEN DATA_PRECISION IS NOT NULL AND NVL(DATA_SCALE,0)>0 THEN '('||DATA_PRECISION||','||DATA_SCALE||')' 
+				WHEN DATA_PRECISION IS NOT NULL AND NVL(DATA_SCALE,0)=0 THEN '('||DATA_PRECISION||')' 
+				WHEN DATA_PRECISION IS NULL AND DATA_SCALE IS NOT NULL THEN '(*,'||DATA_SCALE||')' 
+				WHEN CHAR_LENGTH>0 THEN '('||CHAR_LENGTH||')' 
+			END) AS DATATYPE, 
+			DECODE(NULLABLE, 'N', ' NOT NULL') AS NOTNULL, 
+			NUM_DISTINCT, NUM_NULLS 
+		FROM ODS_TAB_COLUMNS A, ODS_COL_COMMENTS B
+		WHERE A.DBID = B.DBID(+)
+		AND A.OWNER = B.OWNER(+) 
+		AND A.BASE_DAY = B.BASE_DAY(+)
+		AND A.TABLE_NAME = B.TABLE_NAME(+)
+		AND A.COLUMN_NAME = B.COLUMN_NAME(+)
+		AND A.DBID = #{dbid}
+		AND A.BASE_DAY = (SELECT /*+ INDEX(ODS_TAB_COLUMNS PK_ODS_TAB_COLUMNS) */ MAX(BASE_DAY) FROM ODS_TAB_COLUMNS WHERE DBID = #{dbid} AND OWNER = #{owner} AND TABLE_NAME = #{table_name})
+		AND A.OWNER = #{owner} 
+		AND A.TABLE_NAME = #{table_name} 
+		ORDER BY A.COLUMN_ID
+	</select>
+	
+	<select id="indexsList" parameterType="odsIndexs" resultType="odsIndexs">
+		/* IndexDesignMaintenanceDao.indexsList */
+		SELECT ROWNUM AS RNUM, TABLE_NAME, INDEX_NAME, INDEX_COLUMN, UNIQUENESS, PARTITIONED, LAST_ANALYZED 
+		FROM ( 
+			SELECT /*+ LEADING(A) */
+			    A.TABLE_NAME, A.INDEX_NAME, LISTAGG(B.COLUMN_NAME, ',') WITHIN GROUP(ORDER BY B.COLUMN_POSITION) INDEX_COLUMN, A.UNIQUENESS,  
+				DECODE(C.CONSTRAINT_TYPE, 'P', 1, 2) ORDERED, 
+				A.PARTITIONED, A.LAST_ANALYZED 
+			FROM ODS_INDEXES A, ODS_IND_COLUMNS B, 
+				(SELECT DBID, OWNER, CONSTRAINT_NAME, TABLE_NAME, CONSTRAINT_TYPE
+					FROM ODS_CONSTRAINTS 
+					WHERE DBID = #{dbid}
+					AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_CONSTRAINTS WHERE DBID = #{dbid})
+				) C 
+		    WHERE A.OWNER = B.INDEX_OWNER 
+		    AND A.INDEX_NAME = B.INDEX_NAME 
+		    AND A.OWNER = C.OWNER(+) 
+		    AND A.INDEX_NAME = C.CONSTRAINT_NAME(+) 
+		    AND A.TABLE_NAME = C.TABLE_NAME(+) 
+		    AND C.CONSTRAINT_TYPE (+) = 'P' 
+		    AND A.OWNER = #{owner} 
+		    AND A.TABLE_NAME = UPPER(#{table_name}) 
+		    AND A.DBID = #{dbid}
+		    AND B.DBID = #{dbid}
+		    AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_INDEXES WHERE DBID = #{dbid} AND TABLE_OWNER = #{owner} AND TABLE_NAME = UPPER(#{table_name}))
+		    AND B.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_IND_COLUMNS WHERE DBID = #{dbid} AND TABLE_OWNER = #{owner} AND TABLE_NAME = UPPER(#{table_name}))
+		    GROUP BY A.TABLE_NAME, A.INDEX_NAME, A.UNIQUENESS, DECODE(C.CONSTRAINT_TYPE, 'P', 1, 2), A.PARTITIONED, A.LAST_ANALYZED 
+		    ORDER BY ORDERED, A.INDEX_NAME 
+		)
+	</select>
+	
+	<!-- 인덱스 목록 조회 SQL -->
+	<select id="getIndexInfoList" parameterType="odsIndexs" resultType="map">
+		/* IndexDesignMaintenanceDao.getIndexInfoList */
+		SELECT ROWNUM AS RNUM
+		     , TABLE_NAME
+		     , INDEX_NAME
+		     , INDEX_COLUMN
+		     , UNIQUENESS
+		     , PARTITIONED
+		     , LAST_ANALYZED
+		  FROM (SELECT A.TABLE_NAME
+		             , A.INDEX_NAME
+		             , LISTAGG(B.COLUMN_NAME, ', ') WITHIN
+		         GROUP(
+		                 ORDER BY B.COLUMN_POSITION ) INDEX_COLUMN , A.UNIQUENESS , DECODE(C.CONSTRAINT_TYPE, 'P', 1, 2) ORDERED , A.PARTITIONED , A.LAST_ANALYZED
+		          FROM DBA_INDEXES A
+		             , DBA_IND_COLUMNS B
+		             , DBA_CONSTRAINTS C
+		         WHERE A.TABLE_OWNER = #{owner}
+		           AND A.TABLE_NAME = #{table_name}
+		           AND A.INDEX_NAME = B.INDEX_NAME
+		           AND A.OWNER = C.OWNER(+)
+		           AND A.INDEX_NAME = C.CONSTRAINT_NAME(+)
+		           AND A.TABLE_NAME = C.TABLE_NAME(+)
+		           AND C.CONSTRAINT_TYPE (+) = 'P'
+		         GROUP BY A.TABLE_NAME, A.INDEX_NAME, A.UNIQUENESS, DECODE(C.CONSTRAINT_TYPE, 'P', 1, 2), A.PARTITIONED, A.LAST_ANALYZED
+		         ORDER BY ORDERED, A.INDEX_NAME ) 
+	</select>	
+	
+	<select id="accPathIndexDesignList" parameterType="accPathIndexDesign" resultType="accPathIndexDesign">
+		/* IndexDesignMaintenanceDao.accPathIndexDesignList */
+		SELECT INDEX_SEQ, INDEX_COLUMN_LIST, REG_DT 
+		FROM ACC_PATH_INDEX_DESIGN
+		WHERE DBID = #{dbid}
+		AND EXEC_SEQ = #{exec_seq}
+		AND TABLE_OWNER = #{table_owner}
+		AND TABLE_NAME = #{table_name} 
+	</select>
+	
+	<update id="deleteIndexDesign" parameterType="accPathIndexDesign">
+		/* IndexDesignMaintenanceDao.deleteIndexDesign */
+		DELETE FROM ACC_PATH_INDEX_DESIGN  
+		WHERE DBID = #{dbid}
+		AND EXEC_SEQ = #{exec_seq}
+		AND TABLE_OWNER = #{table_owner}
+		AND TABLE_NAME = #{table_name} 
+	</update>
+	
+	<select id="getMaxIndexSeq" parameterType="accPathIndexDesign" resultType="string">
+		/* IndexDesignMaintenanceDao.getMaxIndexSeq */
+		SELECT NVL(MAX(INDEX_SEQ) + 1, 1) AS INDEX_SEQ
+		FROM ACC_PATH_INDEX_DESIGN
+		WHERE DBID = #{dbid}
+		AND EXEC_SEQ = #{exec_seq}
+		AND TABLE_OWNER = #{table_owner}
+		AND TABLE_NAME = #{table_name}
+	</select>
+	
+	<insert id="insertIndexDesign" parameterType="accPathIndexDesign">
+		/* IndexDesignMaintenanceDao.insertIndexDesign */
+		INSERT INTO ACC_PATH_INDEX_DESIGN (DBID, EXEC_SEQ, TABLE_OWNER, TABLE_NAME, INDEX_SEQ, INDEX_COLUMN_LIST, REG_DT ) 
+		VALUES (#{dbid}, #{exec_seq}, #{table_owner}, #{table_name}, #{index_seq}, #{index_column_list}, SYSDATE) 
+	</insert>	
+	
+	<select id="idxAdMstList" parameterType="idxAdMst" resultType="idxAdMst">
+		/* IndexDesignMaintenanceDao.idxAdMstList */
+		SELECT TABLE_NAME, 
+			ROW_NUMBER() OVER(PARTITION BY TABLE_NAME ORDER BY ACCESS_PATH_COLUMN_LIST) SEQ, 
+			RECOMMEND_TYPE, 
+			ACCESS_PATH_COLUMN_LIST, 
+			SOURCE_INDEX_NAME,
+			SOURCE_INDEX_COLUMN_LIST
+		FROM  IDX_AD_MST A, IDX_AD_RECOMMEND_INDEX B
+		WHERE A.IDX_AD_NO =  B.IDX_AD_NO
+		AND A.DBID = #{dbid}
+		AND A.EXEC_SEQ = #{exec_seq}
+		AND A.IDX_AD_NO = #{idx_ad_no}
+		AND B.TABLE_OWNER = #{table_owner}
+		AND B.TABLE_NAME = #{table_name}
+	</select>	
+	
+	<select id="indexDesignList" parameterType="accPathIndexDesign" resultType="accPathIndexDesign">
+		/* IndexDesignMaintenanceDao.indexDesignList */
+		SELECT TABLE_OWNER, TABLE_NAME, INDEX_SEQ, INDEX_COLUMN_LIST 
+		FROM ACC_PATH_INDEX_DESIGN
+		WHERE DBID = #{dbid}		
+		AND EXEC_SEQ = #{exec_seq}
+	</select>	
+</mapper>

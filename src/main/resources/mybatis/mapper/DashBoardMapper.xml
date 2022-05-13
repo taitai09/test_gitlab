@@ -1,0 +1,1718 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="omc.spop.dao.DashBoardDao">
+<!-- 	<select id="getDbCheckResult" parameterType="dbCheck" resultType="dbCheck"> -->
+<!-- 		SELECT 'RED' STATUS, 10 CNT FROM DUAL -->
+<!-- 		UNION ALL -->
+<!-- 		SELECT 'YELLOW' STATUS, 5 CNT FROM DUAL -->
+<!-- 		UNION ALL -->
+<!-- 		SELECT 'GREEN' STATUS, 7 CNT FROM DUAL -->
+<!-- 		UNION ALL -->
+<!-- 		SELECT 'NONE' STATUS, 2 CNT FROM DUAL -->
+<!-- 	</select> -->
+
+	<select id="getDbCheckResult" parameterType="dbCheck" resultType="dbCheck">
+		/* DashBoardDao.getDbCheckResult */
+		/* DB점검결과(파이그래프) */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001')		    
+		)
+		,CHECK_ACT_DAY AS
+		(
+		    SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+		    FROM (
+		        SELECT A.DBID, A.CHECK_DAY, A.CHECK_SEQ, A.CHECK_DT,
+		               MAX(A.CHECK_SEQ) OVER(PARTITION BY A.DBID, A.CHECK_DAY) MAX_CHECK_SEQ
+		        FROM DB_CHECK_EXEC A, DB_PRIV B
+		        WHERE A.DBID = B.DBID
+		        AND A.AUTO_MANUAL_CHECK_DIV_CD = 'A'
+		        AND A.CHECK_DAY = (SELECT MAX(CHECK_DAY) FROM DB_CHECK_EXEC)
+		    )
+		    WHERE CHECK_SEQ = MAX_CHECK_SEQ
+		)
+		SELECT (CASE 
+		            WHEN CRITICAL_CNT > 0 THEN 'RED' 
+		            WHEN CRITICAL_CNT = 0 AND WARNING_CNT > 0 THEN 'YELLOW' 
+		            WHEN CRITICAL_CNT = 0 AND WARNING_CNT = 0 THEN 'GREEN' 
+		            WHEN CRITICAL_CNT IS NULL AND WARNING_CNT IS NULL THEN 'NONE'
+		            ELSE 'NONE'
+		        END) STATUS,
+		        SUM(CASE 
+		            WHEN CRITICAL_CNT > 0 THEN 1
+		            WHEN CRITICAL_CNT = 0 AND WARNING_CNT > 0 THEN 1
+		            WHEN CRITICAL_CNT = 0 AND WARNING_CNT = 0 THEN 1
+		            WHEN CRITICAL_CNT IS NULL AND WARNING_CNT IS NULL THEN 1
+		            ELSE 1
+		        END) CNT
+		FROM 
+		(
+		SELECT DBID,
+		       SUM(CASE WHEN CHECK_GRADE_CD = '1' THEN CHECK_VALUE1 END) AS WARNING_CNT,
+		       SUM(CASE WHEN CHECK_GRADE_CD = '2' THEN CHECK_VALUE1 END) AS CRITICAL_CNT
+		FROM (SELECT A.DBID, A.DB_NAME, A.ORDERING, B.CHECK_PREF_ID, CHECK_GRADE_CD, B.CHECK_VALUE1
+		      FROM (SELECT D.DBID, D.DB_NAME, D.ORDERING
+		            FROM DATABASE D, USER_DB_PRIVILEGE U
+		            WHERE D.DBID = U.DBID
+		            AND D.USE_YN = 'Y'
+		            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN U.PRIVILEGE_START_DAY AND U.PRIVILEGE_END_DAY
+		            AND U.USER_ID = #{user_id}
+		            
+                    AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001')		            
+		            ) A 
+		       LEFT OUTER JOIN (SELECT C.*, A.CHECK_GRADE_CD
+		                        FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B, DB_CHECK_SUMMARY C, CHECK_ACT_DAY D
+		                        WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+		                        AND A.CHECK_PREF_ID = C.CHECK_PREF_ID
+		                        AND C.CHECK_DAY = D.CHECK_DAY
+		                        AND C.CHECK_SEQ = D.CHECK_SEQ
+		                        AND C.DBID = D.DBID
+		                        AND A.CHECK_ENABLE_YN = 'Y'
+		                        AND B.CHECK_ENABLE_YN(+) = 'Y'
+		                        AND C.CHECK_DAY = (SELECT MAX(CHECK_DAY) FROM DB_CHECK_EXEC)
+		                        --AND A.CHECK_GRADE_CD = '2'
+		                        ) B
+		                        PARTITION BY(B.CHECK_PREF_ID)
+		            ON A.DBID = B.DBID)
+		GROUP BY DBID
+		)
+		GROUP BY (CASE 
+		            WHEN CRITICAL_CNT > 0 THEN 'RED' 
+		            WHEN CRITICAL_CNT = 0 AND WARNING_CNT > 0 THEN 'YELLOW' 
+		            WHEN CRITICAL_CNT = 0 AND WARNING_CNT = 0 THEN 'GREEN' 
+		            WHEN CRITICAL_CNT IS NULL AND WARNING_CNT IS NULL THEN 'NONE'
+		            ELSE 'NONE' 
+		        END)	
+	</select>
+	
+	<select id="getDbCheckResult_" parameterType="dbCheck" resultType="dbCheck">
+		/* DashBoardDao.getDbCheckResult_ */
+		/* DB점검결과(파이그래프) */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001')		    
+		)
+		,CHECK_ACT_DAY AS
+		(
+		    SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+		    FROM (
+		        SELECT A.DBID, A.CHECK_DAY, A.CHECK_SEQ, A.CHECK_DT,
+		               MAX(A.CHECK_SEQ) OVER(PARTITION BY A.DBID, A.CHECK_DAY) MAX_CHECK_SEQ
+		        FROM DB_CHECK_EXEC A, DB_PRIV B
+		        WHERE A.DBID = B.DBID
+		        AND A.AUTO_MANUAL_CHECK_DIV_CD = 'A'
+		        AND A.CHECK_DAY = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		    )
+		    WHERE CHECK_SEQ = MAX_CHECK_SEQ
+		)
+		SELECT 
+			CASE WHEN LV = 1 THEN 'RED' 
+			WHEN LV = 2 THEN 'YELLOW' 
+			WHEN LV = 3 THEN 'GREEN' 
+			WHEN LV = 4 THEN 'NONE' END STATUS
+			, NVL(CRITICAL_CNT,0) CNT
+		FROM
+		(
+			SELECT LV, DECODE(LV,1,RED,2,YELLOW,3,GREEN,4,NONE) CRITICAL_CNT
+			FROM(		
+				SELECT SUM(CASE WHEN CRITICAL_CNT > 0 THEN 1 ELSE 0 END) RED,
+				       SUM(CASE WHEN CRITICAL_CNT = 0 AND WARNING_CNT > 0 THEN 1 ELSE 0 END) YELLOW,
+				       SUM(CASE WHEN CRITICAL_CNT = 0 AND WARNING_CNT = 0 THEN 1 ELSE 0 END) GREEN,
+				       SUM(CASE WHEN CRITICAL_CNT IS NULL AND WARNING_CNT IS NULL THEN 1 ELSE 0 END) NONE
+				FROM 
+				(
+				SELECT DBID,
+				       SUM(CASE WHEN CHECK_GRADE_CD = '1' THEN CHECK_VALUE1 END) AS WARNING_CNT,
+				       SUM(CASE WHEN CHECK_GRADE_CD IN ('2', '3') THEN CHECK_VALUE1 END) AS CRITICAL_CNT
+				FROM (SELECT A.DBID, A.DB_NAME, A.ORDERING, B.CHECK_PREF_ID, CHECK_GRADE_CD, B.CHECK_VALUE1
+				      FROM (SELECT D.DBID, D.DB_NAME, D.ORDERING
+				            FROM DATABASE D, USER_DB_PRIVILEGE U
+				            WHERE D.DBID = U.DBID
+				            AND D.USE_YN = 'Y'
+				            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN U.PRIVILEGE_START_DAY AND U.PRIVILEGE_END_DAY
+				            AND U.USER_ID = #{user_id}
+
+            				AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+							                              FROM SPOP_PREFERENCES 
+							                             WHERE PREF_ID = '22001')				            
+				            ) A 
+				       LEFT OUTER JOIN (SELECT C.*, A.CHECK_GRADE_CD
+				                        FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B, DB_CHECK_SUMMARY C, CHECK_ACT_DAY D
+				                        WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+				                        AND A.CHECK_PREF_ID = C.CHECK_PREF_ID
+				                        AND C.CHECK_DAY = D.CHECK_DAY
+				                        AND C.CHECK_SEQ = D.CHECK_SEQ
+				                        AND C.DBID = D.DBID
+				                        AND A.CHECK_ENABLE_YN = 'Y'
+				                        AND B.CHECK_ENABLE_YN(+) = 'Y'
+				                        AND C.CHECK_DAY = #{check_day}
+				                        AND A.CHECK_GRADE_CD IN ('1', '2', '3') ) B
+				                        PARTITION BY(B.CHECK_PREF_ID)
+				            ON A.DBID = B.DBID)
+				GROUP BY DBID
+				)A
+		),
+		(
+		    SELECT LEVEL LV
+		    FROM DUAL CONNECT BY LEVEL <![CDATA[<=]]> 4) 
+		)    
+	</select>
+	<select id="getUrgentActionCondition" parameterType="dbCheckConfig" resultType="dbCheckConfig">
+		/* DashBoardDao.getUrgentActionCondition */
+		/* 긴급조치현황(막대그래프) */
+		SELECT B.CHECK_PREF_ID, 
+		       B.CHECK_PREF_NM,
+		       SUM(CASE WHEN B.CHECK_VALUE1 > 0 THEN 1 ELSE 0 END) CNT
+		  FROM (SELECT D.DBID, D.DB_NAME, D.ORDERING
+		        FROM DATABASE D, USER_DB_PRIVILEGE U
+		        WHERE D.DBID = U.DBID
+		        AND D.USE_YN = 'Y'
+		        AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN U.PRIVILEGE_START_DAY AND U.PRIVILEGE_END_DAY
+		        AND U.USER_ID = #{user_id}
+                AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                  FROM SPOP_PREFERENCES 
+                                 WHERE PREF_ID = '22001')  		        
+		        ) A 
+		   LEFT OUTER JOIN (SELECT /*+ LEADING(D) */
+		                           C.DBID, A.CHECK_PREF_ID, A.CHECK_PREF_NM, C.CHECK_VALUE1
+		                    FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B, DB_CHECK_SUMMARY C, 
+		                         (
+		                          SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+		                            FROM (
+		                                SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT,
+		                                       MAX(CHECK_SEQ) OVER(PARTITION BY DBID, CHECK_DAY) MAX_CHECK_SEQ
+		                                FROM DB_CHECK_EXEC
+		                                WHERE AUTO_MANUAL_CHECK_DIV_CD = 'A'
+		                                AND CHECK_DAY = (SELECT MAX(CHECK_DAY) FROM DB_CHECK_EXEC)
+		                            )
+		                            WHERE CHECK_SEQ = MAX_CHECK_SEQ
+		                         ) D
+		                    WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+		                    AND A.CHECK_PREF_ID = C.CHECK_PREF_ID
+		                    AND C.DBID = D.DBID
+		                    AND C.CHECK_DAY = D.CHECK_DAY
+		                    AND C.CHECK_SEQ = D.CHECK_SEQ     
+		                    AND A.CHECK_ENABLE_YN = 'Y'
+		                    AND B.CHECK_ENABLE_YN(+) = 'Y'
+		                    AND A.EMERGENCY_ACTION_YN = 'Y'
+		                    ) B
+		                    PARTITION BY(B.CHECK_PREF_ID, B.CHECK_PREF_NM)
+		        ON A.DBID = B.DBID
+		GROUP BY B.CHECK_PREF_ID, B.CHECK_PREF_NM
+		HAVING SUM(CASE WHEN B.CHECK_VALUE1 > 0 THEN 1 ELSE 0 END) > 0
+		ORDER BY B.CHECK_PREF_ID
+	</select>
+	<!-- 성능개선작업현황 -->	
+	<!-- 선정/요청 : 1, 2, 4 -->	
+	<!-- 접수 : 3 -->	
+	<!-- 튜닝중 : 5 -->	
+	<!-- 적용대기 : 6 -->	
+	<!-- 적용반려 : 7 -->	
+	<!-- 튜닝종료 : 8 -->	
+	<!-- 지연 -->	
+	<select id="getPerfImprWorkCondition" parameterType="perfImprWorkCond" resultType="perfImprWorkCond">
+		/* DashBoardDao.getPerfImprWorkCondition */
+		/* 성능개선작업현황 */	
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+		    
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001') 		    
+		)
+		,PERF_LIST AS
+		(
+		    SELECT A.DBID
+		        ,(CASE WHEN TO_CHAR(A.TUNING_REQUEST_DT, 'YYYYMMDD') >= TO_CHAR(SYSDATE-1, 'YYYYMMDD') THEN 'Y' ELSE 'N' END) AS TODAY_YN
+		        ,(CASE 
+		            WHEN A.TUNING_STATUS_CD IN ('1', '2', '4') THEN '01' -- 선정/요청
+		            WHEN A.TUNING_STATUS_CD IN ('3') THEN '02'           -- 접수
+		            WHEN A.TUNING_STATUS_CD IN ('5') THEN '03'           -- 튜닝중
+		            WHEN A.TUNING_STATUS_CD IN ('6') THEN '04'           -- 적용대기
+		            WHEN A.TUNING_STATUS_CD IN ('7') THEN '05'           -- 적용반려
+		            WHEN A.TUNING_STATUS_CD IN ('8') THEN '06'           -- 튜닝종료
+		        END) AS PROCESS_GUBUN
+		       ,A.TUNING_STATUS_CD
+		       ,A.TUNING_REQUEST_DT
+		       ,A.TUNING_COMPLETE_DUE_DT
+		       ,B.TUNING_APPLY_RCESS_DT
+		       ,B.TUNING_COMPLETE_DT
+		    FROM DB_PRIV DP, TUNING_TARGET_SQL A, SQL_TUNING B
+		    WHERE DP.DBID = A.DBID
+		    AND A.TUNING_NO = B.TUNING_NO(+)
+		)
+		, DELAY_DAY AS
+		(
+		    SELECT /*+ MATERIALIZE */
+		           MAX(CASE WHEN A.PREF_ID = 20001 THEN TO_NUMBER(NVL(A.DEFAULT_PREF_VALUE, 10)) ELSE 0 END) AS TUNING_DELAY_DAYS,
+		           MAX(CASE WHEN A.PREF_ID = 20002 THEN TO_NUMBER(NVL(A.DEFAULT_PREF_VALUE, 10)) ELSE 0 END) AS TUNING_APPLY_DELAY_DAYS
+		    FROM SPOP_PREFERENCES A
+		    WHERE A.PREF_ID IN (20001, 20002)
+		)
+		, PERF_LIST2 AS
+		(
+		    SELECT A.TODAY_YN, A.PROCESS_GUBUN,
+		           (CASE 
+		                WHEN TUNING_STATUS_CD IN ('2', '3', '5') AND TUNING_REQUEST_DT <![CDATA[<=]]> SYSDATE - TUNING_DELAY_DAYS AND TUNING_COMPLETE_DUE_DT IS NULL THEN 'Y' 
+		                WHEN TUNING_STATUS_CD IN ('2', '3', '5') AND TUNING_COMPLETE_DUE_DT <![CDATA[<]]> SYSDATE AND TUNING_COMPLETE_DUE_DT IS NOT NULL THEN 'Y'
+		                WHEN TUNING_STATUS_CD IN ('7') AND TUNING_APPLY_RCESS_DT <![CDATA[<=]]> SYSDATE - TUNING_DELAY_DAYS THEN 'Y'
+		                ELSE 'N'
+		            END) TUNING_DELAY_YN,
+		            (CASE WHEN TUNING_STATUS_CD = '6' AND TUNING_COMPLETE_DT <![CDATA[<=]]> SYSDATE - TUNING_APPLY_DELAY_DAYS THEN 'Y' ELSE 'N' END) TUNING_APPLY_DELAY_YN
+		    FROM PERF_LIST A, DELAY_DAY B
+		    
+		)
+		SELECT SUM(CASE WHEN TODAY_YN = 'Y' THEN 1 ELSE 0 END) AS TODAY_ADD_REQUEST /* 당일추가_요청 */
+		    ,SUM(CASE WHEN TODAY_YN = 'Y' AND PROCESS_GUBUN = '02' THEN 1 ELSE 0 END) AS TODAY_ADD_RECEIPT /* 당일추가_접수 */
+		    ,SUM(CASE WHEN TODAY_YN = 'Y' AND PROCESS_GUBUN = '03' THEN 1 ELSE 0 END) AS TODAY_ADD_TUNING /* 당일추가_튜닝중 */
+		    ,SUM(CASE WHEN TODAY_YN = 'Y' AND PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS TODAY_ADD_APPLY_WAIT /* 당일추가_적용대기 */
+		    ,SUM(CASE WHEN TODAY_YN = 'Y' AND PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS TODAY_ADD_APPLY_REJECT /* 당일추가_적용반려 */
+		    ,SUM(CASE WHEN TODAY_YN = 'Y' AND PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS TODAY_ADD_TUNING_FINISH /* 당일추가_튜닝종료 */
+		    ,SUM(CASE WHEN TODAY_YN = 'Y' AND TUNING_DELAY_YN = 'Y' THEN 1 ELSE 0 END) AS TODAY_ADD_TUNING_DELAY /* 당일추가_튜닝지연 */
+		    ,SUM(CASE WHEN TODAY_YN = 'Y' AND TUNING_APPLY_DELAY_YN = 'Y' THEN 1 ELSE 0 END) AS TODAY_ADD_APPLY_DELAY /* 당일추가_적용지연 */
+		    ,SUM(CASE WHEN TODAY_YN = 'N' THEN 1 ELSE 0 END) AS DAY_BEFORE_ACCUM_REQUEST /* 전일누적_요청 */
+		    ,SUM(CASE WHEN TODAY_YN = 'N' AND PROCESS_GUBUN = '02' THEN 1 ELSE 0 END) AS DAY_BEFORE_ACCUM_RECEIPT /* 전일누적_접수 */
+		    ,SUM(CASE WHEN TODAY_YN = 'N' AND PROCESS_GUBUN = '03' THEN 1 ELSE 0 END) AS DAY_BEFORE_ACCUM_TUNING /* 전일누적_튜닝중 */
+		    ,SUM(CASE WHEN TODAY_YN = 'N' AND PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS DAY_BEFORE_ACCUM_APPLY_WAIT /* 전일누적_적용대기 */
+		    ,SUM(CASE WHEN TODAY_YN = 'N' AND PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS DAY_BEFORE_ACCUM_APPLY_REJECT /* 전일누적_적용반려 */
+		    ,SUM(CASE WHEN TODAY_YN = 'N' AND PROCESS_GUBUN = '04' THEN 1 ELSE 0 END) AS DAY_BEFORE_ACCUM_TUNING_FINISH /* 전일누적_튜닝종료 */
+		    ,SUM(CASE WHEN TODAY_YN = 'N' AND TUNING_DELAY_YN = 'Y' THEN 1 ELSE 0 END) AS DAY_BEFORE_ACCUM_TUNING_DELAY /* 전일누적_지연 */
+		    ,SUM(CASE WHEN TODAY_YN = 'N' AND TUNING_APPLY_DELAY_YN = 'Y' THEN 1 ELSE 0 END) AS DAY_BEFORE_ACCUM_APPLY_DELAY /* 전일누적_적용지연 */
+		FROM PERF_LIST2 A
+	</select>
+
+	<select id="getPerfImprCondition" parameterType="database" resultType="perfImprCondition">
+		/* DashBoardDao.getPerfImprCondition */
+		/* 성능개선작업현황 */	
+		WITH DB_PRIV AS  --로그인한 DBA가 담당하는 DB목록
+		(
+		    SELECT /*+ MATERIALIZE */
+		           UDP.DBID, DB.DB_NAME
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = DB.DBID
+		    AND DB.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+		)
+		SELECT (CASE 
+		            WHEN LVL = 1 THEN '튜닝요청' 
+		            WHEN LVL = 2 THEN '튜닝완료'
+		            WHEN LVL = 3 THEN '튜닝보류'
+		            WHEN LVL = 4 THEN '수행시간개선율(%)'
+		            WHEN LVL = 5 THEN '블럭개선율(%)'
+		            WHEN LVL = 6 THEN '튜닝중'
+		        END) type, --구분
+		       (CASE 
+		            WHEN LVL = 1 THEN 전체_튜닝요청
+		            WHEN LVL = 2 THEN 전체_튜닝완료
+		            WHEN LVL = 3 THEN 전체_튜닝보류
+		            WHEN LVL = 4 THEN ROUND((1-(DECODE(전체_튜닝후_수행시간, 0, 1, 전체_튜닝후_수행시간)/DECODE(전체_튜닝전_수행시간, 0, 1, 전체_튜닝전_수행시간))) * 100, 2)
+		            WHEN LVL = 5 THEN ROUND((1-(DECODE(전체_튜닝후_블럭수, 0, 1, 전체_튜닝후_블럭수)/DECODE(전체_튜닝전_블럭수, 0, 1, 전체_튜닝전_블럭수))) * 100, 2)
+		            WHEN LVL = 6 THEN 튜닝중
+		        END) tot_sum, --전체누적
+		       (CASE 
+		            WHEN LVL = 1 THEN 금년_튜닝요청
+		            WHEN LVL = 2 THEN 금년_튜닝완료
+		            WHEN LVL = 3 THEN 금년_튜닝보류
+		            WHEN LVL = 4 THEN ROUND((1-(DECODE(금년_튜닝후_수행시간, 0, 1, 금년_튜닝후_수행시간)/DECODE(금년_튜닝전_수행시간, 0, 1, 금년_튜닝전_수행시간))) * 100, 2) 
+		            WHEN LVL = 5 THEN ROUND((1-(DECODE(금년_튜닝후_블럭수, 0, 1, 금년_튜닝후_블럭수)/DECODE(금년_튜닝전_블럭수, 0, 1, 금년_튜닝전_블럭수))) * 100, 2)
+		            WHEN LVL = 6 THEN NULL
+		        END) this_year, --금년
+		       (CASE 
+		            WHEN LVL = 1 THEN 금월_튜닝요청
+		            WHEN LVL = 2 THEN 금월_튜닝완료
+		            WHEN LVL = 3 THEN 금월_튜닝보류
+		            WHEN LVL = 4 THEN ROUND((1-(DECODE(금월_튜닝후_수행시간, 0, 1, 금월_튜닝후_수행시간)/DECODE(금월_튜닝전_수행시간, 0, 1, 금년_튜닝전_수행시간))) * 100, 2)
+		            WHEN LVL = 5 THEN ROUND((1-(DECODE(금월_튜닝후_블럭수, 0, 1, 금월_튜닝후_블럭수)/DECODE(금월_튜닝전_블럭수, 0, 1, 금년_튜닝전_블럭수))) * 100, 2)
+		            WHEN LVL = 6 THEN NULL
+		        END) this_month, --금월
+		       (CASE 
+		            WHEN LVL = 2 THEN '완료율 ' || ROUND(전체_튜닝완료/전체_튜닝요청*100, 2) || '%'
+		            WHEN LVL = 3 THEN '보류율 ' || ROUND(전체_튜닝보류/전체_튜닝요청*100, 2) || '%'
+		        END) note --비고        
+		        
+		FROM (
+		    SELECT COUNT(*) 전체_튜닝요청, 
+		           SUM(CASE WHEN TUNING_STATUS_CD = '8' THEN 1 ELSE 0 END) 전체_튜닝완료,
+		           SUM(CASE WHEN TUNING_STATUS_CD = '4' THEN 1 ELSE 0 END) 전체_튜닝보류,
+		           SUM(CASE WHEN TUNING_STATUS_CD = '8' AND IMPRB_ELAP_TIME IS NOT NULL AND IMPRA_ELAP_TIME IS NOT NULL THEN IMPRB_ELAP_TIME ELSE 0 END) 전체_튜닝전_수행시간,
+		           SUM(CASE WHEN TUNING_STATUS_CD = '8' AND IMPRB_ELAP_TIME IS NOT NULL AND IMPRA_ELAP_TIME IS NOT NULL THEN IMPRA_ELAP_TIME ELSE 0 END) 전체_튜닝후_수행시간,
+		           SUM(CASE WHEN TUNING_STATUS_CD = '8' AND IMPRB_BUFFER_CNT IS NOT NULL AND IMPRA_BUFFER_CNT IS NOT NULL THEN IMPRB_BUFFER_CNT ELSE 0 END) 전체_튜닝전_블럭수,
+		           SUM(CASE WHEN TUNING_STATUS_CD = '8' AND IMPRB_BUFFER_CNT IS NOT NULL AND IMPRA_BUFFER_CNT IS NOT NULL THEN IMPRA_BUFFER_CNT ELSE 0 END) 전체_튜닝후_블럭수,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'Y') THEN 1 ELSE 0 END) 금년_튜닝요청,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'Y') AND TUNING_STATUS_CD = '8' THEN 1 ELSE 0 END) 금년_튜닝완료,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'Y') AND TUNING_STATUS_CD = '4' THEN 1 ELSE 0 END) 금년_튜닝보류,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'Y') AND TUNING_STATUS_CD = '8' AND IMPRB_ELAP_TIME IS NOT NULL AND IMPRA_ELAP_TIME IS NOT NULL THEN IMPRB_ELAP_TIME ELSE 0 END) 금년_튜닝전_수행시간,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'Y') AND TUNING_STATUS_CD = '8' AND IMPRB_ELAP_TIME IS NOT NULL AND IMPRA_ELAP_TIME IS NOT NULL THEN IMPRA_ELAP_TIME ELSE 0 END) 금년_튜닝후_수행시간,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'Y') AND TUNING_STATUS_CD = '8' AND IMPRB_BUFFER_CNT IS NOT NULL AND IMPRA_BUFFER_CNT IS NOT NULL THEN IMPRB_BUFFER_CNT ELSE 0 END) 금년_튜닝전_블럭수,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'Y') AND TUNING_STATUS_CD = '8' AND IMPRB_BUFFER_CNT IS NOT NULL AND IMPRA_BUFFER_CNT IS NOT NULL THEN IMPRA_BUFFER_CNT ELSE 0 END) 금년_튜닝후_블럭수,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) 금월_튜닝요청,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'MM') AND TUNING_STATUS_CD = '8' THEN 1 ELSE 0 END) 금월_튜닝완료,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'MM') AND TUNING_STATUS_CD = '4' THEN 1 ELSE 0 END) 금월_튜닝보류,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'MM') AND TUNING_STATUS_CD = '8' AND IMPRB_ELAP_TIME IS NOT NULL AND IMPRA_ELAP_TIME IS NOT NULL THEN IMPRB_ELAP_TIME ELSE 0 END) 금월_튜닝전_수행시간,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'MM') AND TUNING_STATUS_CD = '8' AND IMPRB_ELAP_TIME IS NOT NULL AND IMPRA_ELAP_TIME IS NOT NULL THEN IMPRA_ELAP_TIME ELSE 0 END) 금월_튜닝후_수행시간,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'MM') AND TUNING_STATUS_CD = '8' AND IMPRB_BUFFER_CNT IS NOT NULL AND IMPRA_BUFFER_CNT IS NOT NULL THEN IMPRB_BUFFER_CNT ELSE 0 END) 금월_튜닝전_블럭수,
+		           SUM(CASE WHEN TUNING_REQUEST_DT >= TRUNC(SYSDATE, 'MM') AND TUNING_STATUS_CD = '8' AND IMPRB_BUFFER_CNT IS NOT NULL AND IMPRA_BUFFER_CNT IS NOT NULL THEN IMPRA_BUFFER_CNT ELSE 0 END) 금월_튜닝후_블럭수,
+		           SUM(CASE WHEN TUNING_STATUS_CD <![CDATA[<>]]> '8' THEN 1 ELSE 0 END) 튜닝중
+		    FROM TUNING_TARGET_SQL A, SQL_TUNING B, DB_PRIV DP
+		    WHERE A.TUNING_NO = B.TUNING_NO(+)
+		    AND A.DBID = DP.DBID) A,
+		    (SELECT LEVEL LVL FROM DUAL CONNECT BY LEVEL <![CDATA[<=]]> 6)
+	</select>
+	
+	<select id="getIncompleteTuningList" parameterType="database" resultType="database">
+		/* DashBoardDao.getIncompleteTuningList*/
+		/* cnt : 미완료건수 */
+	  /* 로그인한 DBA가 담당하는 DB목록 */
+		WITH DB_PRIV AS
+		(
+		    SELECT /*+ MATERIALIZE */
+		           UDP.DBID, DB.DB_NAME
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = DB.DBID
+		    AND DB.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id} -- 로그인ID
+		)
+		SELECT DB_NAME, 
+		       CNT
+		FROM (
+		    SELECT B.DB_NAME, 
+		           COUNT(*) CNT,
+		           RANK() OVER(ORDER BY COUNT(*) DESC) AS RANK
+		    FROM TUNING_TARGET_SQL A, DB_PRIV B
+		    WHERE A.DBID = B.DBID
+		    AND A.TUNING_STATUS_CD <![CDATA[<>]]> '8'
+		    GROUP BY B.DB_NAME
+		    ) 
+		WHERE RANK <![CDATA[<=]]> 10
+		ORDER BY DB_NAME	
+	</select>
+	
+	<select id="getAppPerfCheck_test" parameterType="wrkJobCd" resultType="wrkJobCd">
+		/* DashBoardDao.getAppPerfCheck*/
+		/* APP성능진단 */
+		SELECT 'BIZHUP' WRKJOB_CD_NM, 1000 TIMEOUT_CNT, 1500 REPLYTIMEINC_CNT from dual
+		union all
+		SELECT '계정계' WRKJOB_CD_NM, 1500 TIMEOUT_CNT, 500 REPLYTIMEINC_CNT from dual
+	</select>
+		
+	<select id="getAppPerfCheck" parameterType="wrkJobCd" resultType="wrkJobCd">
+		/* DashBoardDao.getAppPerfCheck*/
+		/* APP성능진단 */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+            
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001')
+		)
+		SELECT WRKJOB_CD, WRKJOB_CD_NM
+		, MAX(CASE WHEN CD = 1 THEN CD_NM END) TIMEOUT
+		, MAX(CASE WHEN CD = 1 THEN CNT END) TIMEOUT_CNT
+		, MAX(CASE WHEN CD = 2 THEN CD_NM END) REPLYTIMEINC
+		, MAX(CASE WHEN CD = 2 THEN CNT END) REPLYTIMEINC_CNT
+		from (
+			SELECT A.WRKJOB_CD, B.WRKJOB_CD_NM, C.CD
+			, C.CD_NM
+			, COUNT(*) CNT
+			FROM TRCD_PERF_SUM A, WRKJOB_CD B, WRKJOB_DB WD, CD C, DB_PRIV DP
+			WHERE A.WRKJOB_CD = B.WRKJOB_CD
+            AND B.WRKJOB_CD = WD.WRKJOB_CD
+			AND A.TR_PERF_INDC_TYPE_CD = C.CD
+			AND WD.DBID = DP.DBID
+			AND C.GRP_CD_ID = '1034'
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM TRCD_PERF_SUM)
+			GROUP BY A.WRKJOB_CD, B.WRKJOB_CD_NM, C.CD,C.CD_NM
+		)
+		GROUP BY WRKJOB_CD, WRKJOB_CD_NM		
+	</select>
+	
+	<select id="getAppPerfCheck_old_jmg" parameterType="wrkJobCd" resultType="wrkJobCd">
+		/* DashBoardDao.getAppPerfCheck*/
+		/* APP성능진단 */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001')  		    
+		)
+		SELECT WRKJOB_CD, WRKJOB_CD_NM
+		, MAX(CASE WHEN CD = 1 THEN CD_NM END) TIMEOUT
+		, MAX(CASE WHEN CD = 1 THEN CNT END) TIMEOUT_CNT
+		, MAX(CASE WHEN CD = 2 THEN CD_NM END) REPLYTIMEINC
+		, MAX(CASE WHEN CD = 2 THEN CNT END) REPLYTIMEINC_CNT
+		from (
+			SELECT A.WRKJOB_CD, B.WRKJOB_CD_NM, C.CD
+			, C.CD_NM
+			, COUNT(*) CNT
+			FROM TRCD_PERF_SUM A, WRKJOB_CD B, CD C, DB_PRIV DP
+			WHERE A.WRKJOB_CD = B.WRKJOB_CD
+			AND A.TR_PERF_INDC_TYPE_CD = C.CD
+			AND B.DBID = DP.DBID
+			AND C.GRP_CD_ID = '1034'
+			AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM TRCD_PERF_SUM)
+			GROUP BY A.WRKJOB_CD, B.WRKJOB_CD_NM, C.CD,C.CD_NM
+		)
+		GROUP BY WRKJOB_CD, WRKJOB_CD_NM	
+	</select>	
+	
+	<select id="getSqlPerfCheck" parameterType="wrkJobCd" resultType="wrkJobCd">
+		/* DashBoardDao.getSqlPerfCheck */
+		/* SQL성능진단 */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+		    
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001') 
+		)
+		SELECT C.CD_NM, SUM(DIAG_CNT) CNT
+		FROM DB_PRIV DP, SQL_DIAG_SUMMARY A, CD C
+		WHERE DP.DBID = A.DBID
+		AND A.SQL_DIAG_TYPE_CD = C.CD
+		AND C.GRP_CD_ID = '1042'
+		AND A.GATHER_DAY = (SELECT MAX(GATHER_DAY) FROM SQL_DIAG_SUMMARY)
+		GROUP BY C.CD_NM
+		--HAVING SUM(DIAG_CNT) > 0
+	</select>
+	
+	<select id="getReorgTargetCond" parameterType="reorgTargetCondition" resultType="reorgTargetCondition">
+		/* DashBoardDao.getReorgTargetCond */
+		/* Reorg대상현황 */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001') 		    
+		)
+		SELECT A.DBID, B.DB_NAME, CNT, RECLAIMABLE_SPACE
+		FROM (
+			SELECT B.DBID, COUNT(*) CNT, SUM(B.RECLAIMABLE_SPACE) RECLAIMABLE_SPACE
+		    FROM (SELECT A.DBID, MAX(A.GATHER_DAY) GATHER_DAY
+		          FROM REORG_RECOMMENDATION A, DB_PRIV DP
+		          WHERE A.DBID = DP.DBID
+		          GROUP BY A.DBID) A
+		        , REORG_RECOMMENDATION B
+		    WHERE A.DBID = B.DBID
+		    AND A.GATHER_DAY = B.GATHER_DAY
+		    GROUP BY B.DBID
+		    ORDER BY RECLAIMABLE_SPACE DESC
+		     ) A
+		   , DATABASE B
+		WHERE A.DBID = B.DBID
+		AND ROWNUM <![CDATA[<=]]> 10
+	</select>
+	
+	<select id="getReorgTargetCond_test" parameterType="reorgTargetCondition" resultType="reorgTargetCondition">
+			SELECT 201725528 DBID, 'COLLECT2' DB_NAME, 1000 CNT, 1500 RECLAIMABLE_SPACE from dual
+	</select>
+	
+	<select id="getObjectChangeCond_20180831" parameterType="objectChange" resultType="objectChange">
+		/* DashBoardDao.getObjectChangeCondition */
+		/* 오브젝트 변경현황(최근일주일) */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+		    
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001') 	  
+		), TABLE_HISTORY AS
+		(
+		    SELECT DBID, OBJECT_CHANGE_TYPE_CD, BASE_DAY, COUNT(*) CNT
+		    FROM DB_TABLE_HISTORY
+		    WHERE BASE_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		    GROUP BY DBID, OBJECT_CHANGE_TYPE_CD, BASE_DAY
+		), COLUMN_HISTORY AS
+		(
+		    SELECT DBID, OBJECT_CHANGE_TYPE_CD, BASE_DAY, COUNT(*) CNT
+		    FROM DB_TAB_COLUMN_HISTORY
+		    WHERE BASE_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		    GROUP BY DBID, OBJECT_CHANGE_TYPE_CD, BASE_DAY
+		), INDEX_HISTORY AS
+		(
+		    SELECT DBID, OBJECT_CHANGE_TYPE_CD, BASE_DAY, COUNT(*) CNT
+		    FROM DB_INDEX_HISTORY
+		    WHERE BASE_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		    GROUP BY DBID, OBJECT_CHANGE_TYPE_CD, BASE_DAY
+		)
+		SELECT TYPE, 
+		       NVL(TABLE_CREATE, 0) TABLE_CREATE, 
+		       NVL(TABLE_DROP, 0) TABLE_DROP, 
+		       NVL(TABLE_MODIFY, 0) TABLE_MODIFY, 
+		       NVL(COLUMN_ADD, 0) COLUMN_ADD, 
+		       NVL(COLUMN_DROP, 0) COLUMN_DROP, 
+		       NVL(COLUMN_MODIFY, 0) COLUMN_MODIFY, 
+		       NVL(INDEX_CREATE, 0) INDEX_CREATE, 
+		       NVL(INDEX_DROP, 0) INDEX_DROP, 
+		       NVL(INDEX_MODIFY, 0) INDEX_MODIFY
+		FROM (
+		SELECT '전일' AS TYPE,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '1' THEN T.CNT ELSE 0 END) TABLE_CREATE,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '3' THEN T.CNT ELSE 0 END) TABLE_DROP,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '2' THEN T.CNT ELSE 0 END) TABLE_MODIFY,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '1' THEN C.CNT ELSE 0 END) COLUMN_ADD,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '3' THEN C.CNT ELSE 0 END) COLUMN_DROP,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '2' THEN C.CNT ELSE 0 END) COLUMN_MODIFY,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '1' THEN I.CNT ELSE 0 END) INDEX_CREATE,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '3' THEN I.CNT ELSE 0 END) INDEX_DROP,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '2' THEN I.CNT ELSE 0 END) INDEX_MODIFY
+		FROM DB_PRIV DP, TABLE_HISTORY T, COLUMN_HISTORY C, INDEX_HISTORY I
+		WHERE DP.DBID = T.DBID(+)
+		AND DP.DBID = C.DBID(+)
+		AND DP.DBID = I.DBID(+)
+		AND T.BASE_DAY = TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+		AND C.BASE_DAY = TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+		AND I.BASE_DAY = TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+		UNION ALL
+		SELECT '최근1주일' AS TYPE,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '1' THEN T.CNT ELSE 0 END) TABLE_CREATE,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '3' THEN T.CNT ELSE 0 END) TABLE_DROP,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '2' THEN T.CNT ELSE 0 END) TABLE_MODIFY,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '1' THEN C.CNT ELSE 0 END) COLUMN_ADD,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '3' THEN C.CNT ELSE 0 END) COLUMN_DROP,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '2' THEN C.CNT ELSE 0 END) COLUMN_MODIFY,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '1' THEN I.CNT ELSE 0 END) INDEX_CREATE,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '3' THEN I.CNT ELSE 0 END) INDEX_DROP,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '2' THEN I.CNT ELSE 0 END) INDEX_MODIFY
+		FROM DB_PRIV DP, TABLE_HISTORY T, COLUMN_HISTORY C, INDEX_HISTORY I
+		WHERE DP.DBID = T.DBID(+)
+		AND DP.DBID = C.DBID(+)
+		AND DP.DBID = I.DBID(+)
+		AND T.BASE_DAY >= TO_CHAR(SYSDATE-7, 'YYYYMMDD')
+		AND C.BASE_DAY >= TO_CHAR(SYSDATE-7, 'YYYYMMDD')
+		AND I.BASE_DAY >= TO_CHAR(SYSDATE-7, 'YYYYMMDD')
+		UNION ALL
+		SELECT '최근1개월' AS TYPE,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '1' THEN T.CNT ELSE 0 END) TABLE_CREATE,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '3' THEN T.CNT ELSE 0 END) TABLE_DROP,
+		    SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '2' THEN T.CNT ELSE 0 END) TABLE_MODIFY,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '1' THEN C.CNT ELSE 0 END) COLUMN_ADD,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '3' THEN C.CNT ELSE 0 END) COLUMN_DROP,
+		    SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '2' THEN C.CNT ELSE 0 END) COLUMN_MODIFY,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '1' THEN I.CNT ELSE 0 END) INDEX_CREATE,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '3' THEN I.CNT ELSE 0 END) INDEX_DROP,
+		    SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '2' THEN I.CNT ELSE 0 END) INDEX_MODIFY
+		FROM DB_PRIV DP, TABLE_HISTORY T, COLUMN_HISTORY C, INDEX_HISTORY I
+		WHERE DP.DBID = T.DBID(+)
+		AND DP.DBID = C.DBID(+)
+		AND DP.DBID = I.DBID(+)
+		)
+	</select>
+	
+	<select id="getObjectChangeCondition" parameterType="objectChange" resultType="objectChange">
+		/* DashBoardDao.getObjectChangeCondition */
+		/* 오브젝트 변경현황(최근일주일) */
+		  WITH DB_PRIV AS
+		  ( SELECT UDP.DBID,
+		          D.DB_NAME,
+		          D.ORDERING
+		  FROM    USER_DB_PRIVILEGE UDP,
+		          USERS U,
+		          DATABASE D
+		  WHERE   UDP.USER_ID = U.USER_ID
+		  AND     UDP.DBID    = D.DBID
+		  AND     D.USE_YN    = 'Y'
+		  AND     TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND     UDP.PRIVILEGE_END_DAY
+		  AND     U.USER_ID = #{user_id} -- 로그인ID
+          AND     D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+			                             FROM SPOP_PREFERENCES 
+			                            WHERE PREF_ID = '22001') 		  
+		  )
+		  , TABLE_HISTORY AS
+		  ( SELECT  DBID,
+		           OBJECT_CHANGE_TYPE_CD,
+		           BASE_DAY,
+		           COUNT(*) CNT
+		  FROM     DB_TABLE_HISTORY
+		  WHERE    BASE_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		  GROUP BY DBID,
+		           OBJECT_CHANGE_TYPE_CD,
+		           BASE_DAY
+		  )
+		  , COLUMN_HISTORY AS
+		  ( SELECT  DBID,
+		           OBJECT_CHANGE_TYPE_CD,
+		           BASE_DAY,
+		           COUNT(*) CNT
+		  FROM     DB_TAB_COLUMN_HISTORY
+		  WHERE    BASE_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		  GROUP BY DBID,
+		           OBJECT_CHANGE_TYPE_CD,
+		           BASE_DAY
+		  )
+		  , INDEX_HISTORY AS
+		  ( SELECT  DBID,
+		           OBJECT_CHANGE_TYPE_CD,
+		           BASE_DAY,
+		           COUNT(*) CNT
+		  FROM     DB_INDEX_HISTORY
+		  WHERE    BASE_DAY >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		  GROUP BY DBID,
+		           OBJECT_CHANGE_TYPE_CD,
+		           BASE_DAY
+		  )
+	    SELECT '테이블' || A.CD_NM AS TYPE, NVL(B.YESTERDAY, 0) YESTERDAY, NVL(B.RECENT_ONE_WEEK, 0) RECENT_ONE_WEEK, NVL(B.RECENT_ONE_MONTH, 0) RECENT_ONE_MONTH
+	    FROM (SELECT CD, CD_NM
+	          FROM CD 
+	          WHERE GRP_CD_ID = '1038'
+	          ORDER BY CD) A LEFT OUTER JOIN
+	        (SELECT  T.OBJECT_CHANGE_TYPE_CD,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-1, 'YYYYMMDD') = T.BASE_DAY THEN CNT END) YESTERDAY,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-7, 'YYYYMMDD') <![CDATA[<=]]> T.BASE_DAY THEN CNT END) RECENT_ONE_WEEK,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-300, 'YYYYMMDD') <![CDATA[<=]]> T.BASE_DAY THEN CNT END) RECENT_ONE_MONTH
+	         FROM    DB_PRIV DP,
+	                 TABLE_HISTORY T
+	         WHERE   DP.DBID = T.DBID(+)
+	         GROUP BY T.OBJECT_CHANGE_TYPE_CD) B ON A.CD = B.OBJECT_CHANGE_TYPE_CD
+	    UNION ALL
+	    SELECT '컬럼' || A.CD_NM AS TYPE, NVL(B.YESTERDAY, 0) YESTERDAY, NVL(B.RECENT_ONE_WEEK, 0) RECENT_ONE_WEEK, NVL(B.RECENT_ONE_MONTH, 0) RECENT_ONE_MONTH
+	    FROM (SELECT CD, CD_NM
+	          FROM CD 
+	          WHERE GRP_CD_ID = '1038'
+	          ORDER BY CD) A LEFT OUTER JOIN
+	        (SELECT  T.OBJECT_CHANGE_TYPE_CD,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-1, 'YYYYMMDD') = T.BASE_DAY THEN CNT END) YESTERDAY,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-7, 'YYYYMMDD') <![CDATA[<=]]> T.BASE_DAY THEN CNT END) RECENT_ONE_WEEK,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-300, 'YYYYMMDD') <![CDATA[<=]]> T.BASE_DAY THEN CNT END) RECENT_ONE_MONTH
+	         FROM    DB_PRIV DP,
+	                 COLUMN_HISTORY T
+	         WHERE   DP.DBID = T.DBID(+)
+	         GROUP BY T.OBJECT_CHANGE_TYPE_CD) B ON A.CD = B.OBJECT_CHANGE_TYPE_CD
+	    UNION ALL
+	    SELECT '인덱스' || A.CD_NM AS TYPE, NVL(B.YESTERDAY, 0) YESTERDAY, NVL(B.RECENT_ONE_WEEK, 0) RECENT_ONE_WEEK, NVL(B.RECENT_ONE_MONTH, 0) RECENT_ONE_MONTH
+	    FROM (SELECT CD, CD_NM
+	          FROM CD 
+	          WHERE GRP_CD_ID = '1038'
+	          ORDER BY CD) A LEFT OUTER JOIN
+	        (SELECT  T.OBJECT_CHANGE_TYPE_CD,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-1, 'YYYYMMDD') = T.BASE_DAY THEN CNT END) YESTERDAY,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-7, 'YYYYMMDD') <![CDATA[<=]]> T.BASE_DAY THEN CNT END) RECENT_ONE_WEEK,
+	                 SUM(CASE WHEN TO_CHAR(SYSDATE-30, 'YYYYMMDD') <![CDATA[<=]]> T.BASE_DAY THEN CNT END) RECENT_ONE_MONTH
+	         FROM    DB_PRIV DP,
+	                 INDEX_HISTORY T
+	         WHERE   DP.DBID = T.DBID(+)
+	         GROUP BY T.OBJECT_CHANGE_TYPE_CD) B ON A.CD = B.OBJECT_CHANGE_TYPE_CD
+	    ORDER BY TYPE DESC
+	</select>	
+	
+	<select id="getResourceLimitPredict1" parameterType="resourceLimitPrediction" resultType="resourceLimitPrediction">
+		/* DashBoardDao.getResourceLimitPredict */
+		/* 자원한계점예측 */
+		WITH DB_PRIV AS  --로그인한 DBA가 담당하는 DB목록
+		(
+		    SELECT /*+ MATERIALIZE */
+		           UDP.DBID, DB.DB_NAME
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = DB.DBID
+		    AND DB.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id} -- 로그인ID
+            AND DB.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+			                             FROM SPOP_PREFERENCES 
+			                            WHERE PREF_ID = '22001') 		    
+		)
+		,DB_PREF AS 
+		(
+		    SELECT /*+ MATERIALIZE */
+		           A.DBID, A.DB_NAME, A.PREF_ID,
+		           TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS THRESHOLD
+		    FROM (SELECT /*+ LEADING(DB) */
+		                 DB.DBID, DB.DB_NAME, SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+		          FROM SPOP_PREFERENCES SP, DB_PRIV DB
+		          WHERE PREF_ID IN (21003, 21004, 21005)) A,
+		         (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                           , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+		                    FROM DB_PREFERENCES B
+		                   WHERE PREF_ID IN (21003, 21004, 21005)
+                      )  
+               WHERE PREF_SEQ = MAX_PREF_SEQ
+             ) B  
+		     WHERE A.DBID = B.DBID(+)
+		       AND A.PREF_ID = B.PREF_ID(+)
+		)
+		SELECT 'CPU' TYPE
+		       ,SUM(CASE WHEN C.AFTER_1_MONTH_CPU_USAGE > A.THRESHOLD THEN 1 ELSE 0 END) AFTER_1_MONTH /*1개월후*/
+		       ,SUM(CASE WHEN C.AFTER_2_MONTH_CPU_USAGE > A.THRESHOLD THEN 1 ELSE 0 END) AFTER_2_MONTH /*2개월후*/
+		       ,SUM(CASE WHEN C.AFTER_3_MONTH_CPU_USAGE > A.THRESHOLD THEN 1 ELSE 0 END) AFTER_3_MONTH /*3개월후*/
+		       ,SUM(CASE WHEN C.AFTER_6_MONTH_CPU_USAGE > A.THRESHOLD THEN 1 ELSE 0 END) AFTER_6_MONTH /*6개월후*/
+		       ,SUM(CASE WHEN C.AFTER_12_MONTH_CPU_USAGE > A.THRESHOLD THEN 1 ELSE 0 END) AFTER_12_MONTH /*12개월후*/
+		FROM DB_PREF A,
+		    (
+		    SELECT DBID, MAX(PREDICTION_DT) PREDICTION_DT
+		    FROM CPU_LIMIT_PREDICTION
+		    GROUP BY DBID
+		    ) B,
+		    CPU_LIMIT_PREDICTION C
+		WHERE A.DBID = B.DBID
+		AND B.DBID = C.DBID
+		AND B.PREDICTION_DT = C.PREDICTION_DT
+		AND A.PREF_ID = 21003
+		UNION ALL
+		SELECT 'SEQUENCE' TYPE,
+		       SUM(CASE WHEN C.AFTER_1_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "1개월후",
+		       SUM(CASE WHEN C.AFTER_2_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "2개월후",
+		       SUM(CASE WHEN C.AFTER_3_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "3개월후",
+		       SUM(CASE WHEN C.AFTER_6_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "6개월후",
+		       SUM(CASE WHEN C.AFTER_12_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "12개월후"
+		FROM DB_PREF A,
+		    (
+		    SELECT DBID, MAX(PREDICTION_DT) PREDICTION_DT
+		    FROM SEQ_LIMIT_PREDICTION
+		    GROUP BY DBID
+		    ) B,
+		    SEQ_LIMIT_PREDICTION C
+		WHERE A.DBID = B.DBID
+		AND B.DBID = C.DBID
+		AND B.PREDICTION_DT = C.PREDICTION_DT
+		AND A.PREF_ID = 21004
+		UNION ALL
+		SELECT 'TABLESPACE' TYPE,
+		       SUM(CASE WHEN C.AFTER_1_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "1개월후",
+		       SUM(CASE WHEN C.AFTER_2_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "2개월후",
+		       SUM(CASE WHEN C.AFTER_3_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "3개월후",
+		       SUM(CASE WHEN C.AFTER_6_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "6개월후",
+		       SUM(CASE WHEN C.AFTER_12_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "12개월후"
+		FROM DB_PREF A,
+		    (
+		    SELECT DBID, MAX(PREDICTION_DT) PREDICTION_DT
+		    FROM TS_LIMIT_PREDICTION
+		    GROUP BY DBID
+		    ) B,
+		    TS_LIMIT_PREDICTION C
+		WHERE A.DBID = B.DBID
+		AND B.DBID = C.DBID
+		AND B.PREDICTION_DT = C.PREDICTION_DT
+		AND A.PREF_ID = 21005
+	</select>
+	
+	<select id="getResourceLimitPredict" parameterType="resourceLimitPrediction" resultType="resourceLimitPrediction">
+		/* DashBoardDao.getResourceLimitPredict */
+		/* 자원한계점예측 */
+		  WITH DB_PRIV AS --로그인한 DBA가 담당하는 DB목록
+		  ( SELECT
+		          /*+ MATERIALIZE */
+		          UDP.DBID,
+		          DB.DB_NAME
+		  FROM    USER_DB_PRIVILEGE UDP,
+		          USERS U,
+		          DATABASE DB
+		  WHERE   UDP.USER_ID = U.USER_ID
+		  AND     UDP.DBID    = DB.DBID
+		  AND     DB.USE_YN   = 'Y'
+		  AND     TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND     UDP.PRIVILEGE_END_DAY
+		  AND     U.USER_ID = #{user_id} -- 로그인ID
+          AND     DB.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+				                           FROM SPOP_PREFERENCES 
+				                          WHERE PREF_ID = '22001') 
+		  )
+		  ,DB_PREF AS
+		  ( SELECT
+		          /*+ MATERIALIZE */
+		          A.DBID,
+		          A.DB_NAME,
+		          A.PREF_ID,
+		          TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS THRESHOLD
+		  FROM    (SELECT
+		                  /*+ LEADING(DB) */
+		                  DB.DBID,
+		                  DB.DB_NAME,
+		                  SP.PREF_ID,
+		                  SP.DEFAULT_PREF_VALUE
+		          FROM    SPOP_PREFERENCES SP,
+		                  DB_PRIV DB
+		          WHERE   PREF_ID IN (21003,
+		                              21004,
+		                              21005)
+		          )
+		          A,
+		          (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+                     FROM (SELECT DBID,
+		                          PREF_ID,
+		                          PREF_SEQ,
+		                          PREF_VALUE,
+		                          MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+		                    FROM  DB_PREFERENCES B
+		                   WHERE  PREF_ID IN (21003,
+		                                      21004,
+		                                      21005)
+                          )                    
+                   WHERE PREF_SEQ = MAX_PREF_SEQ       
+		          )
+		          B
+		  WHERE   A.DBID        = B.DBID(+)
+		  AND     A.PREF_ID     = B.PREF_ID(+)
+		  )
+		  SELECT
+		         CASE
+		                WHEN LV = 1
+		                THEN '1개월후'
+		                WHEN LV = 2
+		                THEN '2개월후'
+		                WHEN LV = 3
+		                THEN '3개월후'
+		                WHEN LV = 4
+		                THEN '6개월후'
+		                WHEN LV = 5
+		                THEN '12개월후'
+		         END AFTER_MONTH ,
+		         CPU ,
+		         SEQUENCE ,
+		         TABLESPACE
+		  FROM   ( SELECT  LV,
+		                  SUM(CPU)CPU,
+		                  SUM(SEQUENCE)SEQUENCE,
+		                  SUM(TABLESPACE) TABLESPACE
+		         FROM     ( SELECT LV,
+		                          DECODE(LV, 1,
+		                                 AFTER_1_MONTH,
+		                                 2,
+		                                 AFTER_2_MONTH,
+		                                 3,
+		                                 AFTER_3_MONTH,
+		                                 4,
+		                                 AFTER_6_MONTH,
+		                                 5,
+		                                 AFTER_12_MONTH) CPU,
+		                          0 SEQUENCE,
+		                          0 TABLESPACE
+		                  FROM    ( SELECT 'CPU' TYPE ,
+		                                  SUM(
+		                                  CASE
+		                                          WHEN C.AFTER_1_MONTH_CPU_USAGE > A.THRESHOLD
+		                                          THEN 1
+		                                          ELSE 0
+		                                  END) AFTER_1_MONTH
+		                                  /*1개월후*/
+		                                  ,
+		                                  SUM(
+		                                  CASE
+		                                          WHEN C.AFTER_2_MONTH_CPU_USAGE > A.THRESHOLD
+		                                          THEN 1
+		                                          ELSE 0
+		                                  END) AFTER_2_MONTH
+		                                  /*2개월후*/
+		                                  ,
+		                                  SUM(
+		                                  CASE
+		                                          WHEN C.AFTER_3_MONTH_CPU_USAGE > A.THRESHOLD
+		                                          THEN 1
+		                                          ELSE 0
+		                                  END) AFTER_3_MONTH
+		                                  /*3개월후*/
+		                                  ,
+		                                  SUM(
+		                                  CASE
+		                                          WHEN C.AFTER_6_MONTH_CPU_USAGE > A.THRESHOLD
+		                                          THEN 1
+		                                          ELSE 0
+		                                  END) AFTER_6_MONTH
+		                                  /*6개월후*/
+		                                  ,
+		                                  SUM(
+		                                  CASE
+		                                          WHEN C.AFTER_12_MONTH_CPU_USAGE > A.THRESHOLD
+		                                          THEN 1
+		                                          ELSE 0
+		                                  END) AFTER_12_MONTH
+		                                  /*12개월후*/
+		                          FROM    DB_PREF A,
+		                                  ( SELECT  DBID,
+		                                           MAX(PREDICTION_DT) PREDICTION_DT
+		                                  FROM     CPU_LIMIT_PREDICTION
+		                                  GROUP BY DBID
+		                                  )
+		                                  B,
+		                                  CPU_LIMIT_PREDICTION C
+		                          WHERE   A.DBID          = B.DBID
+		                          AND     B.DBID          = C.DBID
+		                          AND     B.PREDICTION_DT = C.PREDICTION_DT
+		                          AND     A.PREF_ID       = 21003
+		                          )
+		                          ,
+		                          ( SELECT LEVEL LV
+		                          FROM    DUAL
+		                                  CONNECT BY LEVEL <![CDATA[<=]]> 5
+		                          )
+		                  
+		                  UNION ALL
+		                  
+		                  SELECT LV,
+		                         0,
+		                         DECODE(LV, 1,
+		                                AFTER_1_MONTH,
+		                                2,
+		                                AFTER_2_MONTH,
+		                                3,
+		                                AFTER_3_MONTH,
+		                                4,
+		                                AFTER_6_MONTH,
+		                                5,
+		                                AFTER_12_MONTH),
+		                         0
+		                  FROM   ( SELECT 'SEQUENCE' TYPE ,
+		                                 SUM(
+		                                 CASE
+		                                         WHEN C.AFTER_1_MONTH_SEQUENCE_RATIO > A.THRESHOLD
+		                                         THEN 1
+		                                         ELSE 0
+		                                 END) AFTER_1_MONTH
+		                                 /*1개월후*/
+		                                 ,
+		                                 SUM(
+		                                 CASE
+		                                         WHEN C.AFTER_2_MONTH_SEQUENCE_RATIO > A.THRESHOLD
+		                                         THEN 1
+		                                         ELSE 0
+		                                 END) AFTER_2_MONTH
+		                                 /*2개월후*/
+		                                 ,
+		                                 SUM(
+		                                 CASE
+		                                         WHEN C.AFTER_3_MONTH_SEQUENCE_RATIO > A.THRESHOLD
+		                                         THEN 1
+		                                         ELSE 0
+		                                 END) AFTER_3_MONTH
+		                                 /*3개월후*/
+		                                 ,
+		                                 SUM(
+		                                 CASE
+		                                         WHEN C.AFTER_6_MONTH_SEQUENCE_RATIO > A.THRESHOLD
+		                                         THEN 1
+		                                         ELSE 0
+		                                 END) AFTER_6_MONTH
+		                                 /*6개월후*/
+		                                 ,
+		                                 SUM(
+		                                 CASE
+		                                         WHEN C.AFTER_12_MONTH_SEQUENCE_RATIO > A.THRESHOLD
+		                                         THEN 1
+		                                         ELSE 0
+		                                 END) AFTER_12_MONTH
+		                                 /*12개월후*/
+		                         FROM    DB_PREF A,
+		                                 ( SELECT  DBID,
+		                                          MAX(PREDICTION_DT) PREDICTION_DT
+		                                 FROM     SEQ_LIMIT_PREDICTION
+		                                 GROUP BY DBID
+		                                 )
+		                                 B,
+		                                 SEQ_LIMIT_PREDICTION C
+		                         WHERE   A.DBID          = B.DBID
+		                         AND     B.DBID          = C.DBID
+		                         AND     B.PREDICTION_DT = C.PREDICTION_DT
+		                         AND     A.PREF_ID       = 21004
+		                         )
+		                         ,
+		                         ( SELECT LEVEL LV
+		                         FROM    DUAL
+		                                 CONNECT BY LEVEL <![CDATA[<=]]> 5
+		                         )
+		                 
+		                 UNION ALL
+		                 
+		                 SELECT LV,
+		                        0,0,
+		                        DECODE(LV, 1,
+		                               AFTER_1_MONTH,
+		                               2,
+		                               AFTER_2_MONTH,
+		                               3,
+		                               AFTER_3_MONTH,
+		                               4,
+		                               AFTER_6_MONTH,
+		                               5,
+		                               AFTER_12_MONTH)
+		                 FROM   ( SELECT 'TABLESPACE' TYPE ,
+		                                SUM(
+		                                CASE
+		                                        WHEN C.AFTER_1_MONTH_TS_USED_PERCENT > A.THRESHOLD
+		                                        THEN 1
+		                                        ELSE 0
+		                                END) AFTER_1_MONTH
+		                                /*1개월후*/
+		                                ,
+		                                SUM(
+		                                CASE
+		                                        WHEN C.AFTER_2_MONTH_TS_USED_PERCENT > A.THRESHOLD
+		                                        THEN 1
+		                                        ELSE 0
+		                                END) AFTER_2_MONTH
+		                                /*2개월후*/
+		                                ,
+		                                SUM(
+		                                CASE
+		                                        WHEN C.AFTER_3_MONTH_TS_USED_PERCENT > A.THRESHOLD
+		                                        THEN 1
+		                                        ELSE 0
+		                                END) AFTER_3_MONTH
+		                                /*3개월후*/
+		                                ,
+		                                SUM(
+		                                CASE
+		                                        WHEN C.AFTER_6_MONTH_TS_USED_PERCENT > A.THRESHOLD
+		                                        THEN 1
+		                                        ELSE 0
+		                                END) AFTER_6_MONTH
+		                                /*6개월후*/
+		                                ,
+		                                SUM(
+		                                CASE
+		                                        WHEN C.AFTER_12_MONTH_TS_USED_PERCENT > A.THRESHOLD
+		                                        THEN 1
+		                                        ELSE 0
+		                                END) AFTER_12_MONTH
+		                                /*12개월후*/
+		                        FROM    DB_PREF A,
+		                                ( SELECT  DBID,
+		                                         MAX(PREDICTION_DT) PREDICTION_DT
+		                                FROM     TS_LIMIT_PREDICTION
+		                                GROUP BY DBID
+		                                )
+		                                B,
+		                                TS_LIMIT_PREDICTION C
+		                        WHERE   A.DBID          = B.DBID
+		                        AND     B.DBID          = C.DBID
+		                        AND     B.PREDICTION_DT = C.PREDICTION_DT
+		                        AND     A.PREF_ID       = 21005
+		                        )
+		                        ,
+		                        ( SELECT LEVEL LV
+		                        FROM    DUAL
+		                                CONNECT BY LEVEL <![CDATA[<=]]> 5
+		                        )
+		                  )
+		         GROUP BY LV
+		         ORDER BY LV
+		         ) 
+	</select>
+		
+	<select id="getUrgentActionTargetCond" parameterType="dbEmergencyAction" resultType="dbEmergencyAction">
+		/* DashBoardDao.getUrgentActionTargetCond */
+		/* 긴급조치대상현황(통합) */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001') 		    
+		)
+		SELECT A.DBID, A.DB_NAME, C.CHECK_PREF_NM, B.EMERGENCY_ACTION_SBST, EMERGENCY_ACTION_TARGET_ID, B.EMERGENCY_ACTION_YN, B.EMERGENCY_ACTOR_ID, U.USER_NM AS EMERGENCY_ACTOR_NM, EMERGENCY_ACTION_DT
+		FROM DB_PRIV A, DB_EMERGENCY_ACTION B, BASIC_CHECK_CONFIG C, USERS U
+		WHERE A.DBID = B.DBID
+		AND B.EMERGENCY_ACTION_TARGET_ID = C.CHECK_PREF_ID
+		AND B.EMERGENCY_ACTOR_ID = U.USER_ID(+)
+		-- 조회조건 --
+		-- DB
+		AND A.DBID = 201718285
+		-- 점검일
+		AND B.CHECK_DAY = #{check_day}
+		-- 점검회차
+		AND B.CHECK_SEQ = 1
+		-- 리스크유형
+		AND B.EMERGENCY_ACTION_TARGET_ID = '1026'
+		-- 조치구분
+		AND B.EMERGENCY_ACTION_YN = 'Y'
+	</select>
+	
+	<select id="getApplicationCheckCombined" parameterType="applicationCheckCombined" resultType="applicationCheckCombined">
+		/* DashBoardDao.getApplicationCheckCombined */
+		/* 애플리케이션진단(통합), APP 진단 */
+		WITH DB_PRIV AS
+		(
+		    SELECT /*+ MATERIALIZE */
+		           UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001')
+		)
+		,WRKJOB_LIST AS
+		(
+		    SELECT A.*, ROW_NUMBER() OVER(PARTITION BY DB_NAME ORDER BY WRKJOB_CD) RNUM
+		    FROM (
+		        SELECT B.WRKJOB_CD, 
+                       -1 AS PARENT_WRKJOB_CD, 
+                       B.WRKJOB_CD_NM AS WRKJOB_NM,
+                       A.DBID, DB_NAME
+		        FROM DB_PRIV A, WRKJOB_CD B, WRKJOB_DB DB
+                WHERE B.WRKJOB_CD = DB.WRKJOB_CD
+                AND A.DBID = DB.DBID
+                AND B.UPPER_WRKJOB_CD IS NULL
+		        --ORDER SIBLINGS BY WRKJOB_CD
+		        ) A
+		)
+		,APP_PERF AS
+		(
+		    SELECT /*+ LEADING(A) USE_NL(B) */
+		           A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, 
+		           SUM(CASE WHEN B.TR_PERF_INDC_TYPE_CD = '1' AND B.TR_CD IS NOT NULL THEN 1 ELSE 0 END) TIMEOUNT_CNT,
+		           SUM(CASE WHEN B.TR_PERF_INDC_TYPE_CD = '2' AND B.TR_CD IS NOT NULL THEN 1 ELSE 0 END) ELPASED_TIME_DELAY_CNT,
+		           A.DBID, A.DB_NAME, A.RNUM    
+		    FROM WRKJOB_LIST A
+		    LEFT OUTER JOIN (SELECT * 
+		                     FROM TRCD_PERF_SUM 
+		                     -- 조회조건 --
+		                     -- 기준일자
+		                     WHERE BASE_DAY = REPLACE(#{gather_day}, '-', '')) B 
+		                     ON A.WRKJOB_CD = B.WRKJOB_CD
+		    GROUP BY A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, A.RNUM, A.DBID, A.DB_NAME, A.RNUM
+		    ORDER BY DB_NAME, WRKJOB_CD
+		)
+		,SQL_PERF AS
+		(
+		    SELECT /*+ LEADING(A) USE_NL(B) */
+		           A.DBID, A.DB_NAME, 
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '001' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) PLAN_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '002' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) NEW_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '003' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) LITERAL_SQL_TEXT_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '004' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) LITERL_PLAN_HASH_VALUE_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '005' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) TEMP_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '006' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) FULLSCAN_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '007' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) DELETE_CNT      
+		    FROM DB_PRIV A
+		    INNER JOIN (SELECT *
+		                     FROM SQL_DIAG_SUMMARY
+		                     -- 조회조건 --
+		                     -- 기준일자 
+		                     WHERE GATHER_DAY = REPLACE(#{gather_day}, '-', '')) C
+		                     ON A.DBID = C.DBID
+		    GROUP BY A.DBID, A.DB_NAME
+		)
+		SELECT A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, A.TIMEOUNT_CNT, A.ELPASED_TIME_DELAY_CNT,
+		       A.DBID, A.DB_NAME, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.PLAN_CNT ELSE 0 END), 0) PLAN_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.NEW_CNT ELSE 0 END), 0) NEW_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.LITERAL_SQL_TEXT_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.LITERL_PLAN_HASH_VALUE_CNT ELSE 0 END), 0) LITERL_PLAN_HASH_VALUE_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.TEMP_CNT ELSE 0 END), 0) TEMP_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.FULLSCAN_CNT ELSE 0 END), 0) FULLSCAN_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.DELETE_CNT ELSE 0 END), 0) DELETE_CNT
+		FROM APP_PERF A, SQL_PERF B
+		WHERE A.DBID = B.DBID(+)
+		ORDER BY A.DB_NAME, A.WRKJOB_CD
+	</select>
+
+	<select id="getApplicationCheckCombined_old_jmg" parameterType="applicationCheckCombined" resultType="applicationCheckCombined">
+		/* DashBoardDao.getApplicationCheckCombined */
+		/* 애플리케이션진단(통합), APP 진단 */
+		WITH DB_PRIV AS
+		(
+		    SELECT /*+ MATERIALIZE */
+		           UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+		)
+		,WRKJOB_LIST AS
+		(
+		    SELECT A.*, ROW_NUMBER() OVER(PARTITION BY DB_NAME ORDER BY WRKJOB_CD) RNUM
+		    FROM (
+		        SELECT B.WRKJOB_CD, 
+                       -1 AS PARENT_WRKJOB_CD, 
+                       B.WRKJOB_CD_NM AS WRKJOB_NM,
+                       A.DBID, DB_NAME
+		        FROM DB_PRIV A, WRKJOB_CD B
+                WHERE A.DBID = B.DBID
+                AND UPPER_WRKJOB_CD IS NULL
+		        --ORDER SIBLINGS BY WRKJOB_CD
+		        ) A
+		)
+		,APP_PERF AS
+		(
+		    SELECT /*+ LEADING(A) USE_NL(B) */
+		           A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, 
+		           SUM(CASE WHEN B.TR_PERF_INDC_TYPE_CD = '1' AND B.TR_CD IS NOT NULL THEN 1 ELSE 0 END) TIMEOUNT_CNT,
+		           SUM(CASE WHEN B.TR_PERF_INDC_TYPE_CD = '2' AND B.TR_CD IS NOT NULL THEN 1 ELSE 0 END) ELPASED_TIME_DELAY_CNT,
+		           A.DBID, A.DB_NAME, A.RNUM    
+		    FROM WRKJOB_LIST A
+		    LEFT OUTER JOIN (SELECT * 
+		                     FROM TRCD_PERF_SUM 
+		                     -- 조회조건 --
+		                     -- 기준일자
+		                     WHERE BASE_DAY = REPLACE(#{gather_day}, '-', '')) B 
+		                     ON A.WRKJOB_CD = B.WRKJOB_CD
+		    GROUP BY A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, A.RNUM, A.DBID, A.DB_NAME, A.RNUM
+		    ORDER BY DB_NAME, WRKJOB_CD
+		)
+		,SQL_PERF AS
+		(
+		    SELECT /*+ LEADING(A) USE_NL(B) */
+		           A.DBID, A.DB_NAME, 
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '001' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) PLAN_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '002' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) NEW_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '003' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) LITERAL_SQL_TEXT_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '004' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) LITERL_PLAN_HASH_VALUE_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '005' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) TEMP_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '006' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) FULLSCAN_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '007' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) DELETE_CNT      
+		    FROM DB_PRIV A
+		    INNER JOIN (SELECT *
+		                     FROM SQL_DIAG_SUMMARY
+		                     -- 조회조건 --
+		                     -- 기준일자 
+		                     WHERE GATHER_DAY = REPLACE(#{gather_day}, '-', '')) C
+		                     ON A.DBID = C.DBID
+		    GROUP BY A.DBID, A.DB_NAME
+		)
+		SELECT A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, A.TIMEOUNT_CNT, A.ELPASED_TIME_DELAY_CNT,
+		       A.DBID, A.DB_NAME, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.PLAN_CNT ELSE 0 END), 0) PLAN_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.NEW_CNT ELSE 0 END), 0) NEW_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.LITERAL_SQL_TEXT_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.LITERL_PLAN_HASH_VALUE_CNT ELSE 0 END), 0) LITERL_PLAN_HASH_VALUE_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.TEMP_CNT ELSE 0 END), 0) TEMP_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.FULLSCAN_CNT ELSE 0 END), 0) FULLSCAN_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.DELETE_CNT ELSE 0 END), 0) DELETE_CNT
+		FROM APP_PERF A, SQL_PERF B
+		WHERE A.DBID = B.DBID(+)
+		ORDER BY A.DB_NAME, A.WRKJOB_CD
+	</select>
+		
+	<!-- Dashboard - SQL진단(통합) -->
+	<select id="getSqlCheckCombined" parameterType="sqlCheckCombined" resultType="sqlCheckCombined">
+		/* DashBoardDao.getSqlCheckCombined */
+		/* SQL진단(통합) */
+		WITH DB_PRIV AS
+		(
+		    SELECT /*+ MATERIALIZE */
+		           UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001')		    
+		)
+		,WRKJOB_LIST AS
+		(
+		    SELECT A.*, ROW_NUMBER() OVER(PARTITION BY DB_NAME ORDER BY WRKJOB_CD) RNUM
+		    FROM (
+		        SELECT B.WRKJOB_CD, 
+                       -1 AS PARENT_WRKJOB_CD, 
+                       B.WRKJOB_CD_NM AS WRKJOB_NM,
+                       A.DBID, DB_NAME
+				FROM DB_PRIV A, WRKJOB_CD B, WRKJOB_DB DB
+                WHERE B.WRKJOB_CD = DB.WRKJOB_CD
+                AND A.DBID = DB.DBID
+                AND B.UPPER_WRKJOB_CD IS NULL
+		        --ORDER SIBLINGS BY WRKJOB_CD
+		        ) A
+		)
+		,APP_PERF AS
+		(
+		    SELECT /*+ LEADING(A) USE_NL(B) */
+		           A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, 
+		           SUM(CASE WHEN B.TR_PERF_INDC_TYPE_CD = '1' AND B.TR_CD IS NOT NULL THEN 1 ELSE 0 END) TIMEOUNT_CNT,
+		           SUM(CASE WHEN B.TR_PERF_INDC_TYPE_CD = '2' AND B.TR_CD IS NOT NULL THEN 1 ELSE 0 END) ELPASED_TIME_DELAY_CNT,
+		           A.DBID, A.DB_NAME, A.RNUM    
+		    FROM WRKJOB_LIST A
+		    LEFT OUTER JOIN (SELECT * 
+		                     FROM TRCD_PERF_SUM 
+		                     -- 조회조건 --
+		                     -- 기준일자
+		                     WHERE BASE_DAY = #{gather_day}) B 
+		                     ON A.WRKJOB_CD = B.WRKJOB_CD
+		    GROUP BY A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, A.RNUM, A.DBID, A.DB_NAME, A.RNUM
+		    ORDER BY DB_NAME, WRKJOB_CD
+		)
+		,SQL_PERF AS
+		(
+		    SELECT /*+ LEADING(A) USE_NL(B) */
+		           A.DBID, A.DB_NAME, 
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '001' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) PLAN_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '002' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) NEW_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '003' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) LITERAL_SQL_TEXT_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '004' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) LITERL_PLAN_HASH_VALUE_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '005' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) TEMP_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '006' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) FULLSCAN_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '007' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) DELETE_CNT       
+		    FROM DB_PRIV A
+		    INNER JOIN (SELECT *
+		                     FROM SQL_DIAG_SUMMARY
+		                     -- 조회조건 --
+		                     -- 기준일자 
+		                     WHERE GATHER_DAY = #{gather_day} ) C
+		                     ON A.DBID = C.DBID 
+		    GROUP BY A.DBID, A.DB_NAME
+		)
+		SELECT A.DBID, A.DB_NAME, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.PLAN_CNT ELSE 0 END), 0) PLAN_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.NEW_CNT ELSE 0 END), 0) NEW_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.LITERAL_SQL_TEXT_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.LITERL_PLAN_HASH_VALUE_CNT ELSE 0 END), 0) LITERL_PLAN_HASH_VALUE_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.TEMP_CNT ELSE 0 END), 0) TEMP_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.FULLSCAN_CNT ELSE 0 END), 0) FULLSCAN_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.DELETE_CNT ELSE 0 END), 0) DELETE_CNT,
+		       A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, A.TIMEOUNT_CNT, A.ELPASED_TIME_DELAY_CNT
+		FROM APP_PERF A, SQL_PERF B
+		WHERE A.DBID = B.DBID(+)
+		ORDER BY A.DB_NAME, A.WRKJOB_CD
+	</select>
+	
+	<select id="getSqlCheckCombined_old_jmg" parameterType="sqlCheckCombined" resultType="sqlCheckCombined">
+		/* DashBoardDao.getSqlCheckCombined */
+		/* SQL진단(통합) */
+		WITH DB_PRIV AS
+		(
+		    SELECT /*+ MATERIALIZE */
+		           UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+		)
+		,WRKJOB_LIST AS
+		(
+		    SELECT A.*, ROW_NUMBER() OVER(PARTITION BY DB_NAME ORDER BY WRKJOB_CD) RNUM
+		    FROM (
+		        SELECT B.WRKJOB_CD, 
+                       -1 AS PARENT_WRKJOB_CD, 
+                       B.WRKJOB_CD_NM AS WRKJOB_NM,
+                       A.DBID, DB_NAME
+		        FROM DB_PRIV A, WRKJOB_CD B
+                WHERE A.DBID = B.DBID
+                AND UPPER_WRKJOB_CD IS NULL
+		        --ORDER SIBLINGS BY WRKJOB_CD
+		        ) A
+		)
+		,APP_PERF AS
+		(
+		    SELECT /*+ LEADING(A) USE_NL(B) */
+		           A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, 
+		           SUM(CASE WHEN B.TR_PERF_INDC_TYPE_CD = '1' AND B.TR_CD IS NOT NULL THEN 1 ELSE 0 END) TIMEOUNT_CNT,
+		           SUM(CASE WHEN B.TR_PERF_INDC_TYPE_CD = '2' AND B.TR_CD IS NOT NULL THEN 1 ELSE 0 END) ELPASED_TIME_DELAY_CNT,
+		           A.DBID, A.DB_NAME, A.RNUM    
+		    FROM WRKJOB_LIST A
+		    LEFT OUTER JOIN (SELECT * 
+		                     FROM TRCD_PERF_SUM 
+		                     -- 조회조건 --
+		                     -- 기준일자
+		                     WHERE BASE_DAY = #{gather_day}) B 
+		                     ON A.WRKJOB_CD = B.WRKJOB_CD
+		    GROUP BY A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, A.RNUM, A.DBID, A.DB_NAME, A.RNUM
+		    ORDER BY DB_NAME, WRKJOB_CD
+		)
+		,SQL_PERF AS
+		(
+		    SELECT /*+ LEADING(A) USE_NL(B) */
+		           A.DBID, A.DB_NAME, 
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '001' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) PLAN_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '002' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) NEW_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '003' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) LITERAL_SQL_TEXT_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '004' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) LITERL_PLAN_HASH_VALUE_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '005' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) TEMP_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '006' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) FULLSCAN_CNT,
+		           SUM(CASE WHEN C.SQL_DIAG_TYPE_CD  = '007' AND C.DIAG_CNT > 0  THEN C.DIAG_CNT ELSE 0 END) DELETE_CNT       
+		    FROM DB_PRIV A
+		    INNER JOIN (SELECT *
+		                     FROM SQL_DIAG_SUMMARY
+		                     -- 조회조건 --
+		                     -- 기준일자 
+		                     WHERE GATHER_DAY = #{gather_day} ) C
+		                     ON A.DBID = C.DBID 
+		    GROUP BY A.DBID, A.DB_NAME
+		)
+		SELECT A.DBID, A.DB_NAME, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.PLAN_CNT ELSE 0 END), 0) PLAN_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.NEW_CNT ELSE 0 END), 0) NEW_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.LITERAL_SQL_TEXT_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.LITERL_PLAN_HASH_VALUE_CNT ELSE 0 END), 0) LITERL_PLAN_HASH_VALUE_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.TEMP_CNT ELSE 0 END), 0) TEMP_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.FULLSCAN_CNT ELSE 0 END), 0) FULLSCAN_CNT, 
+		       NVL((CASE WHEN A.RNUM = 1 THEN B.DELETE_CNT ELSE 0 END), 0) DELETE_CNT,
+		       A.WRKJOB_CD, A.WRKJOB_NM, A.PARENT_WRKJOB_CD, A.TIMEOUNT_CNT, A.ELPASED_TIME_DELAY_CNT
+		FROM APP_PERF A, SQL_PERF B
+		WHERE A.DBID = B.DBID(+)
+		ORDER BY A.DB_NAME, A.WRKJOB_CD
+	</select>
+		
+	
+	<select id="getObjectChangeCheckCombined" parameterType="objectChange" resultType="objectChange">
+		/* DashBoardDao.getObjectChangeCheckCombined */
+		/* 오브젝트변경분석(통합) */
+		WITH DB_PRIV AS
+		(
+		    SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = D.DBID
+		    AND D.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id}
+
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001')		    
+		)
+		SELECT DBID, DB_NAME,
+		       NVL(TABLE_CREATE, 0) TABLE_CREATE, 
+		       NVL(TABLE_DROP, 0) TABLE_DROP, 
+		       NVL(TABLE_MODIFY, 0) TABLE_MODIFY, 
+		       NVL(COLUMN_ADD, 0) COLUMN_ADD, 
+		       NVL(COLUMN_DROP, 0) COLUMN_DROP, 
+		       NVL(COLUMN_MODIFY, 0) COLUMN_MODIFY, 
+		       NVL(INDEX_CREATE, 0) INDEX_CREATE, 
+		       NVL(INDEX_DROP, 0) INDEX_DROP, 
+		       NVL(INDEX_MODIFY, 0) INDEX_MODIFY
+		FROM (
+		    SELECT DP.DBID, DP.DB_NAME,
+		        SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '1' THEN 1 ELSE 0 END) TABLE_CREATE,
+		        SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '3' THEN 1 ELSE 0 END) TABLE_DROP,
+		        SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '2' THEN 1 ELSE 0 END) TABLE_MODIFY,
+		        SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '1' THEN 1 ELSE 0 END) COLUMN_ADD,
+		        SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '3' THEN 1 ELSE 0 END) COLUMN_DROP,
+		        SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '2' THEN 1 ELSE 0 END) COLUMN_MODIFY,
+		        SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '1' THEN 1 ELSE 0 END) INDEX_CREATE,
+		        SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '3' THEN 1 ELSE 0 END) INDEX_DROP,
+		        SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '2' THEN 1 ELSE 0 END) INDEX_MODIFY
+		    FROM DB_PRIV DP, DB_TABLE_HISTORY T, DB_TAB_COLUMN_HISTORY C, DB_INDEX_HISTORY I
+		    WHERE DP.DBID = T.DBID(+)
+		    AND DP.DBID = C.DBID(+)
+		    AND DP.DBID = I.DBID(+)
+		    -- 조회조건 --
+		    -- 전일변경
+		    --AND T.BASE_DAY = TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+		    --AND C.BASE_DAY = TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+		    --AND I.BASE_DAY = TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+		    --
+		    ---- 최근1주일변경
+		    --AND T.BASE_DAY >= TO_CHAR(SYSDATE-7, 'YYYYMMDD')
+		    --AND C.BASE_DAY >= TO_CHAR(SYSDATE-7, 'YYYYMMDD')
+		    --AND I.BASE_DAY >= TO_CHAR(SYSDATE-7, 'YYYYMMDD')
+		
+		    -- 최근1개월변경
+		    AND T.BASE_DAY(+) >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		    AND C.BASE_DAY(+) >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		    AND I.BASE_DAY(+) >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		
+		    GROUP BY DP.DBID, DP.DB_NAME
+		    ORDER BY DP.DB_NAME
+		)
+	</select>
+	
+	<select id="getResourceLimitPredictCombined" parameterType="resourceLimitPrediction" resultType="resourceLimitPrediction">
+		/* DashBoardDao.getResourceLimitPredictCombined */
+		/* 자원한계점예측(통합) */
+		WITH DB_PRIV AS  --로그인한 DBA가 담당하는 DB목록
+		(
+		    SELECT /*+ MATERIALIZE */
+		           UDP.DBID, DB.DB_NAME
+		    FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB
+		    WHERE UDP.USER_ID = U.USER_ID
+		    AND UDP.DBID = DB.DBID
+		    AND DB.USE_YN = 'Y'
+		    AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+		    AND U.USER_ID = #{user_id} -- 로그인ID
+
+            AND DB.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                              FROM SPOP_PREFERENCES 
+                             WHERE PREF_ID = '22001')		    
+		)
+		,DB_PREF AS /* SEQUENCE자원 한계값 기준정보 */
+		(
+		    SELECT /*+ MATERIALIZE */
+		           A.DBID, A.DB_NAME, A.PREF_ID,
+		           TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) AS THRESHOLD
+		    FROM (SELECT /*+ LEADING(DB) */
+		                 DB.DBID, DB.DB_NAME, SP.PREF_ID, SP.DEFAULT_PREF_VALUE
+		          FROM SPOP_PREFERENCES SP, DB_PRIV DB
+		          WHERE PREF_ID IN (21003, 21004, 21005)) A,
+		         (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+		            FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+		                       , MAX(PREF_SEQ) OVER(PARTITION BY DBID, PREF_ID) MAX_PREF_SEQ
+		                    FROM DB_PREFERENCES B
+		                   WHERE PREF_ID IN (21003, 21004, 21005)
+		                 )
+		           WHERE PREF_SEQ = MAX_PREF_SEQ         
+		         ) B
+		     WHERE A.DBID = B.DBID(+)
+		       AND A.PREF_ID = B.PREF_ID(+)
+		)
+		SELECT A.DBID, A.DB_NAME, 'CPU' TYPE, C.INST_ID
+		       ,MAX(C.AFTER_1_MONTH_CPU_USAGE) after_1_month /*1개월후*/
+		       ,MAX(C.AFTER_2_MONTH_CPU_USAGE) after_2_month /*2개월후*/
+		       ,MAX(C.AFTER_3_MONTH_CPU_USAGE) after_3_month /*3개월후*/
+		       ,MAX(C.AFTER_6_MONTH_CPU_USAGE) after_6_month /*6개월후*/
+		       ,MAX(C.AFTER_12_MONTH_CPU_USAGE) after_12_month /*12개월후*/
+		       ,MAX(A.THRESHOLD) THRESHOLD
+		FROM DB_PREF A,
+		    (
+		    SELECT DBID, MAX(PREDICTION_DT) PREDICTION_DT
+		    FROM CPU_LIMIT_PREDICTION
+		    GROUP BY DBID
+		    ) B,
+		    CPU_LIMIT_PREDICTION C
+		WHERE A.DBID = B.DBID(+)
+		AND B.DBID = C.DBID
+		AND B.PREDICTION_DT = C.PREDICTION_DT
+		AND A.PREF_ID = 21003
+		GROUP BY A.DBID, A.DB_NAME, C.INST_ID
+		UNION ALL
+		SELECT A.DBID, A.DB_NAME, 'SEQUENCE' TYPE, NULL INST_ID,
+		       SUM(CASE WHEN C.AFTER_1_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "1개월후",
+		       SUM(CASE WHEN C.AFTER_2_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "2개월후",
+		       SUM(CASE WHEN C.AFTER_3_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "3개월후",
+		       SUM(CASE WHEN C.AFTER_6_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "6개월후",
+		       SUM(CASE WHEN C.AFTER_12_MONTH_SEQUENCE_RATIO > A.THRESHOLD THEN 1 ELSE 0 END) "12개월후"
+		       ,MAX(A.THRESHOLD) THRESHOLD
+		FROM DB_PREF A,
+		    (
+		    SELECT DBID, MAX(PREDICTION_DT) PREDICTION_DT
+		    FROM SEQ_LIMIT_PREDICTION
+		    GROUP BY DBID
+		    ) B,
+		    SEQ_LIMIT_PREDICTION C
+		WHERE A.DBID = B.DBID(+)
+		AND B.DBID = C.DBID(+)
+		AND B.PREDICTION_DT = C.PREDICTION_DT(+)
+		AND A.PREF_ID = 21004
+		GROUP BY A.DBID, A.DB_NAME
+		UNION ALL
+		SELECT A.DBID, A.DB_NAME, 'TABLESPACE' TYPE, NULL INST_ID,
+		       SUM(CASE WHEN C.AFTER_1_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "1개월후",
+		       SUM(CASE WHEN C.AFTER_2_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "2개월후",
+		       SUM(CASE WHEN C.AFTER_3_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "3개월후",
+		       SUM(CASE WHEN C.AFTER_6_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "6개월후",
+		       SUM(CASE WHEN C.AFTER_12_MONTH_TS_USED_PERCENT > A.THRESHOLD THEN 1 ELSE 0 END) "12개월후"
+		       ,MAX(A.THRESHOLD) THRESHOLD
+		FROM DB_PREF A,
+		    (
+		    SELECT DBID, MAX(PREDICTION_DT) PREDICTION_DT
+		    FROM TS_LIMIT_PREDICTION
+		    GROUP BY DBID
+		    ) B,
+		    TS_LIMIT_PREDICTION C
+		WHERE A.DBID = B.DBID(+)
+		AND B.DBID = C.DBID(+)
+		AND B.PREDICTION_DT = C.PREDICTION_DT(+)
+		AND A.PREF_ID = 21005
+		GROUP BY A.DBID, A.DB_NAME
+		ORDER BY DB_NAME, TYPE, INST_ID
+	</select>
+
+	<select id="getBasicCheckPref" resultType="dbCheckConfig">
+		/* DashBoardDao.getBasicCheckPref */
+		SELECT CHECK_PREF_ID, CHECK_PREF_NM FROM BASIC_CHECK_CONFIG WHERE CHECK_ENABLE_YN = 'Y' ORDER BY CHECK_PREF_NM ASC
+	</select>
+	
+	<select id="getCheckDateTopsqlDiagSummary" resultType="string">
+		/* DashBoardDao.getCheckDateTopsqlDiagSummary */
+		SELECT TO_CHAR(TO_DATE(MAX(GATHER_DAY),'YYYYMMDD'),'YYYY-MM-DD') FROM TOPSQL_DIAG_SUMMARY
+	</select>
+
+	<select id="getGatherDayDash" resultType="string">
+		/* DashBoardDao.getGatherDayDash */
+		SELECT TO_CHAR(TO_DATE(MAX(GATHER_DAY),'YYYYMMDD'),'YYYY-MM-DD') FROM SQL_DIAG_SUMMARY
+	</select>
+	
+	<select id="getMaxGatherDay" resultType="string">
+		/* DashBoardDao.getMaxGatherDay */
+		SELECT TO_CHAR(TO_DATE(MAX(GATHER_DAY),'YYYYMMDD'),'YYYY.MM.DD') FROM SQL_DIAG_SUMMARY
+	</select>
+	
+	<select id="getMaxCheckDay" resultType="string">
+		/* DashBoardDao.getMaxCheckDay */
+		SELECT TO_CHAR(TO_DATE(MAX(CHECK_DAY),'YYYYMMDD'),'YYYY.MM.DD') FROM DB_CHECK_EXEC	
+	</select>
+	
+	<select id="getMaxCheckDayDash" resultType="string">
+		/* DashBoardDao.getMaxCheckDayDash */
+		SELECT TO_CHAR(TO_DATE(MAX(CHECK_DAY),'YYYYMMDD'),'YYYY-MM-DD') FROM DB_CHECK_EXEC	
+	</select>
+
+	<select id="getMaxBaseDay" resultType="string">
+		/* DashBoardDao.getMaxBaseDay */
+		SELECT TO_CHAR(TO_DATE(MAX(BASE_DAY),'YYYYMMDD'),'YYYY-MM-DD') FROM TRCD_PERF_SUM	
+	</select>
+
+</mapper>

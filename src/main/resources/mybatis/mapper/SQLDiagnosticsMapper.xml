@@ -1,0 +1,624 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.04.11	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.SQLDiagnosticsDao">
+	<select id="getTableTitleList" parameterType="string" resultType="cd">
+		/* SQLDiagnosticsDao.getTableTitleList */
+		SELECT CD, CD_NM,
+			CASE
+				WHEN CD = '001' THEN 'plan_change_sql'
+				WHEN CD = '002' THEN 'new_sql'
+				WHEN CD = '003' THEN 'literal_sql_text'
+				WHEN CD = '004' THEN 'literal_plan_hash_value'
+				WHEN CD = '005' THEN 'temp_usage_sql'
+				WHEN CD = '006' THEN 'fullscan_sql'
+				WHEN CD = '007' THEN 'delete_sql'
+				WHEN CD = '009' THEN 'topsql'
+				WHEN CD = '011' THEN 'offload_effc_sql'
+				WHEN CD = '012' THEN 'offload_effc_reduce_sql'
+				ELSE 'offload_effc_reduce_sql' END AS CD_DESC
+		FROM CD WHERE GRP_CD_ID = '1042'
+		ORDER BY ORDERED
+	</select>	
+	
+	<select id="summaryList" parameterType="sqlDiagSummary" resultType="sqlDiagSummary">
+		/* SQLDiagnosticsDao.summaryList */
+		<choose>
+			<when test="(day_gubun != null and (day_gubun eq 'D'.toString()))">
+				SELECT
+					#{gather_day} AS GATHER_DAY,
+					#{gather_day} AS MIN_DAY,
+					#{gather_day} AS MAX_DAY,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '001' THEN DIAG_CNT ELSE 0 END), 0) PLAN_CHANGE_SQL,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '002' THEN DIAG_CNT ELSE 0 END), 0) NEW_SQL,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '003' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '004' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_PLAN_HASH_VALUE,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '005' THEN DIAG_CNT ELSE 0 END), 0) TEMP_USAGE_SQL,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '006' THEN DIAG_CNT ELSE 0 END), 0) FULLSCAN_SQL,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '007' THEN DIAG_CNT ELSE 0 END), 0) DELETE_SQL,
+                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '009' THEN DIAG_CNT ELSE 0 END), 0) TOPSQL,
+                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '011' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_SQL,
+                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '012' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_REDUCE_SQL
+				FROM SQL_DIAG_SUMMARY A
+				WHERE A.DBID = #{dbid}
+				AND A.GATHER_DAY = #{gather_day}
+			</when>			
+			<when test="(day_gubun != null and (day_gubun eq 'W'.toString()))">
+				SELECT 
+					NVL(DAY1, 'SUM') GATHER_DAY, 
+					NVL(DAY2, 'SUM/W') DAY_NAME, 
+					MIN_DAY,
+					MAX_DAY,
+					PLAN_CHANGE_SQL,
+					NEW_SQL,
+					LITERAL_SQL_TEXT,
+					LITERAL_PLAN_HASH_VALUE,
+					TEMP_USAGE_SQL,
+					FULLSCAN_SQL,
+					DELETE_SQL,      
+                    TOPSQL,
+                    OFFLOAD_EFFC_SQL,
+                    OFFLOAD_EFFC_REDUCE_SQL 
+				FROM
+				(
+					SELECT  CAL.DAY_8CHAR DAY1,
+						CAL.DAY_OF_WEEK DAY2,
+						GROUPING(CAL.DAY_8CHAR) GDAY1,
+						GROUPING(CAL.DAY_OF_WEEK) GDAY2,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '001' THEN DIAG_CNT ELSE 0 END), 0) PLAN_CHANGE_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '002' THEN DIAG_CNT ELSE 0 END), 0) NEW_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '003' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '004' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_PLAN_HASH_VALUE,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '005' THEN DIAG_CNT ELSE 0 END), 0) TEMP_USAGE_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '006' THEN DIAG_CNT ELSE 0 END), 0) FULLSCAN_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '007' THEN DIAG_CNT ELSE 0 END), 0) DELETE_SQL,
+	                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '009' THEN DIAG_CNT ELSE 0 END), 0) TOPSQL,
+	                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '011' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_SQL,
+	                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '012' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_REDUCE_SQL,
+						MIN(CAL.MIN_DAY) MIN_DAY,
+						MAX(CAL.MAX_DAY) MAX_DAY
+					FROM (
+						SELECT DAY_8CHAR, DAY_OF_WEEK, 
+							MIN(DAY_8CHAR) OVER() MIN_DAY,
+							MAX(DAY_8CHAR) OVER() MAX_DAY
+						FROM CALENDAR
+						WHERE DAY BETWEEN TO_DATE(#{gather_day}, 'YYYYMMDD') - 6 
+						AND TO_DATE(#{gather_day}, 'YYYYMMDD')
+					) CAL LEFT OUTER JOIN SQL_DIAG_SUMMARY A 
+					PARTITION BY (A.DBID) ON CAL.DAY_8CHAR = A.GATHER_DAY 
+					AND A.DBID = #{dbid}
+					AND A.GATHER_DAY BETWEEN TO_CHAR(TO_DATE(#{gather_day}, 'YYYYMMDD')-6, 'YYYYMMDD') AND #{gather_day}
+					WHERE A.DBID = #{dbid}
+					GROUP BY ROLLUP(CAL.DAY_8CHAR, CAL.DAY_OF_WEEK)
+				)
+				WHERE (GDAY1 = 0 AND GDAY2 = 0) OR (DAY1 IS NULL)
+				ORDER BY DAY1, DAY2			
+			</when>
+			<when test="(day_gubun != null and (day_gubun eq 'M'.toString()))">
+				WITH CAL AS
+				(
+					SELECT DAY, DAY_8CHAR, WEEK,
+						MIN(DAY_8CHAR) OVER(PARTITION BY WEEK) MIN_DAY,
+						MAX(DAY_8CHAR) OVER(PARTITION BY WEEK) MAX_DAY
+					FROM
+					(
+						SELECT DAY, DAY_8CHAR,
+							(CASE 
+								WHEN NUM BETWEEN 1  AND 7  THEN '1주'
+								WHEN NUM BETWEEN 8  AND 14 THEN '2주'
+								WHEN NUM BETWEEN 15 AND 21 THEN '3주'
+								WHEN NUM BETWEEN 22 AND 28 THEN '4주'
+							END) WEEK
+						FROM (
+							SELECT ROWNUM NUM, DAY, DAY_8CHAR
+							FROM CALENDAR
+							WHERE DAY BETWEEN TO_DATE(#{gather_day}, 'YYYYMMDD') - 27 AND TO_DATE(#{gather_day}, 'YYYYMMDD')
+						)
+					)
+				)
+				SELECT
+					NVL(MIN_DAY, 'SUM') GATHER_DAY,
+					NVL(WEEK, 'SUM') DAY_NAME, 
+					NVL(MIN_DAY, TO_CHAR(TO_DATE(#{gather_day}, 'YYYYMMDD') - 27,'YYYYMMDD')) MIN_DAY,
+					NVL(MAX_DAY, #{gather_day}) MAX_DAY,
+					PLAN_CHANGE_SQL,	
+					NEW_SQL,
+					LITERAL_SQL_TEXT,
+					LITERAL_PLAN_HASH_VALUE,
+					TEMP_USAGE_SQL,
+					FULLSCAN_SQL,
+					DELETE_SQL,
+                    TOPSQL,
+                    OFFLOAD_EFFC_SQL,
+                    OFFLOAD_EFFC_REDUCE_SQL 
+				FROM (
+					SELECT
+						CAL.WEEK,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '001' THEN DIAG_CNT ELSE 0 END), 0) PLAN_CHANGE_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '002' THEN DIAG_CNT ELSE 0 END), 0) NEW_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '003' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '004' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_PLAN_HASH_VALUE,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '005' THEN DIAG_CNT ELSE 0 END), 0) TEMP_USAGE_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '006' THEN DIAG_CNT ELSE 0 END), 0) FULLSCAN_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '007' THEN DIAG_CNT ELSE 0 END), 0) DELETE_SQL,
+						
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '009' THEN DIAG_CNT ELSE 0 END), 0) TOPSQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '011' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_SQL,
+						NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '012' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_REDUCE_SQL,
+						CAL.MIN_DAY,
+						CAL.MAX_DAY, 
+						GROUPING(CAL.MIN_DAY) GDAY1,
+						GROUPING(CAL.MAX_DAY) GDAY2
+					FROM CAL LEFT OUTER JOIN SQL_DIAG_SUMMARY A 
+					PARTITION BY (A.DBID) ON CAL.DAY_8CHAR = A.GATHER_DAY 
+					AND A.DBID = #{dbid}
+					AND A.GATHER_DAY BETWEEN TO_CHAR(TO_DATE(#{gather_day}, 'YYYYMMDD')-27, 'YYYYMMDD') AND #{gather_day}
+					WHERE A.DBID = #{dbid}
+					GROUP BY ROLLUP(CAL.WEEK, CAL.MIN_DAY, CAL.MAX_DAY)
+				)
+				WHERE (GDAY1 = 0 AND GDAY2 = 0) OR (WEEK IS NULL)
+				ORDER BY WEEK			
+			</when>
+		</choose>
+	</select>
+	
+	<select id="summaryChartList" parameterType="sqlDiagSummary" resultType="sqlDiagSummary">
+		/* SQLDiagnosticsDao.summaryChartList */
+		<choose>
+			<when test="(day_gubun != null and (day_gubun eq 'D'.toString()))">
+				SELECT
+					#{gather_day} AS GATHER_DAY,
+					TO_CHAR(TO_DATE(#{gather_day},'YYYY-MM-DD'),'YYYY-MM-DD') AS MIN_DAY,
+					TO_CHAR(TO_DATE(#{gather_day},'YYYY-MM-DD'),'YYYY-MM-DD') AS MAX_DAY,
+					A.SQL_DIAG_TYPE_CD,
+					CD1.CD_NM AS SQL_DIAG_TYPE_NM,
+					A.DIAG_CNT
+				FROM SQL_DIAG_SUMMARY A, CD CD1
+				WHERE A.DBID = #{dbid}
+				AND CD1.GRP_CD_ID = '1042'
+				AND A.SQL_DIAG_TYPE_CD = CD1.CD
+				AND A.GATHER_DAY = #{gather_day}
+                ORDER BY SQL_DIAG_TYPE_CD DESC
+			</when>			
+			<when test="(day_gubun != null and (day_gubun eq 'W'.toString()))">
+				SELECT
+					TO_CHAR(TO_DATE(CAL.DAY_8CHAR,'YYYY-MM-DD'),'YYYY-MM-DD') || ' (' || CAL.DAY_OF_WEEK || ')' AS GATHER_DAY,
+					TO_CHAR(TO_DATE(MIN(CAL.DAY_8CHAR),'YYYY-MM-DD'),'YYYY-MM-DD') MIN_DAY,
+					TO_CHAR(TO_DATE(MAX(CAL.MAX_DAY),'YYYY-MM-DD'),'YYYY-MM-DD') MAX_DAY,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '001' THEN DIAG_CNT ELSE 0 END), 0) PLAN_CHANGE_SQL,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '002' THEN DIAG_CNT ELSE 0 END), 0) NEW_SQL,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '003' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '004' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_PLAN_HASH_VALUE,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '005' THEN DIAG_CNT ELSE 0 END), 0) TEMP_USAGE_SQL,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '006' THEN DIAG_CNT ELSE 0 END), 0) FULLSCAN_SQL,
+					NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '007' THEN DIAG_CNT ELSE 0 END), 0) DELETE_SQL,
+                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '009' THEN DIAG_CNT ELSE 0 END), 0) TOPSQL,
+                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '011' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_SQL,
+                    NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '012' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_REDUCE_SQL
+				FROM (
+					SELECT DAY_8CHAR, DAY_OF_WEEK, 
+						MAX(DAY_8CHAR) OVER() MAX_DAY
+					FROM CALENDAR
+					WHERE DAY BETWEEN TO_DATE(#{gather_day}, 'YYYYMMDD') - 6 AND TO_DATE(#{gather_day}, 'YYYYMMDD')
+				) CAL LEFT OUTER JOIN SQL_DIAG_SUMMARY A PARTITION BY (A.DBID) ON CAL.DAY_8CHAR = A.GATHER_DAY 
+				AND A.DBID = #{dbid}
+				AND A.GATHER_DAY BETWEEN TO_CHAR(TO_DATE(#{gather_day}, 'YYYYMMDD') - 6, 'YYYYMMDD') AND #{gather_day}
+				WHERE A.DBID = #{dbid}
+				GROUP BY CAL.DAY_8CHAR, CAL.DAY_OF_WEEK
+				ORDER BY CAL.DAY_8CHAR, CAL.DAY_OF_WEEK	
+			</when>
+			<when test="(day_gubun != null and (day_gubun eq 'M'.toString()))">
+				WITH CAL AS
+				(
+				    SELECT DAY, DAY_8CHAR, WEEK,
+				    	MIN(DAY_8CHAR) OVER(PARTITION BY WEEK) MIN_DAY,
+				    	MAX(DAY_8CHAR) OVER(PARTITION BY WEEK) MAX_DAY
+				    FROM
+				    (
+				    	SELECT DAY, DAY_8CHAR,
+				        	(CASE 
+								WHEN NUM BETWEEN 1  AND 7  THEN '1주'
+								WHEN NUM BETWEEN 8  AND 14 THEN '2주'
+								WHEN NUM BETWEEN 15 AND 21 THEN '3주'
+								WHEN NUM BETWEEN 22 AND 28 THEN '4주'
+				            END) WEEK
+				        FROM (
+							SELECT ROWNUM NUM, DAY, DAY_8CHAR
+							FROM CALENDAR
+							WHERE DAY BETWEEN TO_DATE(#{gather_day}, 'YYYYMMDD') - 27 AND TO_DATE(#{gather_day}, 'YYYYMMDD')
+						)
+					)
+				)
+				SELECT
+				    TO_CHAR(TO_DATE(MIN_DAY,'YYYY-MM-DD'),'YYYY-MM-DD') || ' (' || WEEK || ')' AS GATHER_DAY,
+					TO_CHAR(TO_DATE(NVL(MIN_DAY, TO_CHAR(TO_DATE(#{gather_day}, 'YYYYMMDD') - 27,'YYYYMMDD')),'YYYY-MM-DD'),'YYYY-MM-DD') MIN_DAY,    
+					TO_CHAR(TO_DATE(NVL(MAX_DAY, #{gather_day}),'YYYY-MM-DD'),'YYYY-MM-DD') MAX_DAY,
+				    PLAN_CHANGE_SQL,	
+				    NEW_SQL,
+				    LITERAL_SQL_TEXT,
+				    LITERAL_PLAN_HASH_VALUE,
+				    TEMP_USAGE_SQL,
+				    FULLSCAN_SQL,
+				    DELETE_SQL,
+                    TOPSQL,
+                    OFFLOAD_EFFC_SQL,
+                    OFFLOAD_EFFC_REDUCE_SQL
+				FROM (
+				    SELECT
+				        CAL.WEEK,
+				        CAL.MIN_DAY,
+				        CAL.MAX_DAY,             
+				        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '001' THEN DIAG_CNT ELSE 0 END), 0) PLAN_CHANGE_SQL,
+				        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '002' THEN DIAG_CNT ELSE 0 END), 0) NEW_SQL,
+				        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '003' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_SQL_TEXT,
+				        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '004' THEN DIAG_CNT ELSE 0 END), 0) LITERAL_PLAN_HASH_VALUE,
+				        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '005' THEN DIAG_CNT ELSE 0 END), 0) TEMP_USAGE_SQL,
+				        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '006' THEN DIAG_CNT ELSE 0 END), 0) FULLSCAN_SQL,
+				        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '007' THEN DIAG_CNT ELSE 0 END), 0) DELETE_SQL,
+                        
+                        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '009' THEN DIAG_CNT ELSE 0 END), 0) TOPSQL,
+                        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '011' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_SQL,
+                        NVL(SUM(CASE WHEN SQL_DIAG_TYPE_CD = '012' THEN DIAG_CNT ELSE 0 END), 0) OFFLOAD_EFFC_REDUCE_SQL
+				    FROM CAL LEFT OUTER JOIN SQL_DIAG_SUMMARY A 
+				    PARTITION BY (A.DBID) ON CAL.DAY_8CHAR = A.GATHER_DAY 
+				    AND A.DBID = #{dbid}
+				    AND A.GATHER_DAY BETWEEN TO_CHAR(TO_DATE(#{gather_day}, 'YYYYMMDD') - 27, 'YYYYMMDD') AND #{gather_day}
+				    WHERE A.DBID = #{dbid}
+				    GROUP BY CAL.WEEK, CAL.MIN_DAY, CAL.MAX_DAY
+				)
+				ORDER BY WEEK		
+			</when>
+		</choose>
+	</select>	
+	
+	<select id="planChangeSqlList" parameterType="planChangeSql" resultType="planChangeSql">
+		/* SQLDiagnosticsDao.planChangeSqlList */
+		SELECT SQL_ID, BEFORE_PLAN_HASH_VALUE, AFTER_PLAN_HASH_VALUE AS PLAN_HASH_VALUE, BEFORE_ELAPSED_TIME, AFTER_ELAPSED_TIME, BEFORE_EXECUTIONS, AFTER_EXECUTIONS,
+			BEFORE_BUFFER_GETS, AFTER_BUFFER_GETS, BEFORE_CPU_TIME, AFTER_CPU_TIME, BEFORE_MAX_ELAPSED_TIME, 
+			AFTER_MAX_ELAPSED_TIME, GATHER_DAY ,TUNING_TGT_YN, SQL_PROFILE_YN 
+		FROM PLAN_CHANGE_SQL
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+	</select>
+	
+	<update id="updatePlanChangeSqlProfile" parameterType="planChangeSql">
+		/* SQLDiagnosticsDao.updatePlanChangeSqlProfile */
+		UPDATE PLAN_CHANGE_SQL SET
+			SQL_PROFILE_YN = 'Y',
+			SQL_PROFILE_NM = #{sql_profile_nm}
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY = #{gather_day}
+		AND SQL_ID = #{sql_id}
+		AND BEFORE_PLAN_HASH_VALUE = #{before_plan_hash_value}		
+		AND AFTER_PLAN_HASH_VALUE = #{plan_hash_value}
+	</update>
+	
+	<select id="newSqlList" parameterType="newSql" resultType="newSql">
+		/* SQLDiagnosticsDao.newSqlList */
+		SELECT SQL_ID
+			 , PLAN_HASH_VALUE
+			 , MODULE
+			 , PARSING_SCHEMA_NAME
+			 , AVG_ELAPSED_TIME
+			 , MAX_ELAPSED_TIME
+			 , AVG_CPU_TIME
+			 , AVG_BUFFER_GETS
+			 , AVG_DISK_READS
+			 , AVG_ROWS_PROCESSED
+			 , EXECUTIONS
+			 , FIRST_LOAD_TIME
+			 , LAST_LOAD_TIME
+			 , GATHER_DAY
+			 , TUNING_TGT_YN
+		FROM NEW_SQL
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+	</select>	
+	
+	<select id="literalSqlList" parameterType="literalSql" resultType="literalSql">
+		/* SQLDiagnosticsDao.literalSqlList */
+		SELECT PLAN_HASH_VALUE, SUBSTR(SQL_TEXT, 1, 400) SQL_TEXT, GATHER_DAY, SQL_CNT, GATHER_DAY, LITERAL_SEQ
+		FROM LITERAL_SQL
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+		AND LITERAL_TYPE_CD = #{literal_type_cd}
+	</select>
+
+
+	<sql id="literalSqlStatus">
+	/* SQLDiagnosticsDao.literalSqlStatus */
+				SELECT A.SQL_ID
+                     , C.PLAN_HASH_VALUE
+                     , DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) SQL_TEXT
+                  FROM LITERAL_DETAIL_SQL A
+                     , ODS_HIST_SQLTEXT B
+                     , (SELECT DBID
+                             , SQL_ID
+                             , PLAN_HASH_VALUE
+                             , ROW_NUMBER() OVER(PARTITION BY DBID, SQL_ID ORDER BY INSTANCE_NUMBER, SNAP_ID DESC) RANK
+                          FROM ODS_HIST_SQLSTAT 
+                         WHERE DBID = #{dbid} 
+                           AND BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{gather_day}, 'YYYYMMDD') 
+                                                       AND TO_TIMESTAMP(#{gather_day} || '235959999999', 'YYYYMMDDHH24MISSFF6')
+                       ) C
+                 WHERE A.DBID = B.DBID
+                   AND A.SQL_ID = B.SQL_ID
+                   AND A.DBID = C.DBID
+                   AND A.SQL_ID = C.SQL_ID
+                   AND A.DBID = #{dbid} 
+                   AND A.GATHER_DAY = #{gather_day}
+                   AND A.LITERAL_TYPE_CD = #{literal_type_cd}
+                   AND A.LITERAL_SEQ = #{literal_seq}
+                   AND C.RANK = 1
+            ORDER BY A.DBID, A.GATHER_DAY, A.LITERAL_TYPE_CD, A.LITERAL_SEQ, SQL_ID
+	</sql>
+	
+	<select id="literalSqlStatusList" parameterType="literalSql" resultType="literalSql">
+		/* SQLDiagnosticsDao.literalSqlStatusList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="literalSqlStatus"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > (${pagePerCount} * (${currentPage}-1))		
+	</select>
+	
+	<select id="tempOveruseSqlList" parameterType="tempUsageSql" resultType="tempUsageSql">
+		/* SQLDiagnosticsDao.tempOveruseSqlList */
+		SELECT SQL_ID, PLAN_HASH_VALUE, TEMP_USAGE, SUBSTR(SQL_TEXT, 1, 400) SQL_TEXT, COMMAND_TYPE, 
+			GATHER_DAY, TUNING_TGT_YN 
+		FROM TEMP_USAGE_SQL
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+	</select>
+	
+	<select id="fullscanSqlList" parameterType="fullscanSql" resultType="fullscanSql">
+		/* SQLDiagnosticsDao.fullscanSqlList */
+		SELECT SQL_ID, PLAN_HASH_VALUE, OPERATIONS, PARSING_SCHEMA_NAME, MODULE, ACTION, EXECUTIONS, 
+			ELAPSED_TIME, CPU_TIME, ROWS_PROCESSED, DISK_READS, BUFFER_GETS, SUBSTR(SQL_TEXT, 1, 100) AS SQL_TEXT, 
+			GATHER_DAY, TUNING_TGT_YN
+		FROM FULLSCAN_SQL
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+	</select>	
+	
+	<select id="deleteWithoutConditionList" parameterType="nonpredDeleteStmt" resultType="nonpredDeleteStmt">
+		/* SQLDiagnosticsDao.deleteWithoutConditionList */
+		SELECT SQL_ID, PLAN_HASH_VALUE, PARSING_SCHEMA_NAME, MODULE, ACTION, EXECUTIONS, ELAPSED_TIME, CPU_TIME, 
+			ROWS_PROCESSED, DISK_READS, BUFFER_GETS, SUBSTR(SQL_TEXT, 1, 100) AS SQL_TEXT, GATHER_DAY
+		FROM NONPRED_DELETE_STMT
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+	</select>
+	
+	<select id="topSqlList_old" parameterType="topSql" resultType="topSql">
+		/* SQLDiagnosticsDao.topSql */
+		SELECT  A.GATHER_DAY, A.SQL_ID, A.PLAN_HASH_VALUE, A.MODULE, A.PARSING_SCHEMA_NAME, A.EXECUTIONS, A.BUFFER_GETS, A.ELAPSED_TIME, A.CPU_TIME, A.DISK_READS, A.ROWS_PROCESSED, A.RATIO_BUFFER_GETS, A.RATIO_ELAPSED_TIME, A.RATIO_CPU_TIME, A.RATIO_DISK_READS, A.RATIO_EXECUTIONS, A.RATIO_CLWAIT 
+		    , SUBSTR(B.SQL_TEXT, 1, 1000) AS SQL_TEXT 
+		    , TUNING_TGT_YN
+		FROM TOPSQL A, ODS_HIST_SQLTEXT B
+		WHERE A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+		AND A.DBID =  #{dbid}
+		AND A.GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+		AND A.TOPSQL_TYPE_CD = '1'
+		ORDER BY A.BUFFER_GETS DESC
+	</select>
+	
+	<select id="topSqlList" parameterType="topSql" resultType="topSql">
+		/* SQLDiagnosticsDao.topSql */
+		WITH DB_PREF AS
+		(
+			SELECT /*+ MATERIALIZE */
+				B.DBID,
+				MAX(CASE WHEN A.PREF_ID = 14014 THEN TO_NUMBER(NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE)) ELSE 0 END) AS ACTIVITY_THRESHOLD
+			FROM SPOP_PREFERENCES A
+				,(SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+					  FROM (SELECT DBID, PREF_ID, PREF_SEQ, PREF_VALUE
+								 , MAX(PREF_SEQ) OVER(PARTITION BY PREF_ID) MAX_PREF_SEQ
+							  FROM DB_PREFERENCES B
+							 WHERE DBID =  #{dbid}
+							   AND PREF_ID IN (14014)
+						   )
+					 WHERE PREF_SEQ = MAX_PREF_SEQ	   
+				) B
+			WHERE A.PREF_ID = B.PREF_ID(+)
+			AND A.PREF_ID IN (14014)
+			GROUP BY DBID
+		)
+		SELECT A.GATHER_DAY,
+			A.SQL_ID,
+			A.PLAN_HASH_VALUE,
+			A.MODULE,
+			A.PARSING_SCHEMA_NAME,
+			A.EXECUTIONS,
+			A.BUFFER_GETS,
+			A.ELAPSED_TIME,
+			A.CPU_TIME,
+			A.DISK_READS,
+			A.ROWS_PROCESSED,
+			A.RATIO_BUFFER_GETS,
+			A.RATIO_ELAPSED_TIME,
+			A.RATIO_CPU_TIME,
+			A.RATIO_DISK_READS,
+			A.RATIO_EXECUTIONS,
+			A.RATIO_CLWAIT ,
+			SUBSTR(B.SQL_TEXT, 1, 1000) AS SQL_TEXT ,
+			TUNING_TGT_YN
+		  FROM TOPSQL A,
+			ODS_HIST_SQLTEXT B,
+			DB_PREF C
+		 WHERE A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+		AND A.DBID = #{dbid}
+		AND A.GATHER_DAY BETWEEN REPLACE(#{strStartDt}, '-', '') AND REPLACE(#{strEndDt}, '-', '')
+		AND A.TOPSQL_TYPE_CD = '2'
+		AND A.RATIO_ELAPSED_TIME >= C.ACTIVITY_THRESHOLD
+		ORDER BY A.BUFFER_GETS DESC 
+	</select>
+		
+	<select id="offloadSqlList" parameterType="offloadSql" resultType="offloadSql">
+		/* SQLDiagnosticsDao.offloadSqlList */
+		SELECT A.GATHER_DAY, A.SQL_ID, A.PLAN_HASH_VALUE, A.EXECUTIONS, A.AVG_ELAPSED_TIME, A.PARALLEL_SERVER_CNT, A.OFFLOAD_YN, A.IO_SAVED, A.RATIO_ELAPSED_TIME, A.RANK_ELAPSED_TIME 
+		    , SUBSTR(B.SQL_TEXT, 1, 1000) AS SQL_TEXT 
+		    , TUNING_TGT_YN
+		FROM OFFLOAD_SQL A, ODS_HIST_SQLTEXT B
+		WHERE A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+		AND A.DBID =  #{dbid}
+		AND A.GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+		ORDER BY A.IO_SAVED
+	</select>
+	
+	<select id="offloadEffcReduceSqlList" parameterType="offloadEffcReduceSql" resultType="offloadEffcReduceSql">
+		/* SQLDiagnosticsDao.offloadEfficiencyReduceSql */
+		SELECT A.GATHER_DAY, A.SQL_ID, A.PLAN_HASH_VALUE, A.EXECUTIONS, A.AVG_ELAPSED_TIME, A.OFFLOAD_YN, A.IO_SAVED, A.BEFORE_1_WEEK_IO_SAVED, (A.BEFORE_1_WEEK_IO_SAVED - A.IO_SAVED) IO_SAVED_DECREASE
+		    , SUBSTR(B.SQL_TEXT, 1, 1000) AS SQL_TEXT 
+		    , TUNING_TGT_YN
+		FROM OFFLOAD_EFFICIENCY_REDUCE_SQL A, ODS_HIST_SQLTEXT B
+		WHERE A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+		AND A.DBID =  #{dbid}
+		AND A.GATHER_DAY BETWEEN REPLACE(#{strStartDt},'-', '') AND REPLACE(#{strEndDt},'-', '')
+		ORDER BY A.BEFORE_1_WEEK_IO_SAVED - A.IO_SAVED
+	</select>
+	
+	
+	
+	<update id="insertTuningTargetSql_20181030" parameterType="tuningTargetSql">
+		/* SQLDiagnosticsDao.insertTuningTargetSql_20181030 */
+		INSERT INTO TUNING_TARGET_SQL(TUNING_NO, DBID, GATHER_DAY, SQL_ID, MODULE, PLAN_HASH_VALUE, 
+			CHOICE_DIV_CD, TUNING_STATUS_CD, PERFR_ID, TUNING_REQUESTER_ID, TUNING_REQUESTER_WRKJOB_CD, TUNING_REQUESTER_TEL_NUM, TUNING_REQUEST_DT, SQL_TEXT )
+		SELECT ${tuning_no} AS TUNING_NO,
+			DBID, 
+			GATHER_DAY,
+			SQL_ID,
+			MODULE,
+			${field_name}, 
+			#{choice_div_cd} AS CHOICE_DIV_CD,
+			'3' AS TUNING_STATUS_CD,
+			#{perfr_id} AS PERFR_ID,
+			#{tuning_requester_id} AS TUNING_REQUESTER_ID,
+			#{tuning_requester_wrkjob_cd} AS TUNING_REQUESTER_WRKJOB_CD,
+			#{tuning_requester_tel_num} AS TUNING_REQUESTER_TEL_NUM,
+			SYSDATE AS TUNING_REQUEST_DT,
+			(SELECT SQL_TEXT FROM ODS_HIST_SQLTEXT B WHERE B.DBID = A.DBID AND B.SQL_ID = A.SQL_ID) AS SQL_TEXT
+		FROM ${table_name} A
+		WHERE DBID = #{dbid}
+		AND GATHER_DAY = #{gather_day}
+		AND SQL_ID = #{sql_id}
+		AND ${field_name} = #{plan_hash_value}	
+	</update>
+	
+	<update id="insertTuningTargetSql" parameterType="tuningTargetSql">
+		/* SQLDiagnosticsDao.insertTuningTargetSql */
+
+		<choose>
+			<when test="(choice_div_cd != null and (choice_div_cd eq 'C'.toString()) or (choice_div_cd eq 'D'.toString())  or (choice_div_cd eq 'E'.toString()) )">		
+				INSERT INTO TUNING_TARGET_SQL(TUNING_NO, DBID, GATHER_DAY, SQL_ID, PLAN_HASH_VALUE, 
+					CHOICE_DIV_CD, TUNING_STATUS_CD, PERFR_ID, TUNING_REQUESTER_ID, TUNING_REQUESTER_WRKJOB_CD, TUNING_REQUESTER_TEL_NUM, TUNING_REQUEST_DT, SQL_TEXT, PROJECT_ID, TUNING_PRGRS_STEP_SEQ)
+				SELECT ${tuning_no} AS TUNING_NO,
+					DBID, 
+					GATHER_DAY,
+					SQL_ID,
+					${field_name},   -- FIELD_NAME
+					#{choice_div_cd} AS CHOICE_DIV_CD,
+					'3' AS TUNING_STATUS_CD,
+					#{perfr_id} AS PERFR_ID,
+					#{tuning_requester_id} AS TUNING_REQUESTER_ID,
+					#{tuning_requester_wrkjob_cd} AS TUNING_REQUESTER_WRKJOB_CD,
+					#{tuning_requester_tel_num} AS TUNING_REQUESTER_TEL_NUM,
+					SYSDATE AS TUNING_REQUEST_DT,
+					(SELECT SQL_TEXT FROM ODS_HIST_SQLTEXT B WHERE B.DBID = A.DBID AND B.SQL_ID = A.SQL_ID) AS SQL_TEXT,
+					#{project_id},
+					#{tuning_prgrs_step_seq}	
+				FROM ${table_name} A   -- TABLE_NAME
+				WHERE DBID = #{dbid}
+				AND GATHER_DAY = #{gather_day}
+				AND SQL_ID = #{sql_id}
+				<if test="choice_div_cd eq 'C'.toString()">
+	    		AND TOPSQL_TYPE_CD = '1'  -- THRESHOLD			
+	    		</if>	
+				<if test="choice_div_cd eq 'D'.toString()">
+				AND ${field_name} = #{plan_hash_value}   -- FIELD_NAME, PLAN_HASH_VALUE
+				</if>	
+			</when>
+			<otherwise>
+				INSERT INTO TUNING_TARGET_SQL(TUNING_NO, DBID, GATHER_DAY, SQL_ID, PLAN_HASH_VALUE, 
+					CHOICE_DIV_CD, TUNING_STATUS_CD, PERFR_ID, TUNING_REQUESTER_ID, TUNING_REQUESTER_WRKJOB_CD, TUNING_REQUESTER_TEL_NUM, TUNING_REQUEST_DT, SQL_TEXT )
+				SELECT ${tuning_no} AS TUNING_NO,
+					DBID, 
+					GATHER_DAY,
+					SQL_ID,
+					${field_name},   -- FIELD_NAME
+					#{choice_div_cd} AS CHOICE_DIV_CD,
+					'3' AS TUNING_STATUS_CD,
+					#{perfr_id} AS PERFR_ID,
+					#{tuning_requester_id} AS TUNING_REQUESTER_ID,
+					#{tuning_requester_wrkjob_cd} AS TUNING_REQUESTER_WRKJOB_CD,
+					#{tuning_requester_tel_num} AS TUNING_REQUESTER_TEL_NUM,
+					SYSDATE AS TUNING_REQUEST_DT,
+					(SELECT SQL_TEXT FROM ODS_HIST_SQLTEXT B WHERE B.DBID = A.DBID AND B.SQL_ID = A.SQL_ID) AS SQL_TEXT
+				FROM ${table_name} A  -- TABLE_NAME
+				WHERE DBID = #{dbid}
+				AND GATHER_DAY = #{gather_day}
+				AND SQL_ID = #{sql_id}
+				AND ${field_name} = #{plan_hash_value}	-- FIELD_NAME, PLAN_HASH_VALUE
+			</otherwise>
+		</choose>
+	</update>	
+	
+	<update id="updateTuningTarget" parameterType="tuningTargetSql">
+		/* SQLDiagnosticsDao.updateTuningTarget */
+		
+		<choose>
+			<when test="(choice_div_cd != null and (choice_div_cd eq 'C'.toString()) or (choice_div_cd eq 'D'.toString())  or (choice_div_cd eq 'E'.toString()) )">	
+				UPDATE ${table_name} SET
+					TUNING_TGT_YN = 'Y',
+					TUNING_TGT_DT = SYSDATE,
+					TUNING_TGT_ID = #{tuning_requester_id},
+					TUNING_NO = #{tuning_no}
+				WHERE DBID = #{dbid}
+				AND GATHER_DAY = #{gather_day}
+				AND SQL_ID = #{sql_id}
+				<if test="choice_div_cd eq 'C'.toString()">
+	    		AND TOPSQL_TYPE_CD = '1'  -- THRESHOLD			
+	    		</if>	
+				<if test="choice_div_cd eq 'D'.toString()">
+				AND ${field_name} = #{plan_hash_value}		
+	    		</if>	
+			</when>
+			<otherwise>
+				UPDATE ${table_name} SET
+					TUNING_TGT_YN = 'Y',
+					TUNING_TGT_DT = SYSDATE,
+					TUNING_TGT_ID = #{tuning_requester_id},
+					TUNING_NO = #{tuning_no}
+				WHERE DBID = #{dbid}
+				AND GATHER_DAY = #{gather_day}
+				AND SQL_ID = #{sql_id}
+				AND ${field_name} = #{plan_hash_value}		
+			</otherwise>
+		</choose>
+	</update>
+	
+	<select id="perfrIdAssignCountList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* SQLDiagnosticsDao.perfrIdAssignCountList */
+		SELECT PERFR_ID, COUNT(*) AS PERFR_ID_CNT FROM TUNING_TARGET_SQL
+		WHERE CHOICE_DIV_CD = #{choice_div_cd}
+		AND TUNING_NO IN (${tuning_no_array})
+		GROUP BY PERFR_ID
+	</select>
+
+	<select id="getExceptionList" parameterType="String" resultType="String">
+		/* SQLDiagnosticsDao.literalSqlStatusList */
+		SELECT CD_NM FROM CD WHERE GRP_CD_ID = #{grp_cd_id} AND USE_YN = 'Y' ORDER BY ORDERED
+	</select>
+	
+		
+</mapper>

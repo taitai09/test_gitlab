@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+	2021.09.16	김원재	OPENPOP V2 최초작업
+ -->
+<mapper namespace="omc.spop.dao.SQLDiagnosisReportDao">
+	
+	<select id="selectSqlDiagnosisReportSchedulerNameList" parameterType="SQLDiagnosisReport" resultType="SQLDiagnosisReport">
+		/* SQLDiagnosisReportDao.selectSqlDiagnosisReportSchedulerNameList */
+		SELECT A.JOB_SCHEDULER_NM
+			,A.SQL_STD_QTY_SCHEDULER_NO
+		FROM SQL_STD_QTY_SCHEDULER A
+			, JOB_SCHEDULER_CONFIG_DETAIL B
+		WHERE A.DEL_YN = 'N' 
+		AND A.STD_QTY_SCHEDULER_DIV_CD = '03'
+		AND A.PROJECT_ID = 0
+		AND B.JOB_SCHEDULER_TYPE_CD = '37'
+		AND B.JOB_SCHEDULER_WRK_TARGET_ID = A.SQL_STD_QTY_SCHEDULER_NO 
+		AND A.STD_QTY_TARGET_DBID = #{std_qty_target_dbid}
+	</select>
+	
+	<select id="selectSQLDiagnosisReportSchedulerSchedule" parameterType="SQLDiagnosisReport" resultType="SQLDiagnosisReport">
+		/* SQLDiagnosisReportDao.selectSQLDiagnosisReportSchedulerSchedule */
+		SELECT TO_CHAR(A.EXEC_START_DT, 'YYYY-MM-DD HH24:MI') AS DIAG_DT															--진단일시
+			, TO_CHAR(TO_DATE(A.GATHER_TERM_START_DAY, 'YYYY-MM-DD'), 'YYYY-MM-DD')||' ~ '|| TO_CHAR(TO_DATE(A.GATHER_TERM_END_DAY, 'YYYY-MM-DD'), 'YYYY-MM-DD') AS GATHER_TERM   --수집기간
+		FROM SELFSQL_STD_QTY_PLAN_EXEC A
+		WHERE STD_QTY_TARGET_DBID = #{std_qty_target_dbid}
+		AND SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+	</select>
+	
+	<select id="selectSqlDiagnosisRuleData" parameterType="SQLDiagnosisReport" resultType="SQLDiagnosisReport">
+		/* SQLDiagnosisReportDao.selectSqlDiagnosisRuleData */
+		WITH TEMP_STD_QTY_CHK_RESULT AS (
+		SELECT C.SQL_ID
+			, B.QTY_CHK_IDT_CD
+			, COUNT(DISTINCT SQL_ID) OVER () AS SQL_ID_CNT
+		FROM SELFSQL_STD_QTY_PLAN_EXEC A
+			, SELFSQL_STD_QTY_CHK_RESULT B
+			, SELFSQL_STD_QTY_CHK_PGM C
+		WHERE A.SQL_STD_QTY_DIV_CD = '3'
+		AND A.STD_QTY_TARGET_DBID = #{std_qty_target_dbid}
+		AND A.SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+		AND B.SQL_STD_QTY_CHKT_ID = A.SQL_STD_QTY_CHKT_ID
+		AND C.SQL_STD_QTY_CHKT_ID = B.SQL_STD_QTY_CHKT_ID
+		AND C.SQL_STD_QTY_PROGRAM_SEQ = B.SQL_STD_QTY_PROGRAM_SEQ
+		--품질점검지표코드에 대한 예외 처리 부분 
+		AND (NVL(A.STD_QTY_TARGET_DBID, 0), NVL(C.SQL_ID, ' ')) NOT IN 
+			(SELECT DBID, SQL_ID
+			FROM SQL_STD_QTY_CHK_EXCEPT
+			WHERE QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+			AND TRIM(DBID) IS NOT NULL
+			AND TRIM(SQL_ID) IS NOT NULL)
+		)
+		SELECT (CASE WHEN A.QTY_CHK_IDT_CD = '000' THEN '전체 SQL' ELSE B.QTY_CHK_IDT_NM END) AS QTY_CHK_IDT_NM
+			, A.ERR_CNT
+			, A.QTY_CHK_IDT_CD
+		FROM (
+			SELECT '000' AS QTY_CHK_IDT_CD
+				, SQL_ID_CNT AS ERR_CNT
+			FROM TEMP_STD_QTY_CHK_RESULT A
+			WHERE ROWNUM = 1 
+			UNION ALL
+				SELECT QTY_CHK_IDT_CD
+			 	, COUNT(*) AS ERR_CNT
+			 	FROM TEMP_STD_QTY_CHK_RESULT A
+				GROUP BY QTY_CHK_IDT_CD
+			 ) A 
+			, SQL_STD_QTY_IDT_BASE B
+			 WHERE A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD(+) 
+			ORDER BY A.QTY_CHK_IDT_CD 
+	</select>
+	
+	<select id="selectSqlDiagnosisReportDetailInfo" parameterType="SQLDiagnosisReport" resultType="SQLDiagnosisReport">
+		/* SQLDiagnosisReportDao.selectSqlDiagnosisReportDetailInfo */
+	
+		WITH TEMP_STD_QTY_CHK_RESULT AS (
+			SELECT B.SQL_STD_QTY_CHKT_ID
+				, B.SQL_STD_QTY_PROGRAM_SEQ
+				, C.SQL_ID
+				, MAX(CASE WHEN B.QTY_CHK_IDT_CD = '105' THEN 'Y' ELSE 'N' END) AS SQL105ERR_YN 			/* SELECT FOR UPDATE - WAIT 옵션 누락 */ 
+				, MAX(CASE WHEN B.QTY_CHK_IDT_CD = '108' THEN 'Y' ELSE 'N' END) AS SQL108ERR_YN 			/* UPDATE/DELETE 문에 WHERE 절 누락 */
+				, MAX(CASE WHEN B.QTY_CHK_IDT_CD = '109' THEN 'Y' ELSE 'N' END) AS SQL109ERR_YN 			/* (빈공백) 비교 */
+				, MAX(CASE WHEN B.QTY_CHK_IDT_CD = '110' THEN 'Y' ELSE 'N' END) AS SQL110ERR_YN 			/* TO_DATE 함수 FORMAT 누락 */
+				, MAX(CASE WHEN B.QTY_CHK_IDT_CD = '112' THEN 'Y' ELSE 'N' END) AS SQL112ERR_YN 			/* INSERT문장 컬럼 미지정 검사 */
+				, MAX(CASE WHEN B.QTY_CHK_IDT_CD = '114' THEN 'Y' ELSE 'N' END) AS SQL114ERR_YN				/*  ROWNUM과 ORDER BY가 동일 Query Block에 존재 */
+			FROM SELFSQL_STD_QTY_PLAN_EXEC A
+				, SELFSQL_STD_QTY_CHK_RESULT B
+				, SELFSQL_STD_QTY_CHK_PGM C
+			WHERE A.SQL_STD_QTY_DIV_CD = '3'
+			AND A.STD_QTY_TARGET_DBID = #{std_qty_target_dbid}
+			AND A.SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+			AND B.SQL_STD_QTY_CHKT_ID = A.SQL_STD_QTY_CHKT_ID
+			AND C.SQL_STD_QTY_CHKT_ID = B.SQL_STD_QTY_CHKT_ID
+			AND C.SQL_STD_QTY_PROGRAM_SEQ = B.SQL_STD_QTY_PROGRAM_SEQ
+			
+			-- 품질지표코드가 클릭하면
+			AND (CASE WHEN #{qty_chk_idt_cd} = '000' THEN '1' ELSE B.QTY_CHK_IDT_CD END) = (CASE WHEN #{qty_chk_idt_cd} = '000' THEN '1' ELSE #{qty_chk_idt_cd} END)
+			
+			-- 품질점검지표코드에 대한 예외 처리 부분 
+			AND (NVL(A.STD_QTY_TARGET_DBID, 0), NVL(C.SQL_ID, ' ')) NOT IN 
+			(SELECT DBID, SQL_ID
+			FROM SQL_STD_QTY_CHK_EXCEPT
+			 WHERE QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+			AND TRIM(DBID) IS NOT NULL
+			AND TRIM(SQL_ID) IS NOT NULL)
+			GROUP BY B.SQL_STD_QTY_CHKT_ID, B.SQL_STD_QTY_PROGRAM_SEQ, C.SQL_ID
+			)
+			SELECT A.SQL_ID
+			, A.SQL105ERR_YN
+			, A.SQL108ERR_YN
+			, A.SQL109ERR_YN
+			, A.SQL110ERR_YN
+			, A.SQL112ERR_YN
+			, A.SQL114ERR_YN
+			, DBMS_LOB.SUBSTR(B.PROGRAM_SOURCE_DESC, 1000, 1) AS SQL_TEXT
+			, B.DBIO
+			FROM TEMP_STD_QTY_CHK_RESULT A
+			, SELFSQL_STD_QTY_CHK_PGM B 
+			 WHERE B.SQL_STD_QTY_CHKT_ID = A.SQL_STD_QTY_CHKT_ID
+			AND B.SQL_STD_QTY_PROGRAM_SEQ = A.SQL_STD_QTY_PROGRAM_SEQ
+	</select>
+	
+	<resultMap id="programSourceDescMap" type="java.util.LinkedHashMap" >
+		<result property="SQL_ID" column="SQL_ID"/>
+		<result property="PROGRAM_SOURCE_DESC" column="PROGRAM_SOURCE_DESC" jdbcType="CLOB" javaType="java.lang.String" />
+	</resultMap>
+
+	<select id="selectProgramSourceDesc" parameterType="SQLDiagnosisReport" resultMap="programSourceDescMap">
+		/* SQLDiagnosisReportDao.selectProgramSourceDesc */
+		SELECT SQL_ID
+			, PROGRAM_SOURCE_DESC
+		FROM SELFSQL_STD_QTY_CHK_PGM
+		WHERE SQL_STD_QTY_CHKT_ID = #{sql_std_qty_chkt_id}
+		AND SQL_STD_QTY_PROGRAM_SEQ = #{sql_std_qty_program_seq}
+	</select>
+	
+	<select id="selectSchedulerStatus" parameterType="SQLDiagnosisReport" resultType="SQLDiagnosisReport">
+		/* SQLDiagnosisReportDao.selectSchedulerStatus */
+		SELECT CASE WHEN A.STD_QTY_AGENT_STATUS_CD IS NOT NULL THEN CD1.CD_NM
+			WHEN A.FORCE_CLOSE_YN = 'Y' THEN '강제완료'
+			WHEN NVL(A.FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y' AND A.EXEC_END_DT IS NOT NULL THEN '완료'
+			WHEN A.EXEC_END_DT IS NULL THEN '수행중' 
+			END EXEC_STATUS
+		, (SELECT COUNT(*)
+		FROM SELFSQL_STD_QTY_CHK_PGM
+		WHERE SQL_STD_QTY_CHKT_ID = A.SQL_STD_QTY_CHKT_ID) AS SQL_CNT
+			, A.IN_PROGRESS_SQL_CNT  --처리중SQL수
+		FROM SELFSQL_STD_QTY_PLAN_EXEC A
+			, CD CD1
+		WHERE A.SQL_STD_QTY_DIV_CD = '3'
+			AND A.STD_QTY_TARGET_DBID = #{std_qty_target_dbid}
+			AND A.SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+			AND CD1.GRP_CD_ID(+) = '1090'
+			AND A.STD_QTY_AGENT_STATUS_CD = CD1.CD(+)
+	</select>
+	
+	
+	<sql id="loadIndexListSql">
+		/* SQLDiagnosisReportDao.loadIndexList */
+		SELECT A.QTY_CHK_IDT_CD
+			 , A.QTY_CHK_IDT_NM
+		  FROM SQL_STD_QTY_IDT_BASE A
+			 , PROJECT_SQL_STD_QTY_CHK_SQL B 
+		 WHERE A.QTY_CHK_IDT_YN = 'Y' 
+		   AND A.QTY_CHK_IDT_CD = B.QTY_CHK_IDT_CD
+		   AND B.PROJECT_ID = '0'
+		ORDER BY A.QTY_CHK_IDT_CD
+	</sql>
+	
+	<select id="loadQtyIdxByProject" parameterType="sqlStandards" resultType="sqlStandards">
+		/* SQLDiagnosisReportDao.loadQtyIdxByProject */
+		SELECT *
+		FROM (
+			<include refid="loadIndexListSql"/>
+		) A
+		WHERE A.QTY_CHK_IDT_CD NOT IN ('100')
+	</select>
+
+	<select id="selectSelfSqlStdQtyChkPgm" parameterType="String" resultType="sqlStandardOperationPlugIn">
+		/* SQLDiagnosisReportDao.selectSelfSqlStdQtyChkPgm */
+		<![CDATA[
+			SELECT A.*
+			FROM (
+				SELECT * 
+				FROM SELFSQL_STD_QTY_CHK_PGM
+				WHERE SQL_STD_QTY_CHKT_ID = #{sql_std_qty_chkt_id}
+				) A
+			WHERE SQL_STD_QTY_PROGRAM_SEQ >= #{from_sql_std_qty_program_seq} AND SQL_STD_QTY_PROGRAM_SEQ <= #{to_sql_std_qty_program_seq}
+		]]>
+	</select>
+	
+</mapper>

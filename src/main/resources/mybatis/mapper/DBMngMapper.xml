@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.09.03	임호경	최초작성
+-->
+<mapper namespace="omc.spop.dao.DBMngDao">	
+	<select id="getHintList" parameterType="notUseHint" resultType="notUseHint">
+		/* DatabaseMngDao.getHintList */
+		SELECT A.DBID, A.DB_NAME, A.DB_ABBR_NM, A.USE_YN,
+			B.HINT_NM, B.HINT_REG_DT, B.HINT_REG_ID
+		FROM DATABASE A, NOT_USE_HINT B
+		WHERE A.DBID = B.DBID AND A.USE_YN='Y'
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND A.DB_NAME LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND B.HINT_REG_ID LIKE '%' || #{searchValue} || '%'
+			</when>
+		</choose>	
+		ORDER BY ORDERING ASC,  HINT_NM DESC
+	</select>
+
+	<delete id="deleteHint" parameterType="notUseHint">
+		 DELETE NOT_USE_HINT WHERE DBID = #{old_dbid} and HINT_NM = #{old_hint_nm}
+	</delete>
+	
+	<update id="updateHint" parameterType="notUseHint">
+		UPDATE NOT_USE_HINT SET
+
+		<if test="dbid != null and dbid != ''">
+			DBID = #{dbid},
+		</if> 
+		<if test="hint_nm != null and hint_nm != ''">
+			HINT_NM = #{hint_nm},
+		</if> 
+
+		HINT_REG_DT = SYSDATE,
+		HINT_REG_ID = #{user_id}
+
+      WHERE DBID = #{old_dbid} and hint_nm = #{old_hint_nm}
+   	</update>
+	
+	<select id="checkHint" resultType="int" parameterType="notUseHint">
+		SELECT NVL(COUNT(HINT_NM),0) FROM NOT_USE_HINT WHERE DBID = #{dbid} and HINT_NM = #{hint_nm}
+	</select>
+	
+	<select id="getDbAbbrNm" resultType="string" parameterType="notUseHint">
+		SELECT DB_ABBR_NM FROM DATABASE WHERE DBID = #{dbid}
+	</select>
+	
+	<insert id="insertHint" parameterType="notUseHint">
+		INSERT INTO NOT_USE_HINT VALUES(#{dbid}, #{hint_nm}, SYSDATE, #{user_id})
+	</insert>
+	
+
+
+	
+	
+	<select id="getUsernameList" parameterType="uiExceptDbUser" resultType="uiExceptDbUser">
+       /* DBMngDao. */
+       SELECT * FROM UI_EXCEPT_DB_USER 
+
+		<trim prefix="WHERE" prefixOverrides="AND |OR">
+			<if test="searchKey != null and (searchKey eq '01'.toString())">
+				USERNAME LIKE '%' || #{searchValue} || '%'
+			</if>
+<!-- 			<if test="search_use_yn != null and search_use_yn !=''"> -->
+<!-- 				AND USE_YN = #{search_use_yn} -->
+<!-- 			</if> -->
+		</trim>				
+		ORDER BY USERNAME
+	</select>
+	
+	
+	<update id="updateUsername" parameterType="uiExceptDbUser">
+	UPDATE UI_EXCEPT_DB_USER
+	SET
+		USERNAME = #{username}
+	WHERE 
+		USERNAME = #{old_username} 
+	</update>
+	<insert id="insertUsername" parameterType="uiExceptDbUser">
+	INSERT INTO UI_EXCEPT_DB_USER (USERNAME)
+		VALUES (#{username})
+	</insert>
+	<select id="checkUsername" parameterType="uiExceptDbUser" resultType="int">
+		SELECT COUNT(USERNAME) FROM UI_EXCEPT_DB_USER WHERE USERNAME = #{username}
+	</select>
+	
+	<delete id="deleteUsername" parameterType="uiExceptDbUser">
+	DELETE UI_EXCEPT_DB_USER WHERE USERNAME = #{old_username}
+	</delete>
+   	
+   	
+
+</mapper> 

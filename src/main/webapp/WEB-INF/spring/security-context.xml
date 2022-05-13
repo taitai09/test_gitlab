@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:sec="http://www.springframework.org/schema/security"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans   
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/security
+       http://www.springframework.org/schema/security/spring-security.xsd"> 
+
+	<!-- This is where we configure Spring-Security -->
+	<sec:http pattern="/resources/**" security="none" />
+	<sec:http pattern="/upload/**" security="none" />
+	<sec:http auto-config="true" use-expressions="true" disable-url-rewriting="true">
+		<sec:headers defaults-disabled="true">
+			<sec:frame-options policy="SAMEORIGIN"/>
+			<sec:hsts max-age-seconds="60" include-subdomains="false"/>
+		</sec:headers>
+		<!-- <sec:csrf/> -->
+		<sec:csrf disabled="true" />
+		<sec:access-denied-handler error-page="/auth/denied"/>
+		<sec:intercept-url pattern="/favicon.ico" access="permitAll" />
+		<sec:intercept-url pattern="/sso/**" access="permitAll" />
+		<sec:intercept-url pattern="/Common/**" access="permitAll" />
+		<sec:intercept-url pattern="/auth/**" access="permitAll" />
+		<sec:intercept-url pattern="/Popup/**" access="permitAll" />
+		<sec:intercept-url pattern="/iqms/**" access="permitAll" />
+		<sec:intercept-url pattern="/wbn/**" access="permitAll" />
+		<sec:intercept-url pattern="/openpop/**" access="permitAll" />
+		<sec:intercept-url pattern="/ssopi/**" access="permitAll" />
+		<sec:intercept-url pattern="/stpi/**" access="permitAll" />
+		<sec:intercept-url pattern="/**" access="isAuthenticated()" />
+<!-- 		<sec:form-login login-page="/sso/business"  -->
+		<sec:form-login login-page="/auth/login" 
+							login-processing-url="/auth/process"  
+							username-parameter="user_id"
+            				password-parameter="userpwd"
+            				authentication-success-handler-ref="loginSuccessHandler"
+							authentication-failure-url="/auth/login?error=true"
+							default-target-url="/" />
+		<!-- check session time out with ajax -->
+		<sec:custom-filter after="EXCEPTION_TRANSLATION_FILTER" ref="ajaxSessionTimeoutFilter"/>
+	</sec:http>
+
+	<bean id="ajaxSessionTimeoutFilter" class="omc.spop.security.AjaxSessionTimeoutFilter"/>
+
+	<!-- Declare an authentication-manager to use a custom userDetailsService -->
+	<sec:authentication-manager> 
+		<sec:authentication-provider user-service-ref="loginDetailsService"/>
+	</sec:authentication-manager>
+
+	<!-- A custom service where Spring will retrieve users and their corresponding access levels -->
+	<bean id="loginDetailsService" class="omc.spop.security.LoginDetailsService" />
+	<bean id="loginSuccessHandler" class="omc.spop.security.LoginSuccessHandler" />
+</beans>

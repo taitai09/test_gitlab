@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.02.23	이원식	최초작성	
+-->
+<mapper namespace="omc.spop.dao.BoardMngDao">	
+	<select id="getBoardManagement" parameterType="boardManagement" resultType="boardManagement">
+		SELECT BOARD_MGMT_NO, BOARD_TYPE_CD, BOARD_NM, FILE_ADD_YN, COMMENT_USE_YN, BOARD_USE_YN
+		FROM BOARD_MANAGEMENT
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no}
+	</select>	
+
+	<select id="getBoardListCount" parameterType="board" resultType="int">
+		SELECT COUNT(*) AS TOTCNT
+		FROM BOARD_MANAGEMENT A
+		WHERE 1=1
+		<if test="board_mgmt_no != null and board_mgmt_no != ''">
+			AND A.BOARD_MGMT_NO = #{board_mgmt_no}
+		</if>
+		AND A.BOARD_USE_YN = 'N'
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND A.TITLE LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND A.CONTENTS LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '03'.toString())">
+				AND (A.TITLE LIKE '%' || #{searchValue} || '%' OR A.CONTENTS LIKE '%' || #{searchValue} || '%')
+			</when>
+		</choose>	
+	</select>
+	
+	<select id="boardList" parameterType="board" resultType="board">
+		SELECT AL.*
+		FROM
+		(		
+			SELECT 0 AS RNUM, TOP.*
+			FROM
+			(
+				SELECT BOARD_NO, TITLE, DEPTH, LVL, 
+					(SELECT COUNT(*) FROM BOARD_COMMENT X 
+					WHERE A.BOARD_MGMT_NO = X.BOARD_MGMT_NO 
+					AND A.BOARD_NO = X.BOARD_NO
+					AND X.BOARD_USE_YN = 'N') AS COMMENT_CNT,
+	        		HIT_CNT, FILE_NM, ORG_FILE_NM
+	        		, FILE_EXT_NM
+	        		, TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI') AS REG_DT, REG_ID, B.USER_NM AS REG_NM
+				FROM BOARD_MANAGEMENT A, USERS B
+				WHERE 1=1
+				<if test="board_mgmt_no != null and board_mgmt_no != ''">
+					AND BOARD_MGMT_NO = #{board_mgmt_no}
+				</if>
+				AND A.REG_ID = B.USER_ID
+				AND BOARD_USE_YN = 'N'
+				ORDER BY REG_DT DESC
+			) TOP
+			UNION ALL
+			SELECT ROWNUM AS RNUM, A.*
+			FROM
+			(
+				SELECT A.BOARD_NO, A.TITLE, A.DEPTH, A.LVL, 
+					(SELECT COUNT(*) FROM BOARD_COMMENT X 
+					WHERE A.BOARD_MGMT_NO = X.BOARD_MGMT_NO 
+					AND A.BOARD_NO = X.BOARD_NO
+					AND X.BOARD_USE_YN = 'N') AS COMMENT_CNT,
+					A.HIT_CNT, FILE_NM, ORG_FILE_NM, FILE_EXT_NM,  TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI') AS REG_DT, A.REG_ID, B.USER_NM AS REG_NM
+				FROM BOARD_MANAGEMENT A, USERS B
+				WHERE 1=1
+				<if test="board_mgmt_no != null and board_mgmt_no != ''">
+					AND BOARD_MGMT_NO = #{board_mgmt_no}
+				</if>
+				AND A.REG_ID = B.USER_ID
+				AND A.BOARD_USE_YN = 'N'
+				<choose>
+					<when test="searchKey != null and (searchKey eq '01'.toString())">
+						AND A.TITLE LIKE '%' || #{searchValue} || '%'
+					</when>
+					<when test="searchKey != null and (searchKey eq '02'.toString())">
+						AND A.CONTENTS LIKE '%' || #{searchValue} || '%'
+					</when>
+					<when test="searchKey != null and (searchKey eq '03'.toString())">
+						AND (A.TITLE LIKE '%' || #{searchValue} || '%' OR A.CONTENTS LIKE '%' || #{searchValue} || '%')
+					</when>
+				</choose>				
+				ORDER BY A.REF_BOARD_NO DESC, A.LVL ASC
+			) A
+		) AL
+		WHERE RNUM BETWEEN (${startRowNum} + 1) AND ${endRowNum}
+		<if test="startRowNum eq 0">
+			OR RNUM = 0
+		</if>
+	</select>
+	
+	<update id="updateBoardHitCnt" parameterType="board">
+		UPDATE BOARD_MANAGEMENT SET HIT_CNT = HIT_CNT + 1
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no}
+	</update>	
+	
+	<select id="getBoard" parameterType="board" resultType="board">
+		SELECT A.BOARD_NO, A.TITLE, A.CONTENTS AS BOARD_CONTENTS
+		, A.REF_BOARD_NO, A.TOP_BOARD_NO, A.DEPTH, A.LVL,
+			A.HIT_CNT, FILE_NM, ORG_FILE_NM, FILE_EXT_NM, TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI') AS REG_DT, A.REG_ID, B.USER_NM AS REG_NM
+		FROM BOARD_MANAGEMENT A, USERS B
+		WHERE A.BOARD_MGMT_NO = #{board_mgmt_no}
+		AND A.BOARD_NO = #{board_no}
+		AND A.REG_ID = B.USER_ID	
+		AND A.BOARD_USE_YN = 'N'
+	</select>
+
+	<select id="getMaxBoardNo" parameterType="board" resultType="string">
+		SELECT NVL(MAX(BOARD_NO) + 1, 1) AS BOARD_NO
+		FROM BOARD_MANAGEMENT
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no}	
+	</select>
+	
+	<insert id="insertBoard" parameterType="board">
+		INSERT INTO BOARD_MANAGEMENT (
+			BOARD_MGMT_NO, BOARD_NO
+			, TITLE, CONTENTS, REF_BOARD_NO, TOP_BOARD_NO, DEPTH, LVL, HIT_CNT, 
+			FILE_NM, ORG_FILE_NM, FILE_SIZE, FILE_EXT_NM, BOARD_USE_YN, REG_DT, REG_ID )
+		VALUES (
+			#{board_mgmt_no}, #{board_no}, #{top_notice_yn}, #{title}, #{board_contents}, #{ref_board_no}, #{top_board_no}, #{depth}, #{lvl}, #{hit_cnt},
+			#{file_nm}, #{org_file_nm}, #{file_size}, #{file_ext_nm}, 'N', SYSDATE, #{reg_id}
+		)	
+	</insert>
+
+	<update id="updateBoard" parameterType="board">
+		UPDATE BOARD_MANAGEMENT
+		<set>
+			<if test="title != null">TITLE = #{title},</if>
+			<if test="board_contents != null">CONTENTS = #{board_contents},</if>
+			<if test="file_nm != null">FILE_NM = #{file_nm},</if>
+			<if test="org_file_nm != null">ORG_FILE_NM = #{org_file_nm},</if>
+			<if test="file_size != null">FILE_SIZE = #{file_size},</if>
+			<if test="file_ext_nm != null">FILE_EXT_NM = #{file_ext_nm},</if>
+			<if test="upd_id != null">UPD_ID = #{upd_id},</if>
+			<if test="upd_id != null">UPD_DT = SYSDATE,</if>
+		</set>
+		<trim prefix="SET" suffixOverrides=","></trim>		
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no}	
+	</update>
+	
+	<update id="deleteBoard" parameterType="board">
+		UPDATE BOARD_MANAGEMENT SET BOARD_USE_YN = 'Y', UPD_DT = SYSDATE, UPD_ID = #{upd_id}
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no}
+	</update>
+	
+	<update id="deleteChildBoard" parameterType="board">
+		UPDATE BOARD_MANAGEMENT SET BOARD_USE_YN = 'Y', UPD_DT = SYSDATE, UPD_ID = #{upd_id}
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND REF_BOARD_NO = #{ref_board_no}
+		<choose>
+			<when test="depth eq 0">
+				AND LVL > ${lvl}
+			</when>
+			<otherwise>
+				AND TOP_BOARD_NO = #{board_no} AND LVL > ${lvl} 			
+			</otherwise>
+		</choose>
+	</update>
+	
+	<update id="updateReplyLevel" parameterType="board">
+		UPDATE BOARD_MANAGEMENT SET LVL = LVL + 1
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND REF_BOARD_NO = #{ref_board_no} AND LVL > ${lvl}
+	</update>
+	
+	<select id="boardCommentList" parameterType="boardComment" resultType="boardComment">
+		SELECT A.COMMENT_SEQ, A.CONTENTS AS COMMENT_CONTENTS,
+			TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI') AS REG_DT, A.REG_ID, B.USER_NM AS REG_NM
+		FROM BOARD_COMMENT A, USERS B
+		WHERE A.BOARD_MGMT_NO = #{board_mgmt_no}
+		AND A.BOARD_NO = #{board_no}
+		AND A.REG_ID = B.USER_ID
+		AND A.BOARD_USE_YN = 'N'
+	</select>
+	
+	<select id="getBoardCommentSeq" parameterType="boardComment" resultType="string">
+		SELECT NVL(MAX(COMMENT_SEQ) + 1, 1) AS COMMENT_SEQ
+		FROM BOARD_COMMENT
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no}	
+	</select>
+	
+	<insert id="insertBoardComment" parameterType="boardComment">
+		INSERT INTO BOARD_COMMENT (
+			BOARD_MGMT_NO, BOARD_NO, COMMENT_SEQ, CONTENTS, BOARD_USE_YN, REG_DT, REG_ID )
+		VALUES (
+			#{board_mgmt_no}, #{board_no}, #{comment_seq}, #{comment_contents}, 'N', SYSDATE, #{reg_id}
+		)	
+	</insert>
+	
+	<update id="deleteBoardComment" parameterType="boardComment">
+		UPDATE BOARD_COMMENT SET BOARD_USE_YN = 'Y', UPD_DT = SYSDATE, UPD_ID = #{upd_id}
+		WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no} AND COMMENT_SEQ = #{comment_seq}
+	</update>
+	
+	
+	<!-- 새로시작 -->
+	<select id="noticeList_old" parameterType="board" resultType="board">
+		/* boardMngDao.noticeList */
+		SELECT 0 AS RNUM, TOP.*
+				FROM
+				(
+					SELECT BOARD_NO, TITLE, DEPTH, LVL, 
+						(SELECT COUNT(*) FROM BOARD_COMMENT X 
+						WHERE A.BOARD_MGMT_NO = X.BOARD_MGMT_NO 
+						AND A.BOARD_NO = X.BOARD_NO
+						AND X.DEL_YN = 'N') AS COMMENT_CNT,
+		        		HIT_CNT, TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI') AS REG_DT, REG_ID, B.USER_NM AS REG_NM
+					FROM BOARD A, USERS B
+					WHERE BOARD_MGMT_NO = 1
+					AND A.REG_ID = B.USER_ID
+					AND TOP_NOTICE_YN = 'Y'
+					AND DEL_YN = 'N'
+					ORDER BY REG_DT DESC
+				) TOP
+				UNION ALL
+				SELECT ROWNUM AS RNUM, A.*
+				FROM
+				(
+					SELECT A.BOARD_NO, A.TITLE, A.DEPTH, A.LVL, 
+						(SELECT COUNT(*) FROM BOARD_COMMENT X 
+						WHERE A.BOARD_MGMT_NO = X.BOARD_MGMT_NO 
+						AND A.BOARD_NO = X.BOARD_NO
+						AND X.DEL_YN = 'N') AS COMMENT_CNT,
+						A.HIT_CNT, TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI') AS REG_DT, A.REG_ID, B.USER_NM AS REG_NM
+					FROM BOARD A, USERS B
+					WHERE A.BOARD_MGMT_NO = 1
+					AND A.REG_ID = B.USER_ID
+					AND A.TOP_NOTICE_YN = 'N'
+					AND A.DEL_YN = 'N'
+					<choose>
+						<when test="searchKey != null and (searchKey eq '01'.toString())">
+							AND A.TITLE LIKE '%' || #{searchValue} || '%'
+						</when>
+						<when test="searchKey != null and (searchKey eq '02'.toString())">
+							AND A.CONTENTS LIKE '%' || #{searchValue} || '%'
+						</when>
+						<when test="searchKey != null and (searchKey eq '03'.toString())">
+							AND (A.TITLE LIKE '%' || #{searchValue} || '%' OR A.CONTENTS LIKE '%' || #{searchValue} || '%')
+						</when>
+					</choose>	
+					ORDER BY A.REF_BOARD_NO DESC, A.LVL ASC
+				) A
+	</select>
+	
+	<select id="noticeList" parameterType="board" resultType="board">
+		/* boardMngDao.noticeList */
+		SELECT * FROM BOARD WHERE BOARD_MGMT_NO = 1 AND DEL_YN = 'N' 
+			<choose>
+				<when test="searchKey != null and (searchKey eq '01'.toString())">
+					AND TITLE LIKE '%' || #{searchValue} || '%'
+				</when>
+				<when test="searchKey != null and (searchKey eq '02'.toString())">
+					AND CONTENTS LIKE '%' || #{searchValue} || '%'
+				</when>
+				<when test="searchKey != null and (searchKey eq '03'.toString())">
+					AND (TITLE LIKE '%' || #{searchValue} || '%' OR CONTENTS LIKE '%' || #{searchValue} || '%')
+				</when>
+			</choose>	
+		ORDER BY REG_DT DESC
+	</select>
+	
+	<select id="readNoticeContents" parameterType="board" resultType="board">
+		/* boardMngDao.readNoticeContents */
+		SELECT * FROM BOARD WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no}
+	</select>
+	
+	<update id="updateHitCnt" parameterType="board">
+		/* boardMngDao.updateHitCnt */
+		UPDATE BOARD SET HIT_CNT = (SELECT MAX(HIT_CNT)+1 FROM BOARD WHERE BOARD_NO = #{board_no})
+			WHERE BOARD_NO = #{board_no}
+	</update>
+	
+	<select id="readNoticeFiles" parameterType="board" resultType="board">
+		/* boardMngDao.readNoticeFiles */
+		SELECT * FROM BOARD_ATTACH_FILE WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no} ORDER BY FILE_SEQ
+	</select>
+	
+	<insert id="insertNotice" parameterType="board">
+		/* boardMngDao.insertNotice */
+       INSERT INTO BOARD (
+			BOARD_MGMT_NO, BOARD_NO, TOP_NOTICE_YN, TITLE, CONTENTS, HIT_CNT, DEL_YN, REG_DT, REG_ID )
+		VALUES (
+        #{board_mgmt_no}, (SELECT NVL(MAX(BOARD_NO)+1,1) FROM BOARD), #{top_notice_yn}, #{title}, #{board_contents}, 0, 'N', SYSDATE, #{reg_id}
+        )
+	</insert>
+	
+	<update id="updateNotice" parameterType="board">
+		/* boardMngDao.updateNotice */
+        UPDATE BOARD
+            SET
+              TOP_NOTICE_YN = #{top_notice_yn}
+            , TITLE = #{title}
+            , CONTENTS = #{board_contents}
+            , UPD_DT = SYSDATE
+            , UPD_ID = #{upd_id}
+            WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no}
+	</update>
+	
+	<update id="deleteNotice" parameterType="board">
+		/* boardMngDao.deleteNotice*/
+        UPDATE BOARD
+            SET
+              DEL_YN = 'Y'
+            , UPD_DT = SYSDATE
+            , UPD_ID = #{upd_id}
+            WHERE BOARD_MGMT_NO = #{board_mgmt_no} AND BOARD_NO = #{board_no}
+	</update>
+	
+	<insert id="insertNoticeAttachFiles" parameterType="board">
+		/* boardMngDao.insertNoticeAttachFiles  */
+		INSERT INTO BOARD_ATTACH_FILE 
+			 ( BOARD_MGMT_NO
+			 , BOARD_NO
+			 , FILE_SEQ
+			 , FILE_NM
+			 , ORG_FILE_NM
+			 , FILE_SIZE
+			 , FILE_EXT_NM
+			 ) 
+			   VALUES 
+			 ( #{board_mgmt_no}
+			 , (
+				SELECT NVL(MAX(BOARD_NO),1)
+				  FROM BOARD
+				 WHERE BOARD_MGMT_NO = #{board_mgmt_no}
+			   )
+			 , (
+				SELECT NVL(MAX(FILE_SEQ) + 1, 1) FILE_SEQ
+				  FROM BOARD_ATTACH_FILE
+				 WHERE BOARD_MGMT_NO = #{board_mgmt_no}
+				   AND BOARD_NO = (
+									SELECT NVL(MAX(BOARD_NO),1) 
+									  FROM BOARD
+									 WHERE BOARD_MGMT_NO = #{board_mgmt_no}
+								  )
+			   )
+			 , #{file_nm}
+			 , #{org_file_nm}
+			 , #{file_size}
+			 , #{file_ext_nm}
+			 )
+	</insert>
+	
+	<delete id="deleteAttachFile" parameterType="board">
+		/* boardMngDao.deleteAttachFile */
+			DELETE BOARD_ATTACH_FILE 
+			 WHERE BOARD_MGMT_NO = #{board_mgmt_no} 
+			   AND BOARD_NO = #{board_no} 
+			   AND FILE_SEQ = #{file_seq}
+	</delete>
+	
+<!-- 	<select id="getMaxNoticeFileSeq" parameterType="board" resultType="string">
+		/* boardMngDao.getMaxNoticeFileSeq */
+		SELECT NVL(MAX(FILE_SEQ) + 1, 1) FILE_SEQ
+		FROM BOARD
+		WHERE BOARD_NO = #{board_no}
+	</select> -->
+</mapper>

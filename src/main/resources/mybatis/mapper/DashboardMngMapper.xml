@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+ * 2018.10.05 	임호경	최초작성
+ * 2020.05.22	이재우	기능개선
+-->
+<mapper namespace="omc.spop.dao.DashboardMngDao">
+
+	<select id="getMotoringGroupList" parameterType="motoringGroup" resultType="motoringGroup">
+	/* DashboardMngDao.getMotoringGroupList */
+		SELECT GROUP_ID
+			 , GROUP_NM
+			 , DESPLAY_SEQ
+			 , GROUP_DESC
+			 , USER_ID
+		  FROM MOTORING_GROUP
+		 WHERE USER_ID = #{user_id}
+		<trim prefix="AND" prefixOverrides="AND |OR">
+			<if test="searchKey != null and (searchKey eq '01'.toString())">
+			   GROUP_NM LIKE '%' || #{searchValue} || '%'
+			</if>
+<!--		<if test="searchKey != null and (searchKey eq '02'.toString())">-->
+<!--		   USER_ID LIKE '%' || #{searchValue} || '%'					-->
+<!--		</if> 															-->
+<!-- 			<if test="search_use_yn != null and search_use_yn !=''">	-->
+<!-- 				AND USE_YN = #{search_use_yn} 							-->
+<!-- 			</if> 														-->
+		</trim>
+		 ORDER BY DESPLAY_SEQ, GROUP_ID, GROUP_NM
+	</select>
+
+	<update id="updateMotoringGroup" parameterType="motoringGroup">
+	/* DashboardMngDao.updateMotoringGroup */
+		UPDATE MOTORING_GROUP
+			<trim prefix="SET" suffixOverrides=",">
+				<if test="group_nm != null and group_nm != ''">
+					GROUP_NM = #{group_nm},
+				</if>
+				
+				<if test="desplay_seq != null and desplay_seq != ''">
+					DESPLAY_SEQ = #{desplay_seq},
+				</if>
+				
+				<if test="group_desc != null and group_desc != ''">
+					GROUP_DESC =#{group_desc},
+				</if>
+				
+				<if test="user_id != null and user_id != ''">
+					USER_ID = #{user_id}
+				</if>
+<!-- 			<if test="user_id != null and user_id != ''"> -->
+<!-- 				USER_ID =#{user_id} -->
+<!-- 			</if> -->
+			</trim>
+		 WHERE GROUP_ID = #{group_id}
+
+	</update>
+	
+	<delete id="deleteMotoringGroup" parameterType="motoringGroup">
+	/* DashboardMngDao.deleteMotoringGroup */
+		DELETE MOTORING_GROUP
+		 WHERE GROUP_ID = #{group_id}
+	</delete>
+ 
+	<insert id="insertMotoringGroup" parameterType="motoringGroup">
+	/* DashboardMngDao.insertMotoringGroup */
+		INSERT INTO MOTORING_GROUP 
+		(
+			   GROUP_ID
+			 , USER_ID
+			 , GROUP_NM
+			 , GROUP_DESC
+			 , DESPLAY_SEQ
+		)
+		VALUES
+		( 
+			   SQ_SPOP_DATABASE_GROUP_ID.NEXTVAL
+			 , #{user_id}
+			 , #{group_nm}
+			 , #{group_desc}
+			 , ${desplay_seq}
+		)
+	</insert>
+	
+	<select id="checkMotoringGroupId" parameterType="motoringGroup" resultType="int">
+	/* DashboardMngDao.checkMotoringGroupId */
+		SELECT COUNT(GROUP_ID)
+		  FROM MOTORING_GROUP 
+		 WHERE GROUP_NM = #{group_nm}
+		   AND USER_ID  = #{user_id} 
+	
+<!-- 	<trim prefix="WHERE" prefixOverrides="AND |OR"> -->
+<!-- 		<if test="group_id == null or group_id == '' "> -->
+<!-- 			GROUP_ID = (SELECT NVL(COUNT(GROUP_ID),0) FROM MOTORING_GROUP)  -->
+<!-- 		</if> -->
+			
+<!-- 	</trim>				 -->
+	
+	</select>
+	
+	<select id="getDatabaseGroupList" parameterType="motoringGroup" resultType="motoringGroup">
+	/* DashboardMngDao.getDatabaseGroupList */
+		WITH DB_PRIV AS (
+				SELECT UDP.DBID, D.DB_NAME, D.ORDERING, U.USER_ID
+				  FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+				 WHERE UDP.USER_ID = U.USER_ID
+				   AND UDP.DBID = D.DBID
+				   AND D.USE_YN = 'Y'
+				   AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+				   AND U.USER_ID = #{user_id}
+		)
+		SELECT A.GROUP_ID
+			 , A.GROUP_NM
+			 , B.DBID
+			 , C.DB_NAME
+			 , B.DESPLAY_SEQ
+			 , B.REG_DT
+		  FROM MOTORING_GROUP A
+			 , DATABASE_GROUP B
+			 , DB_PRIV C
+		 WHERE A.GROUP_ID = B.GROUP_ID   
+		   AND B.DBID = C.DBID
+		   AND A.USER_ID = C.USER_ID
+		
+			<trim prefix="AND" prefixOverrides="AND |OR">
+				<if test="searchKey != null and (searchKey eq '01'.toString())">
+				GROUP_NM LIKE '%' || #{searchValue} || '%'
+				</if>
+<!-- 			<if test="search_use_yn != null and search_use_yn !=''"> -->
+<!-- 				AND USE_YN = #{search_use_yn} -->
+<!-- 			</if> -->
+			</trim>				
+		 ORDER BY A.DESPLAY_SEQ, B.DESPLAY_SEQ, C.ORDERING
+		
+	</select>
+	
+	<select id="getMotoringGroupId" parameterType="motoringGroup" resultType="motoringGroup">
+	/* DashboardMngDao.getMotoringGroupId */
+		SELECT GROUP_ID 
+			 , GROUP_NM
+		  FROM MOTORING_GROUP
+		 WHERE USER_ID = #{user_id}
+		 ORDER BY GROUP_ID
+	
+	</select>
+	
+	<update id="saveDatabaseGroup" parameterType="motoringGroup">
+	/* DashboardMngDao.saveDatabaseGroup */
+		 MERGE INTO DATABASE_GROUP
+		 USING DUAL
+		    ON (GROUP_ID = #{group_id} AND DBID = #{dbid})
+		  WHEN MATCHED THEN 
+					   UPDATE SET
+							  DESPLAY_SEQ = ${desplay_seq}
+							, REG_DT = SYSDATE
+		  WHEN NOT MATCHED THEN
+					   INSERT 
+					   (
+				 			  GROUP_ID
+				 			, DBID
+							, DESPLAY_SEQ
+							, REG_DT
+					   )
+					   VALUES 
+					   (
+				 			  #{group_id}
+				 			, #{dbid}
+				 			, #{desplay_seq}
+				 			, SYSDATE
+				 	   )
+					
+	</update>
+	
+	<delete id="deleteDatabaseGroup" parameterType="motoringGroup">
+	/* DashboardMngDao.deleteDatabaseGroup */
+		DELETE DATABASE_GROUP
+		 WHERE GROUP_ID = #{group_id}
+		   AND DBID = #{dbid}
+	</delete>
+	
+	<select id="checkDatabaseGroupId" parameterType="motoringGroup" resultType="int">
+	/* DashboardMngDao.checkDatabaseGroupId */
+		SELECT COUNT(GROUP_ID)
+		  FROM DATABASE_GROUP 
+		 WHERE GROUP_ID = #{group_id}
+		   AND DBID = #{dbid}
+		   AND ROWNUM = 1
+	</select>
+	
+	<select id="checkMotoringDesplaySeq" parameterType="motoringGroup" resultType="int">
+	/* DashboardMngDao.checkMotoringDesplaySeq */
+		SELECT COUNT(GROUP_ID)
+		  FROM MOTORING_GROUP
+		 WHERE DESPLAY_SEQ = #{desplay_seq}
+		   AND USER_ID = #{user_id}
+		   AND ROWNUM = 1
+	</select>
+	
+	<select id="checkDatabaseDesplaySeq" parameterType="motoringGroup" resultType="int">
+	/* DashboardMngDao.checkDatabaseDesplaySeq */
+		SELECT COUNT(DESPLAY_SEQ)
+		  FROM DATABASE_GROUP
+		 WHERE GROUP_ID = #{group_id}
+		   AND DESPLAY_SEQ = #{desplay_seq}
+	</select>
+	
+	<select id="getMotoringOneGroupId" parameterType="motoringGroup" resultType="motoringGroup">
+	/* DashboardMngDao.getMotoringOneGroupId */
+		SELECT GROUP_ID
+			 , GROUP_NM
+			 , DESPLAY_SEQ
+			 , GROUP_DESC
+			 , USER_ID
+		  FROM MOTORING_GROUP
+		 WHERE USER_ID = #{user_id}
+		   AND GROUP_ID = #{group_id}
+	</select>
+	
+	<select id="getDatabaseOneGroupId" parameterType="motoringGroup" resultType="motoringGroup">
+	/* DashboardMngDao.getDatabaseOneGroupId */
+		SELECT GROUP_ID
+			 , DBID
+			 , DESPLAY_SEQ
+			 , REG_DT
+		  FROM DATABASE_GROUP
+		 WHERE GROUP_ID = #{group_id}
+		   AND DBID = #{dbid}
+	</select>
+	
+</mapper>

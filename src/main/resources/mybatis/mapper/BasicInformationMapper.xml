@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2017.12.05	이원식	최초작성
+	2018.03.07	이원식	OPENPOP V2 최초작업	
+-->
+<mapper namespace="omc.spop.dao.BasicInformationDao">	
+	<select id="selectMenuGroupList" parameterType="spopPreferences" resultType="spopPreferences">
+		SELECT PREF_GRP, PREF_DIV_NM
+		FROM (
+		    SELECT SUBSTR(PREF_ID, 1, LENGTH(PREF_ID) - 3) AS PREF_GRP, PREF_DIV_NM
+		    FROM SPOP_PREFERENCES
+		    WHERE PREF_MGMT_TYPE_CD = #{pref_mgmt_type_cd}
+		)
+		GROUP BY PREF_GRP, PREF_DIV_NM
+		ORDER BY PREF_GRP
+	</select>
+	
+	<select id="selectBasicSystemInfoList" parameterType="spopPreferences" resultType="spopPreferences">
+		SELECT A.PREF_ID, SUBSTR(A.PREF_ID, 1, LENGTH(A.PREF_ID) - 3) AS PREF_GRP, SUBSTR(A.PREF_ID,-3) AS PREF_SUB_ID,
+			A.PREF_DATA_TYPE_CD, A.DEFAULT_PREF_VALUE AS PREF_VALUE, NVL(A.DEFAULT_PREF_VALUE, '') AS PRE_PREF_VALUE,
+			A.MIN_PREF_VALUE, A.MAX_PREF_VALUE, LOWER(A.UNIT) AS UNIT, A.PREF_DETAIL_DIV_NM, A.PREF_DESC
+		FROM SPOP_PREFERENCES A
+		WHERE A.PREF_MGMT_TYPE_CD = '1'
+		ORDER BY PREF_GRP, ORDERED ASC
+	</select>
+	
+	<select id="selectBasicDBInfoList" parameterType="spopPreferences" resultType="spopPreferences">
+		SELECT A.PREF_ID, SUBSTR(A.PREF_ID, 1, LENGTH(A.PREF_ID) - 3) AS PREF_GRP, SUBSTR(A.PREF_ID,-3) AS PREF_SUB_ID,
+			A.PREF_DATA_TYPE_CD, NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) AS PREF_VALUE, NVL(B.PREF_VALUE, '') AS PRE_PREF_VALUE,
+			A.MIN_PREF_VALUE, A.MAX_PREF_VALUE, LOWER(A.UNIT) AS UNIT, A.PREF_DETAIL_DIV_NM, A.PREF_DESC
+		FROM SPOP_PREFERENCES A,
+			(
+				SELECT A.*
+				FROM DB_PREFERENCES A,
+				(
+					SELECT PREF_ID, MAX(PREF_SEQ) PREF_SEQ 
+					FROM DB_PREFERENCES 
+					WHERE DBID = #{dbid} GROUP BY PREF_ID) B
+				WHERE A.PREF_ID = B.PREF_ID
+				AND A.PREF_SEQ = B.PREF_SEQ
+				AND A.DBID = #{dbid}
+			) B
+		WHERE A.PREF_ID = B.PREF_ID(+)
+		AND A.PREF_MGMT_TYPE_CD = '2'
+		AND B.DBID(+) = #{dbid}
+		ORDER BY PREF_GRP, ORDERED ASC
+	</select>
+	
+	<select id="selectBasicWorkJobInfoList" parameterType="spopPreferences" resultType="spopPreferences">
+		SELECT A.PREF_ID, SUBSTR(A.PREF_ID, 1, LENGTH(A.PREF_ID) - 3) AS PREF_GRP, SUBSTR(A.PREF_ID,-3) AS PREF_SUB_ID,
+			A.PREF_DATA_TYPE_CD, NVL(B.PREF_VALUE, A.DEFAULT_PREF_VALUE) AS PREF_VALUE, NVL(B.PREF_VALUE, '') AS PRE_PREF_VALUE,
+			A.MIN_PREF_VALUE, A.MAX_PREF_VALUE, LOWER(A.UNIT) AS UNIT, A.PREF_DETAIL_DIV_NM, A.PREF_DESC
+		FROM SPOP_PREFERENCES A,
+			(
+				SELECT A.*
+				FROM WRKJOB_PREFERENCES A,
+				(
+					SELECT PREF_ID, MAX(PREF_SEQ) PREF_SEQ 
+				    FROM WRKJOB_PREFERENCES 
+				    WHERE WRKJOB_CD = #{wrkjob_cd} GROUP BY PREF_ID) B
+				WHERE A.PREF_ID = B.PREF_ID
+				AND A.PREF_SEQ = B.PREF_SEQ
+				AND A.WRKJOB_CD = #{wrkjob_cd}
+			) B
+		WHERE A.PREF_ID = B.PREF_ID(+)
+		AND A.PREF_MGMT_TYPE_CD = '3'
+		AND B.WRKJOB_CD(+) = #{wrkjob_cd}
+		ORDER BY PREF_GRP, ORDERED ASC
+	</select>
+	
+	<select id="getDBMaxPrefSeq" parameterType="spopPreferences" resultType="string">
+		SELECT NVL(MAX(PREF_SEQ) + 1, 1) PREF_SEQ
+		FROM DB_PREFERENCES
+		WHERE DBID = #{dbid}
+		AND PREF_ID = #{pref_id}	
+	</select>
+	
+	<insert id="insertBasicDBInformation" parameterType="spopPreferences">
+		INSERT INTO DB_PREFERENCES(DBID, PREF_ID, PREF_SEQ, PREF_VALUE, PREF_REG_DT, PREF_REG_ID)
+		VALUES(#{dbid}, #{pref_id}, #{pref_seq}, #{pref_value}, SYSDATE, #{pref_reg_id})	
+	</insert>
+	
+	<select id="getWorkJobMaxPrefSeq" parameterType="spopPreferences" resultType="string">
+		SELECT NVL(MAX(PREF_SEQ) + 1, 1) PREF_SEQ
+		FROM WRKJOB_PREFERENCES
+		WHERE WRKJOB_CD = #{wrkjob_cd}
+		AND PREF_ID = #{pref_id}	
+	</select>
+	
+	<insert id="insertBasicWorkJobInformation" parameterType="spopPreferences">
+		INSERT INTO WRKJOB_PREFERENCES(WRKJOB_CD, PREF_ID, PREF_SEQ, PREF_VALUE, PREF_REG_DT, PREF_REG_ID)
+		VALUES(#{wrkjob_cd}, #{pref_id}, #{pref_seq}, #{pref_value}, SYSDATE, #{pref_reg_id})	
+	</insert>
+	
+	<update id="updateBasicInformation" parameterType="spopPreferences">
+		UPDATE SPOP_PREFERENCES SET DEFAULT_PREF_VALUE = #{pref_value}
+		WHERE PREF_ID = #{pref_id}
+	</update>		
+</mapper>

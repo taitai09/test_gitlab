@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.11.13	임호경	최초작성
+-->
+<mapper namespace="omc.spop.dao.ApplicationMngDao">	
+
+	<sql id="applicationCodeListRefId" >
+	/* ApplicationCodeListDao.applicationCodeListRefId */
+		SELECT 
+		    A.WRKJOB_CD, 
+		    B.WRKJOB_CD_NM, 
+		    A.TR_CD, 
+		    A.TR_CD_NM, 
+		    A.MGR_ID, 
+		    TO_CHAR(A.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT, 
+		    A.ELAPSED_TIME_THRESHOLD, 
+		    A.BUFFER_GETS_THRESHOLD 
+		    FROM TR_CD A 
+			INNER JOIN WRKJOB_CD B ON A.WRKJOB_CD = B.WRKJOB_CD 
+		<if test="searchKey != null and searchKey != '' and (searchKey eq '01'.toString)">
+			AND B.WRKJOB_CD_NM LIKE '%' || #{searchValue} || '%'
+		</if>
+		<if test="searchKey != null and searchKey != '' and (searchKey eq '02'.toString)">
+			AND A.TR_CD LIKE '%' || #{searchValue} || '%'
+		</if>
+		ORDER BY A.WRKJOB_CD, B.WRKJOB_CD_NM, A.TR_CD, A.REG_DT
+	</sql>
+	
+	<select id="applicationCodeList" parameterType="TrCd" resultType="TrCd">
+	/* ApplicationCodeListDao.applicationCodeList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="applicationCodeListRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="applicationCodeListByExcelDown" parameterType="TrCd" resultType="java.util.LinkedHashMap">
+	/* ApplicationCodeListDao.applicationCodeListByExcelDown */
+				<include refid="applicationCodeListRefId"/>
+	</select>
+	
+	<insert id="insertApplicationCode" parameterType="TrCd">
+	/* ApplicationCodeListDao.insertApplicationCode */
+<!-- 		INSERT INTO TR_CD (WRKJOB_CD,TR_CD,TR_CD_NM,MGR_ID,REG_DT,ELAPSED_TIME_THRESHOLD,BUFFER_GETS_THRESHOLD) -->
+<!-- 	    VALUES(#{wrkjob_cd},#{tr_cd},#{tr_cd_nm},#{mgr_id},SYSDATE, #{elapsed_time_threshold},#{buffer_gets_threshold})	 -->
+		INSERT INTO TR_CD (WRKJOB_CD,TR_CD,TR_CD_NM,MGR_ID,REG_DT)
+	    VALUES(#{wrkjob_cd},#{tr_cd},#{tr_cd_nm},#{mgr_id},SYSDATE)	
+	</insert>
+
+	<insert id="saveApplicationCodeByExcelUpload" parameterType="TrCd">
+	/* ApplicationCodeListDao.insertApplicationCodeByExcel */
+<!-- 		INSERT INTO TR_CD (WRKJOB_CD,TR_CD,TR_CD_NM,MGR_ID,REG_DT,ELAPSED_TIME_THRESHOLD,BUFFER_GETS_THRESHOLD) -->
+<!-- 	    VALUES(#{wrkjob_cd},#{tr_cd},#{tr_cd_nm},#{mgr_id},SYSDATE, #{elapsed_time_threshold},#{buffer_gets_threshold})	 -->
+		INSERT INTO TR_CD (WRKJOB_CD,TR_CD,TR_CD_NM,MGR_ID,REG_DT)
+	    VALUES(#{wrkjob_cd},#{tr_cd},#{tr_cd_nm},#{mgr_id},SYSDATE)	
+	</insert>
+	
+	<update id="updateApplicationCode" parameterType="TrCd">
+	/* ApplicationCodeListDao.updateApplicationCode */
+		UPDATE TR_CD
+		    SET 
+		        WRKJOB_CD =#{wrkjob_cd},
+		        TR_CD =#{tr_cd},
+		        TR_CD_NM =#{tr_cd_nm},
+		        MGR_ID =#{mgr_id},
+		        REG_DT = SYSDATE
+<!-- 		        ELAPSED_TIME_THRESHOLD =#{elapsed_time_threshold}, -->
+<!-- 		        BUFFER_GETS_THRESHOLD =#{buffer_gets_threshold} -->
+		    WHERE WRKJOB_CD = #{wrkjob_cd} AND TR_CD = #{tr_cd}
+	</update>
+	
+	<update id="deleteApplicationCode" parameterType="TrCd">
+	/* ApplicationCodeListDao.deleteApplicationCode */
+		DELETE TR_CD WHERE WRKJOB_CD =#{wrkjob_cd} AND TR_CD = #{tr_cd}
+	</update>
+	
+	<select id="checkApplicationCode" parameterType="TrCd" resultType="int">
+	/* ApplicationCodeListDao.checkApplicationCode */
+		SELECT COUNT(WRKJOB_CD) FROM TR_CD WHERE WRKJOB_CD = #{wrkjob_cd} and TR_CD = #{tr_cd}
+	</select>
+	<select id="checkWrkjobCd" parameterType="TrCd" resultType="int">
+	/* ApplicationCodeListDao.checkWrkjobCd */
+		SELECT COUNT(WRKJOB_CD) FROM WRKJOB_CD WHERE WRKJOB_CD = #{wrkjob_cd}
+	</select>
+	<select id="checkMgrId" parameterType="TrCd" resultType="int">
+	/* ApplicationCodeListDao.checkMgrId */
+		SELECT COUNT(USER_ID) FROM USERS WHERE USER_ID = #{user_id}
+	</select>
+	
+	
+</mapper> 

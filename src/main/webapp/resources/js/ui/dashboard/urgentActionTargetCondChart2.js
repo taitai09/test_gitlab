@@ -1,0 +1,246 @@
+var urgentActionTargetCondChart;
+
+var risk_jsp_page = [[ '001','databaseStatus' ],
+	[ '004','instanceStatus' ],
+	[ '005','listenerStatus' ],
+	[ '006','dbfiles' ],
+	[ '019','backgroundDumpSpace' ],
+	[ '020','archiveLogSpace' ],
+	[ '021','alertLogSpace' ],
+	[ '022','fraSpace' ],
+	[ '023','asmDiskgroupSpace' ],
+	[ '024','tablespace' ],
+	[ '026','invalidObject' ],
+	[ '029','unusableIndex' ],
+	[ '032','sequence']
+	];
+
+Ext.EventManager.onWindowResize(function () {
+    var width2 = $("#urgentActionTargetCondChart").width();
+
+    if(urgentActionTargetCondChart != "undefined" && urgentActionTargetCondChart != undefined){
+    	urgentActionTargetCondChart.setSize(width2);	
+	}
+});	
+
+$(document).ready(function() {
+	
+	OnSearch();
+});
+//chart 2, 긴급조치대상현황
+function createUrgentActionTargetCondChart(jsondata){
+	if(urgentActionTargetCondChart != "undefined" && urgentActionTargetCondChart != undefined){
+		urgentActionTargetCondChart.destroy();
+	}
+	
+	urgentActionTargetCondChart = Ext.create("Ext.panel.Panel",{
+		width : '90%',
+		height : '90%',
+		//title : '긴급조치대상현황',
+		titleAlign:'center',
+		flex : 1,
+		border : false,
+//		renderTo : document.getElementById("urgentActionTargetCondChart"),
+		layout : 'fit',
+		items : [{
+			xtype : 'cartesian',
+			border : false,
+			width : '90%',
+			height : '90%',
+		    innerPadding : '10 5 0 5', // 차트안쪽 여백
+			insetPadding : 10, // 차트 밖 여백
+			plugins: {
+		        chartitemevents: {
+		            moveEvents: true
+		        }
+		    },
+			store : {
+				data : jsondata
+			},
+			axes : [{
+				type : 'numeric',
+				position : 'left',
+				minorTickSteps: 0,
+        		minimum: 0,
+			    grid: {
+			        odd: {
+			            opacity: 1,
+			            fill: '#eee',
+			            stroke: '#bbb',
+			            lineWidth: 1
+			        }
+			    },
+				title : ''
+			},{
+				type : 'category',
+				position : 'bottom',
+				grid: true,
+				label : {
+					x : 0,
+					y : 0
+				}
+			}],
+			series : {
+				type : 'bar',
+				stacked : false,
+				style: {
+      			  minGapWidth: 25
+    			},
+				xField : 'check_pref_nm',
+				yField : 'cnt',
+				highlight: {
+      				strokeStyle: 'black',
+        			fillStyle: 'gold'
+    			},
+				tooltip : {
+					trackMouse : true,
+					renderer : function(tooltip, record, item){
+						tooltip.setHtml(item.record.get('check_pref_nm') + " : " + item.record.get('cnt') + " 건");
+					}
+				},
+//				listeners: {
+//			        itemclick: function (chart, item, event) {
+//			        	var menuId = $("#menu_id").val()+1;
+//			        	var menuNm = "긴급 조치 대상";
+//			        	var menuUrl = "/DashboardV2/urgentActionTarget";
+//			        	var menuParam = "dbid="+item.record.get("dbid")+"&db_name="+item.record.get('db_name');
+//
+//			        	createNewTab(menuId, menuNm, menuUrl, menuParam);
+//			        }
+//			    }
+				listeners: {
+			        itemclick: function (chart, item, event) {
+			        	console.log("kkkkkkk");
+			        	fieldIndex = Ext.Array.indexOf(item.series.getYField(), item.field);
+
+			        	var menuId = "110";
+			        	var menuNm = "성능 개선 관리";
+			        	var menuUrl = "/ImprovementManagement";
+			        	var strCd = "";
+			        	var menuParam = "";			        	
+			        	
+			            if(fieldIndex == 0){
+			            	strCd = "2";
+			            }else if(fieldIndex == 1){
+			            	strCd = "3";
+			            }else if(fieldIndex == 2){
+			            	strCd = "5";
+			            }else if(fieldIndex == 3){
+			            	strCd = "6";
+			            }else if(fieldIndex == 4){
+			            	strCd = "7";
+			            }else if(fieldIndex == 5){
+			            	strCd = "8";
+			            }
+			            
+			            menuParam = "dbid="+item.record.get("dbid")+"&day_gubun=ALL&tuning_status_cd="+strCd;
+			            
+			            createNewTab(menuId, menuNm, menuUrl, menuParam);
+			        }
+			    }
+			}
+		}]
+	});
+	
+    var win = Ext.create('Ext.Window', {
+        width: '99%',
+        height:'99%',
+        minHeight: 240,
+        minWidth: 300,
+        hidden: false,
+        shadow: false,
+        maximizable: true,
+        titleAlign: 'center',
+        style: 'overflow: hidden;',
+        title: '긴급조치대상현황',
+        constrain: true,
+//        renderTo: Ext.getBody(),
+		renderTo : document.getElementById("urgentActionTargetCondChart"),
+        layout: 'fit',
+        items: urgentActionTargetCondChart
+    });    
+    
+}
+
+function OnSearch(){
+	
+	/* 긴급조치대상 현황 차트 */
+	ajaxCall("/DashboardV2/getUrgentActionCondition",
+			$("#submit_form"),
+			"POST",
+			callback_UrgentActionTargetCondChartAction);
+}
+//callback 함수
+var callback_UrgentActionTargetCondChartAction = function(result) {
+	//console.log("urgentActionTargetCondChart result",result);
+//	chart_callback(result, urgentActionTargetCondChart);
+	var data = JSON.parse(result);
+	console.log(data.rows);
+	createUrgentActionTargetCondChart(data.rows);	
+};
+
+/* 조치여부 업데이트 */
+function actionBtn(val, row) {
+	if(row.emergency_action_yn == "N"){
+		return "<a href='javascript:;' class='w80 easyui-linkbutton' onClick='Btn_UpdateUrgentAction(\""+row.dbid+"\",\""+row.emergency_action_no+"\");'><i class='btnIcon fas fa-wrench fa-1x'></i> 조치완료</a>";	
+	}else{
+		return "";
+	}    
+}
+
+function Btn_UpdateUrgentAction(dbid, emergencyActionNo){
+	//console.log("emergencyActionNo:"+emergencyActionNo+" dbid:"+dbid);
+	$("#emergency_action_no").val(emergencyActionNo);
+	$("#dbid").val(dbid);
+	
+	ajaxCall("/DashboardV2/UpdateUrgentAction",
+			$("#submit_form"),
+			"POST",
+			callback_UpdateUrgentActionAction);		
+}
+
+//callback 함수
+var callback_UpdateUrgentActionAction = function(result) {
+	if(result.result){
+		parent.$.messager.alert({
+			msg : '긴급 조치 처리가 완료되었습니다.',
+			fn :function(){
+				Btn_UrgentActionSearch();
+			} 
+		});
+	}else{
+		parent.$.messager.alert('error','긴급 조치 처리가 실패하였습니다.');
+	}
+};
+
+var menuNm = "";
+var menu_id = "";
+function setNewTabInfo(check_pref_id,check_tbl){
+	for(var i=0;i<risk_jsp_page.length;i++){
+		var array = risk_jsp_page[i];
+		for(var j=0;j<array.length;j++){
+			var k = array[0];
+			var v = array[1];
+			if(check_pref_id == k){
+				menuId = $("#menu_id").val() + j;
+				break;
+			}
+		}
+	}	
+	menuNm = strReplace(check_tbl, "_"," ").toUpperCase(); 
+}
+
+function getJspPage(check_pref_id){
+	//console.log("check_pref_id :"+check_pref_id);
+	for(var i=0;i<risk_jsp_page.length;i++){
+		var array = risk_jsp_page[i];
+		for(var j=0;j<array.length;j++){
+			var k = array[0];
+			var v = array[1];
+			if(check_pref_id == k){
+				return v;
+			}
+		}
+	}
+	return "";
+}

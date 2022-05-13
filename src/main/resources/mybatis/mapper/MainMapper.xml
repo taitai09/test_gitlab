@@ -1,0 +1,1394 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="omc.spop.dao.MainDao">
+    <!-- itmanager 화면 조회 -->
+    <select id="improvementProgressList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.improvementProgressList */
+        SELECT D.DBID, D.DB_NAME,
+            (
+                SELECT U.USER_NM
+                    FROM USER_DB_PRIVILEGE UDP, USERS U
+                    WHERE UDP.USER_ID = U.USER_ID
+                    AND D.DBID = UDP.DBID
+                    AND ROWNUM = 1
+            ) AS DBA_NAME 
+            , NVL(L.PROCESS_1,0) AS PROCESS_1
+            , NVL(L.PROCESS_2, 0) AS PROCESS_2
+            , NVL(L.PROCESS_3, 0) AS PROCESS_3
+            , NVL(L.PROCESS_4, 0) AS PROCESS_4
+        FROM (
+            SELECT DBID, DB_NAME
+            FROM DATABASE 
+            WHERE USE_YN = 'Y'
+        ) D, (
+            SELECT  DBID
+            , SUM(PROCESS_1) AS PROCESS_1
+            , SUM(PROCESS_2) AS PROCESS_2
+            , SUM(PROCESS_3) AS PROCESS_3
+            , SUM(PROCESS_4) AS PROCESS_4
+            FROM (
+                SELECT TTS.DBID,
+                    SUM(CASE WHEN TUNING_STATUS_CD IN ('1', '2', '3', '7') THEN 1 ELSE 0 END) AS PROCESS_1,
+                    <choose>
+                        <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                            SUM(CASE WHEN TUNING_STATUS_CD IN ('5') THEN 1 ELSE 0 END) AS PROCESS_2,
+                        </when>
+                        <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                            SUM(CASE WHEN TUNING_STATUS_CD IN ('5', '6') THEN 1 ELSE 0 END) AS PROCESS_2,
+                        </when>
+                    </choose>
+                    0 AS PROCESS_3,
+                    0 AS PROCESS_4
+                FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST
+                WHERE TTS.TUNING_NO = ST.TUNING_NO(+)
+                <choose>
+                    <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                        AND TUNING_STATUS_CD IN ('1', '2', '3', '7', '5')
+                    </when>
+                    <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                        AND TUNING_STATUS_CD IN ('1', '2', '3', '7', '5', '6')
+                    </when>
+                </choose>
+                GROUP BY TTS.DBID
+                UNION ALL
+                SELECT TTS.DBID,
+                    0 AS PROCESS_1,
+                    0 AS PROCESS_2,
+                    COUNT(*) AS PROCESS_3,
+                    0 AS PROCESS_4
+                FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST
+                WHERE TTS.TUNING_NO = ST.TUNING_NO(+)
+                <choose>
+                    <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                        AND TUNING_STATUS_CD IN ('6')
+                    </when>
+                    <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                        AND TUNING_STATUS_CD IN ('9')
+                    </when>
+                </choose>        
+                AND TUNING_COMPLETE_DT >= SYSDATE - 7
+                GROUP BY TTS.DBID
+                UNION ALL
+                SELECT TTS.DBID,
+                    0 AS PROCESS_1,
+                    0 AS PROCESS_2,
+                    0 AS PROCESS_3,
+                    COUNT(*) AS PROCESS_4
+                FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST
+                WHERE TTS.TUNING_NO = ST.TUNING_NO(+)
+                AND TUNING_STATUS_CD IN ('8')
+                AND TUNING_APPLY_DT >= SYSDATE - 7
+                GROUP BY TTS.DBID
+            )
+            GROUP BY DBID
+        ) L
+        WHERE D.DBID = L.DBID(+)
+    </select>
+    
+    <select id="improvementPerformanceChartList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.improvementPerformanceChartList */
+        SELECT D.DBID, D.DB_NAME, 
+            NVL(SUM(INCOMP)-SUM(DELAY), 0) AS PROCESS_1
+            , NVL(SUM(DELAY), 0) AS PROCESS_2
+            , NVL(SUM(COMP), 0) AS PROCESS_3
+        FROM (
+            SELECT DBID, DB_NAME, ORDERING
+            FROM DATABASE 
+            WHERE USE_YN = 'Y'
+        ) D, (
+            SELECT TTS.DBID, 
+            <choose>
+                <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                    SUM(CASE WHEN TUNING_STATUS_CD IN ('6', '8') THEN 1 ELSE 0 END) AS COMP,
+                    SUM(CASE WHEN TUNING_STATUS_CD IN ('1', '2', '3', '5', '7') THEN 1 ELSE 0 END) AS INCOMP,
+                </when>
+                <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                    SUM(CASE WHEN TUNING_STATUS_CD IN ('9', '8') THEN 1 ELSE 0 END) AS COMP,
+                    SUM(CASE WHEN TUNING_STATUS_CD IN ('1', '2', '3', '5', '7', '6') THEN 1 ELSE 0 END) AS INCOMP,
+                </when>
+            </choose>
+            0 AS DELAY
+            FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST
+            WHERE TTS.TUNING_NO = ST.TUNING_NO(+)
+            <choose>
+                <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                    AND TUNING_STATUS_CD IN ('1', '2', '3', '5', '6', '7', '8')
+                </when>
+                <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                    AND TUNING_STATUS_CD IN ('1', '2', '3', '5', '6', '7', '8', '9')
+                </when>
+            </choose>
+            AND TUNING_REQUEST_DT >= ADD_MONTHS((LAST_DAY(SYSDATE)+1),-3)
+            GROUP BY TTS.DBID
+            UNION ALL
+            SELECT TTS.DBID, 0 AS COMP, 0 AS INCOMP, COUNT(*) AS DELAY
+            FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST, 
+            (
+                SELECT /*+ MATERIALIZE */
+                    (CASE WHEN PREF_ID = 20001 THEN TO_NUMBER(NVL(DEFAULT_PREF_VALUE, 10)) ELSE 0 END) AS TUNING_DELAY_DAYS
+                FROM SPOP_PREFERENCES
+                WHERE PREF_ID IN (20001)
+            ) TP
+            WHERE TTS.TUNING_NO = ST.TUNING_NO(+)
+            <choose>
+                <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                    AND (
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NULL AND TTS.TUNING_STATUS_CD IN ('1', '2', '3', '5') AND TTS.TUNING_REQUEST_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS) OR
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NOT NULL AND TTS.TUNING_STATUS_CD IN ('1', '2', '3', '5') AND TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> SYSDATE) OR
+                        (TTS.TUNING_STATUS_CD IN ('7') AND ST.TUNING_APPLY_RCESS_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS)
+                    )
+                    AND TTS.TUNING_STATUS_CD IN ('1', '2', '3', '5', '7')
+                </when>
+                <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                    AND (
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NULL AND TTS.TUNING_STATUS_CD IN ('1', '2', '3', '5', '6') AND TTS.TUNING_REQUEST_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS) OR
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NOT NULL AND TTS.TUNING_STATUS_CD IN ('1', '2', '3', '5', '6') AND TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> SYSDATE) OR
+                        (TTS.TUNING_STATUS_CD IN ('7') AND ST.TUNING_APPLY_RCESS_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS)
+                    )
+                    AND TTS.TUNING_STATUS_CD IN ('1', '2', '3', '5', '7', '6')
+                </when>
+            </choose>
+            AND TUNING_REQUEST_DT >= ADD_MONTHS((LAST_DAY(SYSDATE)+1),-3)
+            GROUP BY TTS.DBID
+        ) L
+        WHERE D.DBID = L.DBID(+)
+        GROUP BY D.DBID, D.DB_NAME, D.ORDERING
+        ORDER BY PROCESS_1 + PROCESS_2 + PROCESS_3 DESC
+    </select>
+    
+    <select id="improvementsChartList" parameterType="sqlImprovementType" resultType="sqlImprovementType">
+        /* MainDao.improvementsChartList */
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = DB.DBID
+            AND DB.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{user_id}
+        ), TUNING_LIST AS
+        (
+            SELECT TTS.TUNING_NO
+            FROM DB_PRIV DP, TUNING_TARGET_SQL TTS, SQL_TUNING ST
+            WHERE DP.DBID = TTS.DBID
+            AND TTS.TUNING_NO = ST.TUNING_NO
+            AND TTS.TUNING_STATUS_CD IN ('6', '8', '9')
+        ), TUNING_IMPR_LIST AS
+        (
+            SELECT DISTINCT SIT.TUNING_NO, SIT.IMPR_TYPE_CD
+            FROM TUNING_LIST TL, SQL_IMPROVEMENT_TYPE SIT
+            WHERE TL.TUNING_NO = SIT.TUNING_NO
+        )
+        SELECT 
+        CASE WHEN INSTR(CD.CD_NM,' ') > 0 THEN SUBSTR(CD.CD_NM,0,INSTR(CD.CD_NM,' ')) 
+        ELSE CD.CD_NM END
+        AS IMPR_TYPE_CD_NM
+        , COUNT(TUNING_NO) AS IMPR_TYPE_CNT
+        FROM
+        (
+            SELECT CD, CD_NM 
+            FROM CD 
+            WHERE GRP_CD_ID = '1036'
+        ) CD LEFT OUTER JOIN TUNING_IMPR_LIST T ON T.IMPR_TYPE_CD = CD
+        GROUP BY CD.CD, CD.CD_NM
+        ORDER BY CD.CD
+    </select>
+    
+    <select id="tunerJobChartList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tunerJobChartList */
+        WITH TUNER_LIST AS
+        (
+            SELECT DISTINCT DT.TUNER_ID
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE_TUNER DT, DATABASE DB
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = DT.DBID
+            AND UDP.DBID = DB.DBID
+            AND DB.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN DT.TUN_START_DAY AND DT.TUN_END_DAY
+            AND U.USER_ID = #{perfr_id}
+        )
+        SELECT TUNER_ID AS PERFR_ID, U.USER_NM AS PERFR_NM, COUNT(*) AS TUNING_CNT
+        FROM TUNER_LIST TL, TUNING_TARGET_SQL TTS, USERS U
+        WHERE TL.TUNER_ID = TTS.PERFR_ID
+        AND TTS.PERFR_ID = U.USER_ID
+        AND TTS.TUNING_STATUS_CD IN ('3', '5', '7')
+        GROUP BY TUNER_ID, U.USER_NM
+        ORDER BY U.USER_NM
+    </select>
+    
+    <select id="tuningRequestList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tuningRequestList */
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID, DB.ORDERING
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE DB
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = DB.DBID
+            AND DB.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{perfr_id}    
+        )
+        SELECT TTS.TUNING_NO, 
+            TTS.DBID, 
+            D.DB_NAME, 
+            TTS.CHOICE_DIV_CD, 
+            TTS.TUNING_STATUS_CD,
+            U.USER_NM AS TUNING_REQUESTER_NM,
+            W.WRKJOB_CD_NM,
+            TTS.TUNING_REQUEST_DT,
+            CD1.CD_NM AS PROGRAM_TYPE_CD_NM,
+            CD2.CD_NM AS BATCH_WORK_DIV_CD_NM,
+            TO_CHAR(TO_DATE(TTS.TUNING_COMPLETE_DUE_DT, 'YYYYMMDD'), 'YYYY-MM-DD') TUNING_COMPLETE_DUE_DT, 
+            CASE WHEN LENGTH(TTS.REQUEST_WHY) > 20 THEN SUBSTR(TTS.REQUEST_WHY, 1, 20) || '...' 
+            ELSE TTS.REQUEST_WHY END AS REQUEST_WHY
+            ,TTS.TR_CD, TTS.DBIO
+        FROM DB_PRIV DP, TUNING_TARGET_SQL TTS, DATABASE D, USERS U, WRKJOB_CD W, CD CD1, CD CD2
+        WHERE DP.DBID = TTS.DBID
+        AND TTS.DBID = D.DBID
+        AND TTS.TUNING_REQUESTER_ID = U.USER_ID
+        AND TTS.TUNING_REQUESTER_WRKJOB_CD = W.WRKJOB_CD(+)
+        AND TTS.PROGRAM_TYPE_CD = CD1.CD(+)
+        AND CD1.GRP_CD_ID(+) = '1005'
+        AND TTS.BATCH_WORK_DIV_CD = CD2.CD(+)
+        AND CD2.GRP_CD_ID(+) = '1006'
+        AND TTS.TUNING_STATUS_CD = '2'
+        ORDER BY TTS.TUNING_REQUEST_DT
+    </select>
+    <!-- DB 예방 점검 현황 -->
+    <select id="preventionChartList" parameterType="basicCheckConfig" resultType="basicCheckConfig">
+        /* MainDao.preventionChartList */
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = D.DBID
+            AND D.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{user_id}
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001')
+        ), CHECK_ACT_DAY AS
+        (
+            SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+            FROM
+            (
+                SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT,
+                    MAX(CHECK_SEQ) OVER(PARTITION BY DBID, CHECK_DAY) MAX_CHECK_SEQ
+                FROM DB_CHECK_EXEC
+                WHERE CHECK_DAY = (SELECT MAX(GATHER_DAY) FROM SQL_DIAG_SUMMARY)
+            )
+            WHERE CHECK_SEQ = MAX_CHECK_SEQ
+        )
+        SELECT DBID, DB_NAME, NVL(DATABASE,0) AS DATABASE, NVL(INSTANCE,0) AS INSTANCE, NVL(SPACE,0) AS SPACE,
+            NVL(OBJECT,0) AS OBJECT, NVL(STATISTICS,0) AS STATISTICS
+        FROM
+        (
+            SELECT A.DBID, A.DB_NAME, A.ORDERING, B.CHECK_CLASS_DIV_CD, B.CRITICAL_COUNT
+            FROM DB_PRIV A LEFT OUTER JOIN
+            (
+                SELECT C.DBID, A.CHECK_CLASS_DIV_CD, SUM(CASE WHEN C.CHECK_VALUE1 > 0 THEN 1 ELSE 0 END) CRITICAL_COUNT
+                FROM BASIC_CHECK_CONFIG A, DB_CHECK_CONFIG B, DB_CHECK_SUMMARY C, CHECK_ACT_DAY D
+                WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID(+)
+                AND A.CHECK_PREF_ID = C.CHECK_PREF_ID
+                AND A.CHECK_ENABLE_YN = 'Y'
+                AND B.CHECK_ENABLE_YN(+) = 'Y'
+                AND C.DBID = D.DBID
+                AND C.CHECK_DAY = D.CHECK_DAY
+                AND C.CHECK_SEQ = D.CHECK_SEQ
+                AND A.CHECK_GRADE_CD = '2'
+                GROUP BY C.DBID, A.CHECK_CLASS_DIV_CD
+            ) B PARTITION BY(B.CHECK_CLASS_DIV_CD) ON A.DBID = B.DBID
+        ) 
+        PIVOT (
+            SUM(CRITICAL_COUNT) FOR (CHECK_CLASS_DIV_CD) IN (
+            '01' AS DATABASE,
+            '02' AS INSTANCE,
+            '03' AS SPACE,
+            '04' AS OBJECT,
+            '05' AS STATISTICS)
+        )
+        ORDER BY ORDERING
+    </select>
+    <!-- 성늘 리스크 진단 현황 -->
+    <select id="riskDiagnosisChartList" parameterType="sqlDiagSummary" resultType="sqlDiagSummary">
+        /* MainDao.riskDiagnosisChartList */
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = D.DBID
+            AND D.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{user_id}
+            
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001')
+        ), SQL_DIAG AS
+        (
+            SELECT DP.DBID, DP.DB_NAME, TO_CHAR(TO_DATE(#{gather_day}, 'YYYYMMDD'),'YYYY-MM-DD') AS GATHER_DAY, SDS.SQL_DIAG_TYPE_CD, SDS.DIAG_CNT, DP.ORDERING
+            FROM DB_PRIV DP, SQL_DIAG_SUMMARY SDS, CD CD1
+            WHERE DP.DBID = SDS.DBID
+            AND SDS.SQL_DIAG_TYPE_CD = CD1.CD
+            AND CD1.GRP_CD_ID = '1042'
+            AND SDS.GATHER_DAY = (SELECT MAX(GATHER_DAY) FROM SQL_DIAG_SUMMARY)
+        )
+        SELECT *
+        FROM SQL_DIAG
+        PIVOT
+        (
+            MAX(DIAG_CNT)
+            FOR SQL_DIAG_TYPE_CD IN (
+                '001' AS PLAN_CHANGE_SQL,
+                '002' AS NEW_SQL,
+                '003' AS LITERAL_SQL_TEXT,
+                '004' AS LITERAL_PLAN_HASH_VALUE,
+                '005' AS TEMP_USAGE_SQL,
+                '006' AS FULLSCAN_SQL,
+                '007' AS DELETE_SQL
+            )
+        )
+        ORDER BY ORDERING
+    </select>
+    <!-- 튜닝 진행 현황 -->
+    <select id="tuningProgressChartList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tuningProgressChartList */
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = D.DBID
+            AND D.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{perfr_id}
+        ), TUNING_LIST AS 
+        (
+            SELECT DP.DBID, DP.DB_NAME, TTS.TUNING_NO, TTS.TUNING_STATUS_CD, DP.ORDERING
+            FROM DB_PRIV DP, TUNING_TARGET_SQL TTS, SQL_TUNING ST
+            WHERE DP.DBID = TTS.DBID
+            AND TTS.TUNING_NO = ST.TUNING_NO(+)
+            AND ((TTS.TUNING_STATUS_CD IN ('1', '2', '3', '5', '9', '6', '7')) 
+            OR (TTS.TUNING_STATUS_CD = '8' AND ST.TUNING_APPLY_DT >= TRUNC(SYSDATE - 7)))
+        )
+        SELECT DBID, DB_NAME, 
+            SUM(CASE WHEN TUNING_STATUS_CD IN ('1', '2', '4') THEN 1 ELSE 0 END) PROCESS_1,
+            SUM(CASE WHEN TUNING_STATUS_CD IN ('3') THEN 1 ELSE 0 END) PROCESS_3,
+            <choose>
+                <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+            SUM(CASE WHEN TUNING_STATUS_CD IN ('5') THEN 1 ELSE 0 END) PROCESS_5,
+            SUM(CASE WHEN TUNING_STATUS_CD IN ('6') THEN 1 ELSE 0 END) PROCESS_6,
+                </when>
+                <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+            SUM(CASE WHEN TUNING_STATUS_CD IN ('5', '6') THEN 1 ELSE 0 END) PROCESS_5,
+                </when>
+            </choose>        
+            SUM(CASE WHEN TUNING_STATUS_CD IN ('7') THEN 1 ELSE 0 END) PROCESS_7,
+            SUM(CASE WHEN TUNING_STATUS_CD IN ('8') THEN 1 ELSE 0 END) PROCESS_8
+        FROM TUNING_LIST
+        GROUP BY DBID, DB_NAME, ORDERING
+        ORDER BY ORDERING
+    </select>
+    
+    <select id="objectChangeChartList" parameterType="objectChange" resultType="objectChange">
+        /* MainDao.objectChangeChartList */
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = D.DBID
+            AND D.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{user_id}
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001')  
+        ), TABLE_HISTORY AS
+        (
+            SELECT DBID, OBJECT_CHANGE_TYPE_CD, COUNT(*) CNT
+            FROM DB_TABLE_HISTORY
+            WHERE BASE_DAY BETWEEN TO_CHAR(SYSDATE-7,'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+            GROUP BY DBID, OBJECT_CHANGE_TYPE_CD
+        ), COLUMN_HISTORY AS
+        (
+            SELECT DBID, OBJECT_CHANGE_TYPE_CD, COUNT(*) CNT
+            FROM DB_TAB_COLUMN_HISTORY
+            WHERE BASE_DAY BETWEEN TO_CHAR(SYSDATE-7,'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+            GROUP BY DBID, OBJECT_CHANGE_TYPE_CD
+        ), INDEX_HISTORY AS
+        (
+            SELECT DBID, OBJECT_CHANGE_TYPE_CD, COUNT(*) CNT
+            FROM DB_INDEX_HISTORY
+            WHERE BASE_DAY BETWEEN TO_CHAR(SYSDATE-7,'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+            GROUP BY DBID, OBJECT_CHANGE_TYPE_CD
+        )
+        SELECT DP.DBID, DP.DB_NAME, 
+            SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '1' THEN T.CNT ELSE 0 END) TABLE_CREATE,
+            SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '3' THEN T.CNT ELSE 0 END) TABLE_DROP,
+            SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '2' THEN T.CNT ELSE 0 END) TABLE_MODIFY,
+            SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '1' THEN C.CNT ELSE 0 END) COLUMN_ADD,
+            SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '3' THEN C.CNT ELSE 0 END) COLUMN_DROP,
+            SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '2' THEN C.CNT ELSE 0 END) COLUMN_MODIFY,
+            SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '1' THEN I.CNT ELSE 0 END) INDEX_CREATE,
+            SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '3' THEN I.CNT ELSE 0 END) INDEX_DROP,
+            SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '2' THEN I.CNT ELSE 0 END) INDEX_MODIFY
+        FROM DB_PRIV DP, TABLE_HISTORY T, COLUMN_HISTORY C, INDEX_HISTORY I
+        WHERE DP.DBID = T.DBID(+)
+        AND DP.DBID = C.DBID(+)
+        AND DP.DBID = I.DBID(+)
+        GROUP BY DP.DBID, DP.DB_NAME, DP.ORDERING
+        ORDER BY DP.ORDERING    
+    </select>
+    <!-- 테스트를 위해 조회기간을 일주일을 한달로 변경 -->
+    <select id="objectChangeChartList_" parameterType="objectChange" resultType="objectChange">
+        /* MainDao.objectChangeChartList_ */
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = D.DBID
+            AND D.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{user_id}
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001')
+        ), TABLE_HISTORY AS
+        (
+            SELECT DBID, OBJECT_CHANGE_TYPE_CD, COUNT(*) CNT
+            FROM DB_TABLE_HISTORY
+            WHERE BASE_DAY BETWEEN TO_CHAR(SYSDATE-31,'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+            GROUP BY DBID, OBJECT_CHANGE_TYPE_CD
+        ), COLUMN_HISTORY AS
+        (
+            SELECT DBID, OBJECT_CHANGE_TYPE_CD, COUNT(*) CNT
+            FROM DB_TAB_COLUMN_HISTORY
+            WHERE BASE_DAY BETWEEN TO_CHAR(SYSDATE-31,'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+            GROUP BY DBID, OBJECT_CHANGE_TYPE_CD
+        ), INDEX_HISTORY AS
+        (
+            SELECT DBID, OBJECT_CHANGE_TYPE_CD, COUNT(*) CNT
+            FROM DB_INDEX_HISTORY
+            WHERE BASE_DAY BETWEEN TO_CHAR(SYSDATE-31,'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+            GROUP BY DBID, OBJECT_CHANGE_TYPE_CD
+        )
+        SELECT DP.DBID, DP.DB_NAME, 
+            SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '1' THEN T.CNT ELSE 0 END) TABLE_CREATE,
+            SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '3' THEN T.CNT ELSE 0 END) TABLE_DROP,
+            SUM(CASE WHEN T.OBJECT_CHANGE_TYPE_CD = '2' THEN T.CNT ELSE 0 END) TABLE_MODIFY,
+            SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '1' THEN C.CNT ELSE 0 END) COLUMN_ADD,
+            SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '3' THEN C.CNT ELSE 0 END) COLUMN_DROP,
+            SUM(CASE WHEN C.OBJECT_CHANGE_TYPE_CD = '2' THEN C.CNT ELSE 0 END) COLUMN_MODIFY,
+            SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '1' THEN I.CNT ELSE 0 END) INDEX_CREATE,
+            SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '3' THEN I.CNT ELSE 0 END) INDEX_DROP,
+            SUM(CASE WHEN I.OBJECT_CHANGE_TYPE_CD = '2' THEN I.CNT ELSE 0 END) INDEX_MODIFY
+        FROM DB_PRIV DP, TABLE_HISTORY T, COLUMN_HISTORY C, INDEX_HISTORY I
+        WHERE DP.DBID = T.DBID(+)
+        AND DP.DBID = C.DBID(+)
+        AND DP.DBID = I.DBID(+)
+        GROUP BY DP.DBID, DP.DB_NAME, DP.ORDERING
+        ORDER BY DP.ORDERING
+    </select>
+        
+    <select id="urgentActionList" parameterType="dbEmergencyAction" resultType="dbEmergencyAction">
+        /* MainDao.urgentActionList */
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID, D.DB_NAME, D.ORDERING
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = D.DBID
+            AND D.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{user_id}
+            AND D.DB_OPERATE_TYPE_CD = (SELECT DEFAULT_PREF_VALUE 
+                                          FROM SPOP_PREFERENCES 
+                                         WHERE PREF_ID = '22001')
+        ), CHECK_ACT_DAY AS
+        (
+            SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT
+            FROM
+            (
+                SELECT DBID, CHECK_DAY, CHECK_SEQ, CHECK_DT,
+                MAX(CHECK_SEQ) OVER(PARTITION BY DBID, CHECK_DAY) MAX_CHECK_SEQ
+                FROM DB_CHECK_EXEC
+                WHERE CHECK_DAY = (SELECT MAX(CHECK_DAY) FROM DB_CHECK_EXEC)
+            )
+            WHERE CHECK_SEQ = MAX_CHECK_SEQ
+        )
+        SELECT DP.DB_NAME, 
+            DP.DBID, 
+            /* SUBSTR(BCC.CHECK_PREF_ID,2) CHECK_PREF_ID, */
+            BCC.CHECK_PREF_ID, 
+            CAD.CHECK_DAY,
+            CAD.CHECK_SEQ,
+            CAD.CHECK_DT,
+            BCC.CHECK_PREF_NM, 
+            DEA.EMERGENCY_ACTION_SBST, 
+            DEA.EMERGENCY_ACTION_YN, 
+            U.USER_NM AS EMERGENCY_ACTOR_NM, 
+            DEA.EMERGENCY_ACTION_DT,
+            DEA.EMERGENCY_ACTION_NO, 
+            DEA.EMERGENCY_ACTION_TARGET_ID,
+            JOBCD.JOB_SCHEDULER_DETAIL_TYPE_DESC CHECK_TBL
+        FROM DB_PRIV DP, DB_EMERGENCY_ACTION DEA, CHECK_ACT_DAY CAD, BASIC_CHECK_CONFIG BCC, USERS U
+        , (SELECT * FROM JOB_SCHEDULER_DETAIL_TYPE_CD WHERE JOB_SCHEDULER_TYPE_CD=16) JOBCD
+        WHERE DP.DBID = DEA.DBID
+        AND DEA.DBID = CAD.DBID
+        AND DEA.CHECK_DAY = CAD.CHECK_DAY
+        AND DEA.CHECK_SEQ = CAD.CHECK_SEQ
+        AND DEA.EMERGENCY_ACTION_TARGET_ID = BCC.CHECK_PREF_ID
+        AND DEA.EMERGENCY_ACTOR_ID = U.USER_ID(+)
+        AND SUBSTR(BCC.CHECK_PREF_ID,2) = JOBCD.JOB_SCHEDULER_DETAIL_TYPE_CD(+)
+        <if test="dbid != null and dbid != ''">
+            AND CAD.DBID=#{dbid}
+        </if>
+        <if test="check_day != null and check_day != ''">
+            AND CAD.CHECK_DAY=#{check_day}
+        </if>
+        <if test="check_seq != null and check_seq != ''">
+            AND CAD.CHECK_SEQ=${check_seq}
+        </if>
+        <if test="check_pref_id != null and check_pref_id != ''">
+            AND BCC.CHECK_PREF_ID=#{check_pref_id}
+        </if>
+        <if test="emergency_action_yn != null and emergency_action_yn != ''">
+            AND DEA.EMERGENCY_ACTION_YN=#{emergency_action_yn}    
+        </if>
+    </select>
+    
+    <update id="updateUrgentAction" parameterType="dbEmergencyAction">
+        UPDATE DB_EMERGENCY_ACTION SET
+            EMERGENCY_ACTION_YN = 'Y',
+            EMERGENCY_ACTOR_ID = #{emergency_actor_id},
+            EMERGENCY_ACTION_DT = SYSDATE
+        WHERE EMERGENCY_ACTION_NO = #{emergency_action_no}
+    </update>
+    
+    <!-- DashBoard (tuner) 튜닝작업대기 -->
+    <sql id="tuningWaitJobRefId">
+                SELECT 
+                    A.TUNING_NO, 
+                    A.DBID,
+                    DB.DB_NAME,
+                    A.CHOICE_DIV_CD, 
+                    CD1.CD_NM AS CHOICE_DIV_CD_NM,
+                    A.TUNING_STATUS_CD,
+                    U1.USER_NM AS TUNING_REQUESTER_NM,
+                    W.WRKJOB_CD_NM,
+                    TUNING_REQUEST_DT, 
+                    CD2.CD_NM AS PROGRAM_TYPE_CD_NM,
+                    CD3.CD_NM AS BATCH_WORK_DIV_CD_NM,
+                    TUNING_COMPLETE_DUE_DT, 
+                    CASE WHEN LENGTH(WRKJOB_PECULIAR_POINT) > 20 THEN SUBSTR(WRKJOB_PECULIAR_POINT, 1, 20) || '...' 
+                    ELSE WRKJOB_PECULIAR_POINT END AS WRKJOB_PECULIAR_POINT, 
+                    TR_CD,
+                    DBIO
+                FROM TUNING_TARGET_SQL A, DATABASE DB, CD CD1, USERS U1, WRKJOB_CD W, CD CD2, CD CD3
+                WHERE A.DBID = DB.DBID
+                AND A.PERFR_ID = #{perfr_id}
+                AND A.CHOICE_DIV_CD = CD1.CD
+                AND CD1.GRP_CD_ID = '1003'
+                AND A.TUNING_REQUESTER_ID = U1.USER_ID(+)
+                AND A.TUNING_REQUESTER_WRKJOB_CD = W.WRKJOB_CD(+)
+                AND A.PROGRAM_TYPE_CD = CD2.CD(+)
+                AND CD2.GRP_CD_ID(+) = '1005'
+                AND A.BATCH_WORK_DIV_CD = CD3.CD(+)
+                AND CD3.GRP_CD_ID(+) = '1006'
+                AND A.TUNING_STATUS_CD = '3'
+                ORDER BY A.TUNING_NO DESC
+    </sql>
+    
+    <select id="tuningWaitJobList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tuningWaitJobList */
+        SELECT *
+        FROM (
+            SELECT ROWNUM RNUM, A.*
+            FROM (
+                <include refid="tuningWaitJobRefId"/>
+            ) A
+            WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+        ) A
+        WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="tuningWaitJobCnt" parameterType="tuningTargetSql" resultType="int">
+        /* MainDao.tuningWaitJobCnt */
+        SELECT COUNT(A.TUNING_NO)
+          FROM (
+                <include refid="tuningWaitJobRefId"/>
+             ) A
+    </select>
+    
+    <!-- DashBoard (tuner) 튜닝진행 -->
+    <sql id="tuningProgressRefId">
+        SELECT NVL(TTS.TUNING_NO,'0') TUNING_NO, 
+            TTS.DBID,
+            DB.DB_NAME, 
+            TTS.CHOICE_DIV_CD, 
+            CD1.CD_NM AS CHOICE_DIV_CD_NM,
+            TTS.TUNING_STATUS_CD,
+            U1.USER_NM AS TUNING_REQUESTER_NM,
+            W.WRKJOB_CD_NM,
+            TUNING_REQUEST_DT, 
+            STSH.TUNING_STATUS_CHANGE_DT,
+            DECODE(TUNING_STATUS_CHANGE_DT, NULL, '', LPAD(TRUNC(((TUNING_STATUS_CHANGE_DT-TUNING_REQUEST_DT)*864)/(6*6*24)), 4, ' ') || 'D ' 
+                || TRIM(TO_CHAR(MOD(TRUNC(((TUNING_STATUS_CHANGE_DT-TUNING_REQUEST_DT)*864)/(6*6)), 24), '09')) || ':' 
+                || TRIM(TO_CHAR(MOD(TRUNC(((TUNING_STATUS_CHANGE_DT-TUNING_REQUEST_DT)*8640)/6), 60), '09')) || ':' 
+                || TRIM(TO_CHAR(MOD(((TUNING_STATUS_CHANGE_DT-TUNING_REQUEST_DT)*86400), 60), '09'))) AS TUNING_ELAPSED_TIME,
+            CD2.CD_NM AS PROGRAM_TYPE_CD_NM,
+            CD3.CD_NM AS BATCH_WORK_DIV_CD_NM,
+            TUNING_COMPLETE_DUE_DT, 
+            CASE WHEN LENGTH(WRKJOB_PECULIAR_POINT) > 20 THEN SUBSTR(WRKJOB_PECULIAR_POINT, 1, 20) || '...' 
+            ELSE WRKJOB_PECULIAR_POINT END AS WRKJOB_PECULIAR_POINT,
+            TR_CD,
+            DBIO, 
+            MODULE
+        FROM TUNING_TARGET_SQL TTS, DATABASE DB, CD CD1, USERS U1, WRKJOB_CD W, CD CD2, CD CD3,
+        (
+            SELECT TUNING_NO, TUNING_STATUS_CHANGE_DT,
+                ROW_NUMBER() OVER(PARTITION BY TUNING_NO, TUNING_STATUS_CD ORDER BY TUNING_STATUS_CHANGE_DT DESC) RNUM
+            FROM SQL_TUNING_STATUS_HISTORY
+            WHERE TUNING_STATUS_CD = '5'
+        ) STSH
+        WHERE TTS.DBID = DB.DBID
+        AND TTS.CHOICE_DIV_CD = CD1.CD
+        AND CD1.GRP_CD_ID = '1003'
+        AND TTS.TUNING_REQUESTER_ID = U1.USER_ID(+)
+        AND TTS.TUNING_REQUESTER_WRKJOB_CD = W.WRKJOB_CD(+)
+        AND TTS.PROGRAM_TYPE_CD = CD2.CD(+)
+        AND CD2.GRP_CD_ID(+) = '1005'
+        AND TTS.BATCH_WORK_DIV_CD = CD3.CD(+)
+        AND CD3.GRP_CD_ID(+) = '1006'
+        AND TTS.TUNING_STATUS_CD = '5'
+        AND TTS.TUNING_NO = STSH.TUNING_NO(+)
+        AND STSH.RNUM(+) = 1
+        AND TTS.PERFR_ID = #{perfr_id}
+        ORDER BY TTS.TUNING_NO DESC
+    </sql>
+    
+    <select id="tuningProgressList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tuningProgressList */
+        SELECT *
+        FROM (
+            SELECT ROWNUM RNUM, A.*
+            FROM (
+                <include refid="tuningProgressRefId"/>
+            ) A
+            WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+        ) A
+        WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="tuningProgressCnt" parameterType="tuningTargetSql" resultType="int">
+        /* MainDao.tuningProgressCnt */
+        SELECT COUNT(A.TUNING_NO)
+          FROM (
+                <include refid="tuningProgressRefId"/>
+             ) A
+    </select>
+    
+    <!-- DashBoard (tuner) 튜닝지연예상 -->
+    <sql id="tuningExpectedDelayRefId">
+        WITH TUNING_PREF AS
+        (
+            SELECT /*+ MATERIALIZE */
+                (CASE WHEN A.PREF_ID = 20001 THEN TO_NUMBER(NVL(A.DEFAULT_PREF_VALUE, 10)) ELSE 0 END) AS TUNING_DELAY_DAYS
+            FROM SPOP_PREFERENCES A
+            WHERE A.PREF_ID IN (20001)
+        )
+        SELECT TUNING_NO, DBID, DB_NAME, CHOICE_DIV_CD, CHOICE_DIV_CD_NM, TUNING_STATUS_CD, TUNING_STATUS_NM, TUNING_REQUESTER_NM, 
+            WRKJOB_CD_NM, TUNING_REQUEST_DT, TUNING_ELAPSED_TIME,
+            (
+                CASE 
+                WHEN TUNING_COMPLETE_DUE_DT IS NULL AND TUNING_STATUS_CD IN ('2', '3', '5') THEN TUNING_DELAY_TIME_1
+                WHEN TUNING_COMPLETE_DUE_DT IS NOT NULL AND TUNING_STATUS_CD IN ('2', '3', '5') THEN TUNING_DELAY_TIME_2
+                ELSE TUNING_DELAY_TIME_2
+                END
+            ) AS TUNING_DELAY_TIME, PROGRAM_TYPE_CD_NM, BATCH_WORK_DIV_CD_NM, TUNING_COMPLETE_DUE_DT, WRKJOB_PECULIAR_POINT, TR_CD, DBIO, MODULE
+        FROM
+        (
+            SELECT /*+ NO_EXPAND */
+                TTS.TUNING_NO, 
+                TTS.DBID,
+                DB.DB_NAME, 
+                TTS.CHOICE_DIV_CD,
+                CD1.CD_NM AS CHOICE_DIV_CD_NM,
+                TTS.TUNING_STATUS_CD,
+                CD4.CD_NM AS TUNING_STATUS_NM,
+                U1.USER_NM AS TUNING_REQUESTER_NM,
+                W.WRKJOB_CD_NM,
+                TUNING_REQUEST_DT, 
+                LPAD(TRUNC(((SYSDATE-TUNING_REQUEST_DT)*864)/(6*6*24)), 4, ' ') || 'D ' || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-TUNING_REQUEST_DT)*864)/(6*6)), 24), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-TUNING_REQUEST_DT)*8640)/6), 60), '09')) || ':' || TRIM(TO_CHAR(MOD(((SYSDATE-TUNING_REQUEST_DT)*86400), 60), '09')) AS TUNING_ELAPSED_TIME,
+                LPAD(TRUNC((((TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS)-SYSDATE)*864)/(6*6*24)), 4, ' ') || 'D ' 
+                    || TRIM(TO_CHAR(MOD(TRUNC((((TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS)-SYSDATE)*864)/(6*6)), 24), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(TRUNC((((TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS)-SYSDATE)*8640)/6), 60), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD((((TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS)-SYSDATE)*86400), 60), '09')) TUNING_DELAY_TIME_1,
+                LPAD(TRUNC(((TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS')-SYSDATE)*864)/(6*6*24)), 4, ' ') || 'D ' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS')-SYSDATE)*864)/(6*6)), 24), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS')-SYSDATE)*8640)/6), 60), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(((TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS')-SYSDATE)*86400), 60), '09')) TUNING_DELAY_TIME_2,
+                LPAD(TRUNC((((TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS)-SYSDATE)*864)/(6*6*24)), 4, ' ') || 'D ' 
+                    || TRIM(TO_CHAR(MOD(TRUNC((((TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS)-SYSDATE)*864)/(6*6)), 24), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(TRUNC((((TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS)-SYSDATE)*8640)/6), 60), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD((((TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS)-SYSDATE)*86400), 60), '09')) TUNING_DELAY_TIME_3,
+                CD2.CD_NM AS PROGRAM_TYPE_CD_NM,
+                CD3.CD_NM AS BATCH_WORK_DIV_CD_NM,
+                TUNING_COMPLETE_DUE_DT, 
+                CASE WHEN LENGTH(WRKJOB_PECULIAR_POINT) > 20 THEN SUBSTR(WRKJOB_PECULIAR_POINT, 1, 20) || '...' 
+                ELSE WRKJOB_PECULIAR_POINT END AS WRKJOB_PECULIAR_POINT, 
+                TR_CD,
+                DBIO, 
+                MODULE,
+                TUNING_APPLY_RCESS_DT,
+                SYSDATE
+            FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST, DATABASE DB, CD CD1, USERS U1, WRKJOB_CD W, CD CD2, CD CD3, CD CD4, TUNING_PREF TP
+            WHERE TTS.TUNING_NO = ST.TUNING_NO(+)
+            AND TTS.DBID = DB.DBID
+            AND TTS.CHOICE_DIV_CD = CD1.CD(+)
+            AND CD1.GRP_CD_ID(+) = '1003'
+            AND TTS.TUNING_REQUESTER_ID = U1.USER_ID(+)
+            AND TTS.TUNING_REQUESTER_WRKJOB_CD = W.WRKJOB_CD(+)
+            AND TTS.PROGRAM_TYPE_CD = CD2.CD(+)
+            AND CD2.GRP_CD_ID(+) = '1005'
+            AND TTS.BATCH_WORK_DIV_CD = CD3.CD(+)
+            AND CD3.GRP_CD_ID(+) = '1006'
+            AND TTS.TUNING_STATUS_CD = CD4.CD
+            AND CD4.GRP_CD_ID = '1004'
+            <choose>
+                <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                    AND (
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5') AND TTS.TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS BETWEEN SYSDATE AND SYSDATE+1) OR
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NOT NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5') AND TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS') BETWEEN SYSDATE AND SYSDATE+1) OR
+                        (TTS.TUNING_STATUS_CD IN ('7') AND ST.TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS BETWEEN SYSDATE AND SYSDATE+1)
+                    )
+                    AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '7') 
+                </when>
+                <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                    AND (
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '6') AND TTS.TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS BETWEEN SYSDATE AND SYSDATE+1) OR
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NOT NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '6') AND TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS') BETWEEN SYSDATE AND SYSDATE+1) OR
+                        (TTS.TUNING_STATUS_CD IN ('7') AND ST.TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS BETWEEN SYSDATE AND SYSDATE+1)
+                    )
+                    AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '7', '6')
+                </when>
+            </choose>
+            AND TTS.PERFR_ID = #{perfr_id}
+        )
+        ORDER BY TUNING_DELAY_TIME
+    </sql>
+    
+    <select id="tuningExpectedDelayList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tuningExpectedDelayList */
+        SELECT *
+        FROM (
+            SELECT ROWNUM RNUM, A.*
+            FROM (
+                <include refid="tuningExpectedDelayRefId"/>
+            ) A
+            WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+        ) A
+        WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="tuningExpectedDelayCnt" parameterType="tuningTargetSql" resultType="int">
+        /* MainDao.tuningExpectedDelayCnt */
+        SELECT COUNT(A.TUNING_NO)
+          FROM (
+                <include refid="tuningExpectedDelayRefId"/>
+             ) A
+    </select>
+    
+    <!-- DashBoard (tuner) 튜닝지연 -->
+    <sql id="dbaTuningDelayRefId">
+        WITH DB_PRIV AS
+        (
+            SELECT UDP.DBID, D.DB_NAME
+            FROM USER_DB_PRIVILEGE UDP, USERS U, DATABASE D
+            WHERE UDP.USER_ID = U.USER_ID
+            AND UDP.DBID = D.DBID
+            AND D.USE_YN = 'Y'
+            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+            AND U.USER_ID = #{perfr_id}
+        ), TUNING_PREF AS
+        (
+            SELECT /*+ MATERIALIZE */
+            MAX(CASE WHEN A.PREF_ID = 20001 THEN TO_NUMBER(NVL(A.DEFAULT_PREF_VALUE, 10)) ELSE 0 END) AS TUNING_DELAY_DAYS,
+            MAX(CASE WHEN A.PREF_ID = 20002 THEN TO_NUMBER(NVL(A.DEFAULT_PREF_VALUE, 10)) ELSE 0 END) AS TUNING_APPLY_DELAY_DAYS
+            FROM SPOP_PREFERENCES A
+            WHERE A.PREF_ID IN (20001, 20002)
+        )
+        SELECT TTS.TUNING_NO,
+            TTS.DBID,
+            TTS.CHOICE_DIV_CD,
+            CD3.CD_NM AS CHOICE_DIV_CD_NM,
+            TTS.TUNING_STATUS_CD,
+            CD4.CD_NM AS TUNING_STATUS_NM,
+            DP.DB_NAME, 
+            U1.USER_NM AS PERFR_NM,
+            U2.USER_NM AS TUNING_REQUESTER_NM,
+            W.WRKJOB_CD_NM,
+            TTS.TUNING_REQUEST_DT,
+            TO_CHAR(NVL(TO_DATE(TTS.TUNING_COMPLETE_DUE_DT, 'YYYYMMDD'), TTS.TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS), 'YYYY-MM-DD') TUNING_COMPLETE_DUE_DT, 
+            TTS.TR_CD,
+            TTS.DBIO, 
+            CD1.CD_NM AS PROGRAM_TYPE_CD_NM,
+            CD2.CD_NM AS BATCH_WORK_DIV_CD_NM
+        FROM DB_PRIV DP, TUNING_TARGET_SQL TTS, SQL_TUNING ST, TUNING_PREF TP, USERS U1, USERS U2, WRKJOB_CD W, CD CD1, CD CD2, CD CD3, CD CD4
+        WHERE DP.DBID = TTS.DBID
+        AND TTS.TUNING_NO = ST.TUNING_NO(+)
+        AND TTS.PERFR_ID = U1.USER_ID(+)
+        AND TTS.TUNING_REQUESTER_ID = U2.USER_ID(+)
+        AND TTS.TUNING_REQUESTER_WRKJOB_CD = W.WRKJOB_CD(+)
+        AND TTS.PROGRAM_TYPE_CD = CD1.CD(+)
+        AND CD1.GRP_CD_ID(+) = '1005'
+        AND TTS.BATCH_WORK_DIV_CD = CD2.CD(+)
+        AND CD2.GRP_CD_ID(+) = '1006'
+        AND TTS.CHOICE_DIV_CD = CD3.CD(+)
+        AND CD3.GRP_CD_ID(+) = '1003'
+        AND TTS.TUNING_STATUS_CD = CD4.CD(+)
+        AND CD4.GRP_CD_ID(+) = '1004'
+        <choose>
+            <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                AND (
+                    (TTS.TUNING_COMPLETE_DUE_DT IS NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5') AND TTS.TUNING_REQUEST_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS) OR
+                    (TTS.TUNING_COMPLETE_DUE_DT IS NOT NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5') AND TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> SYSDATE) OR
+                    (TTS.TUNING_STATUS_CD IN ('7') AND ST.TUNING_APPLY_RCESS_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS)
+                )
+                AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '7')
+            </when>
+            <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                AND (
+                    (TTS.TUNING_COMPLETE_DUE_DT IS NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '6') AND TTS.TUNING_REQUEST_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS) OR
+                    (TTS.TUNING_COMPLETE_DUE_DT IS NOT NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '6') AND TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> SYSDATE) OR
+                    (TTS.TUNING_STATUS_CD IN ('7') AND ST.TUNING_APPLY_RCESS_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS)
+                )
+                AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '6', '7')
+            </when>
+        </choose>
+        ORDER BY TTS.TUNING_REQUEST_DT DESC
+    </sql>
+    
+    <select id="dbaTuningDelayList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.dbaTuningDelayList */
+        SELECT *
+        FROM (
+            SELECT ROWNUM RNUM, A.*
+            FROM (
+                <include refid="dbaTuningDelayRefId"/>
+            ) A
+            WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+        ) A
+        WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="dbaTuningDelayCnt" parameterType="tuningTargetSql" resultType="int">
+        /* MainDao.dbaTuningDelayCnt */
+        SELECT COUNT(A.TUNING_NO)
+          FROM (
+                <include refid="dbaTuningDelayRefId"/>
+             ) A
+    </select>
+    
+    <!-- DashBoard (tuner) 튜닝지연 -->
+    <sql id="tunerTuningDelayRefId">
+        WITH TUNING_PREF AS
+        (
+            SELECT /*+ MATERIALIZE */
+                (CASE WHEN A.PREF_ID = 20001 THEN TO_NUMBER(NVL(A.DEFAULT_PREF_VALUE, 10)) ELSE 0 END) AS TUNING_DELAY_DAYS
+            FROM SPOP_PREFERENCES A
+            WHERE A.PREF_ID IN (20001)
+        )
+        SELECT TUNING_NO, DBID, DB_NAME, CHOICE_DIV_CD, CHOICE_DIV_CD_NM, TUNING_STATUS_CD, 
+            TUNING_STATUS_NM, TUNING_REQUESTER_NM, WRKJOB_CD_NM, TUNING_REQUEST_DT, REQUEST_ELAPSED_TIME,
+            (
+                CASE 
+                WHEN TUNING_COMPLETE_DUE_DT IS NULL AND TUNING_STATUS_CD IN ('2', '3', '5') THEN COMPLETE_OVER_TIME_1
+                WHEN TUNING_COMPLETE_DUE_DT IS NOT NULL AND TUNING_STATUS_CD IN ('2', '3', '5') THEN COMPLETE_OVER_TIME_2
+                ELSE COMPLETE_OVER_TIME_3
+                END
+            ) COMPLETE_OVER_TIME, PROGRAM_TYPE_CD_NM, BATCH_WORK_DIV_CD_NM, 
+            NVL(TUNING_COMPLETE_DUE_DT, TO_CHAR(TUNING_REQUEST_DT+TUNING_DELAY_DAYS, 'YYYYMMDD')) AS TUNING_COMPLETE_DUE_DT, WRKJOB_PECULIAR_POINT, TR_CD, DBIO, MODULE
+        FROM
+        (
+            SELECT TTS.TUNING_NO, 
+                TTS.DBID,
+                DB.DB_NAME, 
+                TTS.CHOICE_DIV_CD,
+                CD1.CD_NM AS CHOICE_DIV_CD_NM,
+                TTS.TUNING_STATUS_CD,
+                CD4.CD_NM AS TUNING_STATUS_NM,
+                U1.USER_NM AS TUNING_REQUESTER_NM,
+                W.WRKJOB_CD_NM,
+                TUNING_REQUEST_DT, 
+                LPAD(TRUNC(((SYSDATE-TUNING_REQUEST_DT)*864)/(6*6*24)), 4, ' ') || 'D ' || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-TUNING_REQUEST_DT)*864)/(6*6)), 24), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-TUNING_REQUEST_DT)*8640)/6), 60), '09')) || ':' || TRIM(TO_CHAR(MOD(((SYSDATE-TUNING_REQUEST_DT)*86400), 60), '09')) REQUEST_ELAPSED_TIME,
+                LPAD(TRUNC(((SYSDATE-(TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS))*864)/(6*6*24)), 4, ' ') || 'D ' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-(TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS))*864)/(6*6)), 24), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-(TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS))*8640)/6), 60), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(((SYSDATE-(TUNING_REQUEST_DT+TP.TUNING_DELAY_DAYS))*86400), 60), '09')) COMPLETE_OVER_TIME_1,
+                LPAD(TRUNC(((SYSDATE-TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS'))*864)/(6*6*24)), 4, ' ') || 'D ' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS'))*864)/(6*6)), 24), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS'))*8640)/6), 60), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(((SYSDATE-TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS'))*86400), 60), '09')) COMPLETE_OVER_TIME_2,
+                LPAD(TRUNC(((SYSDATE-(TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS))*864)/(6*6*24)), 4, ' ') || 'D ' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-(TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS))*864)/(6*6)), 24), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(TRUNC(((SYSDATE-(TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS))*8640)/6), 60), '09')) || ':' 
+                    || TRIM(TO_CHAR(MOD(((SYSDATE-(TUNING_APPLY_RCESS_DT+TP.TUNING_DELAY_DAYS))*86400), 60), '09')) COMPLETE_OVER_TIME_3,
+                CD2.CD_NM AS PROGRAM_TYPE_CD_NM,
+                CD3.CD_NM AS BATCH_WORK_DIV_CD_NM,
+                TUNING_COMPLETE_DUE_DT, 
+                CASE WHEN LENGTH(WRKJOB_PECULIAR_POINT) > 20 THEN SUBSTR(WRKJOB_PECULIAR_POINT, 1, 20) || '...' 
+                ELSE WRKJOB_PECULIAR_POINT END AS WRKJOB_PECULIAR_POINT, 
+                TR_CD,
+                DBIO, 
+                MODULE,
+                TP.TUNING_DELAY_DAYS,
+                TUNING_APPLY_RCESS_DT
+            FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST, DATABASE DB, CD CD1, USERS U1, WRKJOB_CD W, CD CD2, CD CD3, CD CD4, TUNING_PREF TP
+            WHERE TTS.TUNING_NO = ST.TUNING_NO(+)
+            AND TTS.DBID = DB.DBID
+            AND TTS.CHOICE_DIV_CD = CD1.CD
+            AND CD1.GRP_CD_ID = '1003'
+            AND TTS.TUNING_REQUESTER_ID = U1.USER_ID(+)
+            AND TTS.TUNING_REQUESTER_WRKJOB_CD = W.WRKJOB_CD(+)
+            AND TTS.PROGRAM_TYPE_CD = CD2.CD(+)
+            AND CD2.GRP_CD_ID(+) = '1005'
+            AND TTS.BATCH_WORK_DIV_CD = CD3.CD(+)
+            AND CD3.GRP_CD_ID(+) = '1006'
+            AND TTS.TUNING_STATUS_CD = CD4.CD
+            AND CD4.GRP_CD_ID = '1004'
+            <choose>
+                <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                    AND (
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5') AND TTS.TUNING_REQUEST_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS) OR
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NOT NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5') AND TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> SYSDATE) OR
+                        (TTS.TUNING_STATUS_CD IN ('7') AND ST.TUNING_APPLY_RCESS_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS)
+                    )
+                    AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '7')
+                </when>
+                <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                    AND (
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '6') AND TTS.TUNING_REQUEST_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS) OR
+                        (TTS.TUNING_COMPLETE_DUE_DT IS NOT NULL AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '6') AND TO_DATE(NVL(TTS.TUNING_COMPLETE_DUE_DT, '99991231')||'235959', 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> SYSDATE) OR
+                        (TTS.TUNING_STATUS_CD IN ('7') AND ST.TUNING_APPLY_RCESS_DT <![CDATA[ <= ]]> SYSDATE - TP.TUNING_DELAY_DAYS)
+                    )
+                    AND TTS.TUNING_STATUS_CD IN ('2', '3', '5', '7', '6')
+                </when>
+            </choose>
+            AND TTS.PERFR_ID = #{perfr_id}
+        )    
+    </sql>
+    
+    <select id="tunerTuningDelayList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tunerTuningDelayList */
+        SELECT *
+        FROM (
+            SELECT ROWNUM RNUM, A.*
+            FROM (
+                <include refid="tunerTuningDelayRefId"/>
+            ) A
+            WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+        ) A
+        WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="tunerTuningDelayCnt" parameterType="tuningTargetSql" resultType="int">
+        /* MainDao.tunerTuningDelayCnt */
+        SELECT COUNT(A.TUNING_NO)
+          FROM (
+                <include refid="tunerTuningDelayRefId"/>
+             ) A
+    </select>
+    
+    <!-- DashBoard (tuner) 주간튜닝완료 -->
+    <sql id="tuningCompleteRefId">
+        SELECT TTS.TUNING_NO, 
+            TTS.DBID,
+            DB.DB_NAME, 
+            TTS.CHOICE_DIV_CD,
+            CD1.CD_NM AS CHOICE_DIV_CD_NM,
+            TTS.TUNING_STATUS_CD,
+            U1.USER_NM AS TUNING_REQUESTER_NM,
+            W.WRKJOB_CD_NM,
+            TUNING_REQUEST_DT, 
+            TR_CD,
+            DBIO, 
+            MODULE,
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRB_ELAP_TIME), '') AS IMPRB_ELAP_TIME, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRB_BUFFER_CNT), '') AS IMPRB_BUFFER_CNT, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRB_PGA_USAGE), '') AS IMPRB_PGA_USAGE, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRA_ELAP_TIME), '') AS IMPRA_ELAP_TIME, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRA_BUFFER_CNT), '') AS IMPRA_BUFFER_CNT, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRA_PGA_USAGE), '') AS IMPRA_PGA_USAGE, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(ELAP_TIME_IMPR_RATIO), '') AS ELAP_TIME_IMPR_RATIO, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(BUFFER_IMPR_RATIO), '') AS BUFFER_IMPR_RATIO, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(PGA_IMPR_RATIO), '') AS PGA_IMPR_RATIO 
+        FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST, DATABASE DB, CD CD1, USERS U1, WRKJOB_CD W, CD CD2, CD CD3
+        WHERE TTS.TUNING_NO = ST.TUNING_NO(+)
+        AND TTS.DBID = DB.DBID
+        AND TTS.CHOICE_DIV_CD = CD1.CD
+        AND CD1.GRP_CD_ID = '1003'
+        AND TTS.TUNING_REQUESTER_ID = U1.USER_ID(+)
+        AND TTS.TUNING_REQUESTER_WRKJOB_CD = W.WRKJOB_CD(+)
+        AND TTS.PROGRAM_TYPE_CD = CD2.CD(+)
+        AND CD2.GRP_CD_ID(+) = '1005'
+        AND TTS.BATCH_WORK_DIV_CD = CD3.CD(+)
+        AND CD3.GRP_CD_ID(+) = '1006'
+        AND TTS.TUNING_STATUS_CD IN ('6', '8', '9')
+        AND ST.TUNING_APPLY_DT >= SYSDATE - 7
+        AND TTS.PERFR_ID = #{perfr_id}
+    </sql>
+    
+    <select id="tuningCompleteList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tuningCompleteList */
+        SELECT *
+        FROM (
+            SELECT ROWNUM RNUM, A.*
+            FROM (
+                <include refid="tuningCompleteRefId"/>
+            ) A
+            WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+        ) A
+        WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="tuningCompleteCnt" parameterType="tuningTargetSql" resultType="int">
+        /* MainDao.tuningCompleteCnt */
+        SELECT COUNT(A.TUNING_NO)
+          FROM (
+                <include refid="tuningCompleteRefId"/>
+             ) A
+    </select>
+    
+    <select id="tuningPerformanceChartList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.tuningPerformanceChartList */
+        SELECT TO_CHAR(TUNING_REQUEST_DT, 'YYYY-MM-DD') AS TUNING_REQUEST_DT,
+            COUNT(*) AS TUNING_CNT, COUNT(PG.TUNING_NO) AS KNOWLEDGE_CNT
+        FROM TUNING_TARGET_SQL TTS, SQL_TUNING ST, PERF_GUIDE PG
+        WHERE TTS.TUNING_NO = ST.TUNING_NO
+        AND TTS.TUNING_NO = PG.TUNING_NO(+)
+        AND TTS.TUNING_STATUS_CD IN ('6' , '8', '9')
+        AND ST.TUNING_COMPLETE_DT >= ADD_MONTHS(SYSDATE, -12)
+        AND TTS.PERFR_ID = #{perfr_id}
+        GROUP BY TO_CHAR(TUNING_REQUEST_DT, 'YYYY-MM-DD')
+        ORDER BY TUNING_REQUEST_DT ASC
+    </select>
+    
+    <sql id="myWorkListRefId">
+        /* MainDao.myWorkList */
+        WITH USER_LIST AS
+        (
+            SELECT A.USER_ID
+            FROM USERS A,
+                 USER_WRKJOB B,
+                 (SELECT WRKJOB_CD, WRKJOB_CD_NM, CONNECT_BY_ROOT WRKJOB_CD TOP_WRKJOB_CD 
+                  FROM WRKJOB_CD
+                  START WITH WRKJOB_CD = #{wrkjob_cd}
+                  CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD) C
+            WHERE A.USER_ID = B.USER_ID
+            AND B.WRKJOB_CD = C.WRKJOB_CD
+            <if test="(leader_yn != null and (leader_yn eq 'N'.toString()))">
+                AND (B.WRKJOB_CD <![CDATA[ <> ]]> #{wrkjob_cd} OR (B.WRKJOB_CD = #{wrkjob_cd} AND A.USER_ID = #{wrkjob_mgr_id}))
+            </if>
+        )
+        SELECT NVL(A.TUNING_NO,'0') TUNING_NO,
+            A.DBID,
+            A.CHOICE_DIV_CD,
+            A.TUNING_STATUS_CD,
+            CD.CD_NM AS TUNING_STATUS_NM,
+            A.TUNING_REQUEST_DT, 
+            A.TUNING_RCESS_DT, 
+            B.TUNING_COMPLETE_DT, 
+            SUBSTR(A.TUNING_RCESS_WHY, 1, 20) AS TUNING_RCESS_WHY, 
+            SUBSTR(B.TUNING_COMPLETE_WHY, 1, 20) AS TUNING_COMPLETE_WHY, 
+            SUBSTR(B.CONTROVERSIALIST, 1, 20) AS CONTROVERSIALIST, 
+            SUBSTR(B.IMPR_SBST, 1, 20) AS IMPR_SBST, 
+            (
+                SELECT  U.USER_NM
+                FROM USER_DB_PRIVILEGE UDP, USER_AUTH UA, USERS U
+                WHERE UDP.USER_ID = UA.USER_ID
+                AND UDP.USER_ID = U.USER_ID
+                AND UDP.DBID = A.DBID
+                AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UDP.PRIVILEGE_START_DAY AND UDP.PRIVILEGE_END_DAY
+                AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN UA.AUTH_START_DAY AND UA.AUTH_END_DAY
+                AND UA.AUTH_GRP_ID = '2'
+                AND ROWNUM = 1
+            ) AS DBA_NAME,
+            A.PERFR_ID,
+            C.USER_NM AS PERFR_NM,
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRB_ELAP_TIME), '') AS IMPRB_ELAP_TIME, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRB_BUFFER_CNT), '') AS IMPRB_BUFFER_CNT, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRA_ELAP_TIME), '') AS IMPRA_ELAP_TIME, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(IMPRA_BUFFER_CNT), '') AS IMPRA_BUFFER_CNT, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(ELAP_TIME_IMPR_RATIO), '') AS ELAP_TIME_IMPR_RATIO, 
+            NVL(FN_NUM_TO_CHAR_FORMAT(BUFFER_IMPR_RATIO), '') AS BUFFER_IMPR_RATIO
+        FROM TUNING_TARGET_SQL A, SQL_TUNING B, USERS C, CD CD
+        WHERE A.TUNING_NO = B.TUNING_NO(+)
+        AND A.TUNING_STATUS_CD = CD.CD
+        AND CD.GRP_CD_ID = '1004'
+<!--         AND (A.WRKJOB_MGR_ID = #{wrkjob_mgr_id} OR A.TUNING_REQUESTER_ID = #{wrkjob_mgr_id}) -->
+        AND (A.TUNING_REQUESTER_ID IN (SELECT USER_ID FROM USER_LIST) OR A.WRKJOB_MGR_ID IN (SELECT USER_ID FROM USER_LIST))
+        AND A.PERFR_ID = C.USER_ID(+)
+        <choose>
+            <when test="dba_review != null and (dba_review eq 'N'.toString())"> <!-- 개발 -->
+                AND (A.TUNING_STATUS_CD = '6' OR A.TUNING_STATUS_CD = '4') 
+            </when>
+            <when test="dba_review != null and (dba_review eq 'Y'.toString())"> <!-- 운영 -->
+                AND (A.TUNING_STATUS_CD = '9' OR A.TUNING_STATUS_CD = '4')
+            </when>
+        </choose>
+        ORDER BY B.TUNING_COMPLETE_DT ASC
+    </sql>
+    
+    <select id="myWorkList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+        /* MainDao.myWorkList */
+        SELECT *
+        FROM (
+            SELECT ROWNUM RNUM, AA.*
+                FROM (
+        <include refid="myWorkListRefId"/>
+                    ) AA
+            WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+        ) AA
+        WHERE AA.RNUM > (${pagePerCount} * (${currentPage}-1))
+    </select>
+    
+    <select id="precedentList" parameterType="perfGuide" resultType="perfGuide">
+      /* MainDao.precedentList1 */
+      SELECT *
+      FROM (
+          SELECT ROWNUM RNUM, A.*
+          FROM (
+              <include refid="precedentListRefId"/>
+          ) A
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) A
+      WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="precedentList4Excel" parameterType="perfGuide" resultType="java.util.LinkedHashMap">
+      /* MainDao.precedentList4Excel */
+      <include refid="precedentListRefId"/>
+    </select>
+
+    <sql id="precedentListRefId">
+      /* MainDao.precedentListRefId */
+      SELECT 
+             DECODE(TOP_FIX_YN, 'Y', '<![CDATA[<i class="fas fa-thumbtack"></i>]]>') AS PINSET,
+             GUIDE_NO, 
+             TUNING_NO, 
+             GUIDE_DIV_NM, 
+             SYS_NM, 
+             GUIDE_TITLE_NM, 
+             REG_USER_NM, 
+             REG_DT, 
+             RETV_CNT, 
+             TOP_FIX_YN
+      FROM (
+          SELECT A.GUIDE_NO, 
+              A.TUNING_NO,
+              C.CD_NM AS GUIDE_DIV_NM,
+              A.SYS_NM, 
+              A.GUIDE_TITLE_NM, 
+              B.USER_NM AS REG_USER_NM,
+              TO_CHAR(A.REG_DT,'YYYY-MM-DD HH24:MI:SS') REG_DT,
+              RETV_CNT, 
+              NVL(TOP_FIX_YN, 'N') TOP_FIX_YN,
+              UPD_DT
+          FROM PERF_GUIDE A, USERS B, CD C
+          WHERE A.REG_USER_ID = B.USER_ID
+          AND A.GUIDE_DIV_CD = C.CD
+          AND C.GRP_CD_ID = '1012'
+          <if test="auth_cd eq 'ROLE_DEV'">
+              AND A.GUIDE_DIV_CD = '1'
+          </if>
+          AND A.DEL_YN = 'N'
+          ORDER BY TOP_FIX_YN DESC, UPD_DT DESC
+      ) 
+      WHERE ROWNUM <![CDATA[<=]]> 10
+    </sql>
+    
+    <select id="loadScmBasedStdQtyChk" parameterType="java.util.Map" resultType="java.util.LinkedHashMap">
+      /* MainDao.loadScmBasedStdQtyChk */
+      WITH DEV_PROJECT AS (
+          /* developer's project */
+          SELECT DISTINCT 
+                 C.PROJECT_ID
+               , C.PROJECT_NM
+            FROM USER_WRKJOB A
+               , PROJECT_WRKJOB B
+               , PROJECT C
+           WHERE A.USER_ID = #{user_id}
+             AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.WORKJOB_START_DAY AND A.WORKJOB_END_DAY
+             AND B.WRKJOB_CD = A.WRKJOB_CD
+             AND C.PROJECT_ID = B.PROJECT_ID
+             AND C.DEL_YN = 'N'
+             AND C.PROJECT_ID != 0
+      ), DEV_PROJECT_WRKJOB_CD AS (
+          /* developer's project, wrkjob_cd */
+          SELECT C.PROJECT_ID
+               , A.WRKJOB_CD
+            FROM USER_WRKJOB A
+               , PROJECT_WRKJOB B
+               , PROJECT C
+           WHERE A.USER_ID = #{user_id}
+             AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.WORKJOB_START_DAY AND A.WORKJOB_END_DAY
+             AND A.LEADER_YN = 'Y'
+             AND B.WRKJOB_CD = A.WRKJOB_CD
+             AND C.PROJECT_ID = B.PROJECT_ID
+             AND C.DEL_YN = 'N'
+             AND C.PROJECT_ID != 0
+      ), PROJECT_SQL_STD_GATHER_DT AS (
+          SELECT PROJECT_ID
+               , CURRENT_SQL_STD_GATHER_DT
+               , PREVIOUS_SQL_STD_GATHER_DT 
+               , SQL_STD_QTY_DIV_CD
+            FROM (
+                  SELECT A.PROJECT_ID
+                       , A.SQL_STD_GATHER_DT AS CURRENT_SQL_STD_GATHER_DT
+                       , LEAD(MAX(A.SQL_STD_GATHER_DT), 1) OVER (PARTITION BY A.PROJECT_ID ORDER BY A.SQL_STD_GATHER_DT DESC) AS PREVIOUS_SQL_STD_GATHER_DT
+                       , ROW_NUMBER() OVER (PARTITION BY A.PROJECT_ID ORDER BY A.SQL_STD_GATHER_DT DESC) AS RNUM
+                       , MAX(SQL_STD_QTY_DIV_CD) AS SQL_STD_QTY_DIV_CD
+                    FROM SQL_STD_QTY_CHK_ERR_SUM A
+                       , DEV_PROJECT B
+                   WHERE A.PROJECT_ID = B.PROJECT_ID
+                     AND A.SQL_STD_QTY_DIV_CD = #{sql_std_qty_div_cd}
+                  GROUP BY A.PROJECT_ID, A.SQL_STD_GATHER_DT
+                 )
+           WHERE RNUM = 1
+      )
+      SELECT D.PROJECT_NM AS PROJECT_NM
+           , C.WRKJOB_CD_NM AS WRKJOB_CD_NM
+           , B.PROGRAM_CNT AS PREVIOUS_PROGRAM_CNT
+           , A.PROGRAM_CNT AS CURRENT_PROGRAM_CNT
+           , B.TOT_ERR_CNT AS PREVIOUS_TOT_ERR_CNT
+           , A.TOT_ERR_CNT AS CURRENT_TOT_ERR_CNT 
+           , ROUND(((B.PROGRAM_CNT - B.TOT_ERR_CNT)/B.PROGRAM_CNT) * 100, 1) AS PREVIOUS_COMPIANCE_RATE
+           , ROUND(((A.PROGRAM_CNT - A.TOT_ERR_CNT)/A.PROGRAM_CNT) * 100, 1) AS CURRENT_COMPIANCE_RATE
+           , A.SQL_PARSING_ERR_CNT
+           
+           , A.SQL100ERR_CNT AS SQL100ERR_CNT
+           
+           , A.SQL101ERR_CNT AS SQL101ERR_CNT
+           , A.SQL102ERR_CNT AS SQL102ERR_CNT
+           , A.SQL103ERR_CNT AS SQL103ERR_CNT
+           , A.SQL104ERR_CNT AS SQL104ERR_CNT
+           , A.SQL105ERR_CNT AS SQL105ERR_CNT
+           , A.SQL106ERR_CNT AS SQL106ERR_CNT
+           , A.SQL107ERR_CNT AS SQL107ERR_CNT
+           , A.SQL108ERR_CNT AS SQL108ERR_CNT
+           , A.SQL109ERR_CNT AS SQL109ERR_CNT
+           , A.SQL110ERR_CNT AS SQL110ERR_CNT
+           
+           , A.SQL111ERR_CNT AS SQL111ERR_CNT
+           , A.SQL112ERR_CNT AS SQL112ERR_CNT
+           , A.SQL113ERR_CNT AS SQL113ERR_CNT
+           , A.SQL114ERR_CNT AS SQL114ERR_CNT
+           , A.SQL115ERR_CNT AS SQL115ERR_CNT
+           , A.SQL116ERR_CNT AS SQL116ERR_CNT
+           , A.SQL117ERR_CNT AS SQL117ERR_CNT
+           , A.SQL118ERR_CNT AS SQL118ERR_CNT
+           , A.SQL119ERR_CNT AS SQL119ERR_CNT
+           , A.SQL120ERR_CNT AS SQL120ERR_CNT
+          
+           , A.SQL121ERR_CNT AS SQL121ERR_CNT
+           , A.SQL122ERR_CNT AS SQL122ERR_CNT
+           , A.SQL123ERR_CNT AS SQL123ERR_CNT
+           , A.SQL124ERR_CNT AS SQL124ERR_CNT
+           , A.SQL125ERR_CNT AS SQL125ERR_CNT
+           , A.SQL126ERR_CNT AS SQL126ERR_CNT
+           , A.SQL127ERR_CNT AS SQL127ERR_CNT
+           , A.SQL128ERR_CNT AS SQL128ERR_CNT
+           , A.SQL129ERR_CNT AS SQL129ERR_CNT
+           , A.SQL130ERR_CNT AS SQL130ERR_CNT
+           , A.SQL131ERR_CNT AS SQL131ERR_CNT
+           , A.SQL132ERR_CNT AS SQL132ERR_CNT
+           , A.SQL133ERR_CNT AS SQL133ERR_CNT
+           , A.SQL134ERR_CNT AS SQL134ERR_CNT
+           , A.SQL135ERR_CNT AS SQL135ERR_CNT
+           , A.SQL136ERR_CNT AS SQL136ERR_CNT
+           , A.SQL137ERR_CNT AS SQL137ERR_CNT
+           , A.SQL138ERR_CNT AS SQL138ERR_CNT
+           , A.SQL139ERR_CNT AS SQL139ERR_CNT
+           , A.SQL140ERR_CNT AS SQL140ERR_CNT
+           , TO_CHAR(A.SQL_STD_GATHER_DT, 'YYYY-MM-DD') AS CURRENT_SQL_STD_GATHER_DAY
+           , TO_CHAR(B.SQL_STD_GATHER_DT, 'YYYY-MM-DD') AS PREVIOUS_SQL_STD_GATHER_DAY
+           , A.PROJECT_ID
+           , A.SUM_BASE1 AS WRKJOB_CD
+        FROM PROJECT_SQL_STD_GATHER_DT P
+           , SQL_STD_QTY_CHK_ERR_SUM A
+           , (SELECT A.PROJECT_ID
+                   , A.SQL_STD_GATHER_DT
+                   , A.SUM_BASE1
+                   , A.SQL_STD_QTY_DIV_CD
+                   , A.PROGRAM_CNT
+                   , A.TOT_ERR_CNT
+                FROM SQL_STD_QTY_CHK_ERR_SUM A
+                   , PROJECT_SQL_STD_GATHER_DT B
+               WHERE A.PROJECT_ID = B.PROJECT_ID
+                 AND A.SQL_STD_GATHER_DT = B.PREVIOUS_SQL_STD_GATHER_DT
+                 AND A.SQL_STD_QTY_DIV_CD = B.SQL_STD_QTY_DIV_CD
+              ) B
+           , WRKJOB_CD C
+           , PROJECT D
+       WHERE A.PROJECT_ID = P.PROJECT_ID
+         AND A.SQL_STD_GATHER_DT = P.CURRENT_SQL_STD_GATHER_DT
+         AND A.SQL_STD_QTY_DIV_CD = P.SQL_STD_QTY_DIV_CD
+         AND B.PROJECT_ID(+) = A.PROJECT_ID
+         AND B.SUM_BASE1(+) = A.SUM_BASE1
+         AND B.SQL_STD_QTY_DIV_CD(+) = A.SQL_STD_QTY_DIV_CD
+         AND C.WRKJOB_CD(+) = A.SUM_BASE1
+         AND D.PROJECT_ID = A.PROJECT_ID
+         <if test='auth_cd == "ROLE_DEV" and leader_yn == "Y"'>
+           AND (A.PROJECT_ID, A.SUM_BASE1) IN (SELECT PROJECT_ID
+                                                    , WRKJOB_CD
+                                                 FROM DEV_PROJECT_WRKJOB_CD)
+         </if>
+      ORDER BY D.PROJECT_NM, A.SUM_BASE1
+    </select>
+    
+    <select id="menuList" parameterType="String" resultType="Menu">
+        /* MainDao.menuList */
+        SELECT A.MENU_ID
+             , A.MENU_NM
+          FROM MENU A
+             , MENU_AUTH B
+             , AUTH C
+         WHERE A.PARENT_MENU_ID IS NULL
+           AND A.USE_YN = 'Y'
+           AND A.MENU_ID != '090' /* 설정 메뉴제외 */
+           AND A.MENU_ID = B.MENU_ID
+           AND B.AUTH_ID = C.AUTH_ID
+           AND C.AUTH_CD = #{auth_cd}
+         ORDER BY A.MENU_ORDERING
+    </select>
+    
+    <select id="noticeBoardOne" resultType="Board">
+        /* MainDao.noticeBoardOne */
+        SELECT BOARD_NO
+             , TITLE
+             , REG_DT
+          FROM (
+                SELECT /*+ INDEX_SS_DESC(A PK_BOARD) */
+                       A.BOARD_NO
+                     , A.TITLE
+                     , TO_CHAR(A.REG_DT,'YYYY-MM-DD') REG_DT
+                  FROM BOARD A
+                 WHERE A.BOARD_MGMT_NO = 1
+                   AND A.DEL_YN = 'N'
+                   AND TOP_NOTICE_YN = 'Y'
+                 ORDER BY A.BOARD_NO DESC
+                )
+         WHERE ROWNUM = 1
+    </select>
+</mapper>

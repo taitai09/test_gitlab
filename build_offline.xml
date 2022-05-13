@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- WARNING: Eclipse auto-generated file.
+              Any modifications will be overwritten.
+              To include a user specific buildfile here, simply create one in the same
+              directory with the processing instruction <?eclipse.ant.import?>
+              as the first entry and export the buildfile again. -->
+<project basedir="." default="initAll" name="OPENPOP_V2[OFFLINE]" xmlns:artifact="urn:maven-artifact-ant">
+    <property environment="env"/>
+	<property file="build.properties"/>
+    <property name="debuglevel" value="source,lines,vars"/>
+    <property name="target" value="1.8"/>
+    <property name="source" value="1.8"/>
+
+	<!-- 로컬 library 정의 -->
+	<property name="LocalLib" value="${library.home}" />
+	<path id="LocalClasspath">
+		<fileset dir="${LocalLib}">
+			<include name="*.jar"/>
+		</fileset>
+    </path>
+			
+	<!-- Tomcat Deployer를 사용하도록 선언 -->
+	<property name="TomcatLib" value="${tomcat.home}/lib" />	
+	<path id="TomcatClasspath">
+		<fileset dir="${TomcatLib}">
+			<include name="*.jar"/>
+		</fileset>
+    </path>
+
+    <path id="ProjectClasspath">
+    	<pathelement location="${project.home}/WEB-INF/classes"/>
+        <path refid="TomcatClasspath"/>
+        <path refid="LocalClasspath"/>
+    </path>
+	
+	<patternset id="html_ptrn">
+		<include name="**/*.html"/>
+		<include name="**/*.htm"/>
+		<include name="**/*.xml"/>
+		<include name="**/*.js"/>
+		<include name="**/*.htc"/>
+		<include name="**/*.css"/>
+		<include name="**/*.htc"/>
+		<include name="**/*.cab"/>
+		<include name="**/*.txt"/>
+		<include name="**/*.exe"/>
+		<include name="**/*.xap"/>
+		<include name="**/*.eot"/>
+		<include name="**/*.otf"/>
+		<include name="**/*.woff"/>
+		<include name="**/*.woff2"/>
+		<include name="**/*.ttf"/>
+		<include name="**/*.zip"/>
+		<exclude name="**/log4j.xml"/>
+	</patternset>
+
+	<patternset id="image_ptrn">
+		<include name="**/*.png"/>
+		<include name="**/*.gif"/>
+		<include name="**/*.jpg"/>
+		<include name="**/*.swf"/>
+		<include name="**/*.wav"/>
+		<include name="**/*.au"/>
+		<include name="**/*.ico"/>
+		<include name="**/*.mp4"/>
+	</patternset>
+	
+	<patternset id="jsp_ptrn">
+		<include name="**/*.jsp"/>
+		<include name="**/*.jspf"/>
+	</patternset>	
+	
+	<target name="initAll" depends="copy_all, build-project" description="초기화">
+	</target>
+	
+	<target name="copy_all" depends="jar_copy, jsp_copy, apache_html, apache_image" description="로컬 파일 복사(classes 파일 제외)">
+	</target>
+	
+	<target name="apache_html" description="아파치 HTML 복사">
+		<copy todir="${project.home}" overwrite="true">
+			<fileset dir="${web.home}/src/main/webapp/">
+				<patternset refid="html_ptrn"/>
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="apache_image" description="아파치 이미지 복사">
+		<copy todir="${project.home}" overwrite="true">
+			<fileset dir="${web.home}/src/main/webapp/">
+				<patternset refid="image_ptrn"/>
+			</fileset>
+		</copy>
+	</target>
+	
+	<target name="jsp_copy" description="jsp파일 복사">
+		<copy todir="${project.home}" overwrite="true">
+			<fileset dir="${web.home}/src/main/webapp/">
+				<patternset refid="jsp_ptrn"/>
+			</fileset>
+		</copy>
+	</target>	
+	
+	<target name="jar_copy" description="jar파일 복사">
+		<copy todir="${project.home}/WEB-INF/lib" overwrite="true">
+			<fileset dir="${LocalLib}"/>
+		</copy>
+	</target>	
+	
+    <target name="init" description="resource파일 복사">
+        <mkdir dir="${project.home}/WEB-INF/classes"/>
+        <copy includeemptydirs="false" todir="${project.home}/WEB-INF/classes">
+            <fileset dir="src/main/java">
+                <exclude name="**/*.java"/>
+            </fileset>
+        </copy>
+        <copy includeemptydirs="false" todir="${project.home}/WEB-INF/classes">
+            <fileset dir="src/main/resources">
+                <exclude name="**/*.java"/>
+            	<exclude name="**/omc-spop.jdbc.properties"/>
+            	<exclude name="**/default.properties"/>
+            	<exclude name="**/log4j.xml"/>
+            </fileset>
+        </copy>
+    </target>		
+	
+    <target name="build-project" depends="init" description="클래스 컴파일">
+        <echo message="${ant.project.name}: ${ant.file}"/>
+    	<javac debug="true" debuglevel="${debuglevel}" destdir="${project.home}/WEB-INF/classes" source="${source}" target="${target}" includeantruntime="false">
+    		<src path="${comlib.home}/src"/>
+    		<src path="src/main/java"/>
+            <classpath refid="ProjectClasspath"/>
+        </javac>
+        <javac debug="true" debuglevel="${debuglevel}" destdir="${project.home}/WEB-INF/classes" source="${source}" target="${target}" includeantruntime="false">
+            <src path="src/main/resources"/>
+        	<exclude name="**"/>
+            <classpath refid="ProjectClasspath"/>
+        </javac>
+    </target>	
+	
+	<target name="cleanAll" depends="cleanCss, cleanJs, cleanClass, cleanJsp" description="초기화">
+	</target>
+
+    <target name="cleanClass" description="클래스 초기화">
+        <delete dir="${project.home}/WEB-INF/classes"/>
+    </target>
+	
+    <target name="cleanJsp" description="jsp 파일 초기화">
+        <delete dir="${project.home}/WEB-INF/jsp"/>
+    </target>
+	
+    <target name="cleanJs" description="js 파일 초기화">
+        <delete dir="${project.home}/js"/>
+    </target>
+	
+    <target name="cleanCss" description="css 파일 초기화">
+        <delete dir="${project.home}/css"/>
+    </target>	
+
+    <target name="cleanProject" description="프로젝트 초기화">
+        <delete dir="${project.home}"/>
+    </target>	
+</project>

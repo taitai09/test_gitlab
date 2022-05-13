@@ -1,0 +1,1348 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+    Full Name    AutoIndexSQLPerformanceVerificationMapper
+    -->
+
+<mapper namespace="omc.spop.dao.AISQLPVDao">
+    <select id="getSqlPerformancePacList" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.getSqlPerformancePacList */
+      SELECT A.PERF_CHECK_NAME AS PERF_CHECK_NAME
+             /* HIDDEN */
+           , A.PROJECT_ID AS PROJECT_ID
+           , A.SQL_AUTO_PERF_CHECK_ID AS SQL_AUTO_PERF_CHECK_ID
+           , CASE WHEN A.ORIGINAL_DBID IS NOT NULL THEN 'Y' ELSE 'N' END AS DATA_YN
+        FROM SQL_AUTO_PERF_CHK A
+       WHERE A.PROJECT_ID = #{project_id}
+         AND A.PERF_CHECK_TYPE_CD = #{perf_check_type_cd}
+         AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+         AND A.PARENT_SQL_AUTO_PERF_CHECK_ID IS NULL
+       ORDER BY A.PERF_CHECK_NAME
+    </select>
+    
+    <select id="loadSqlPerformancePacList" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.loadSqlPerformancePacList */
+      SELECT AA.*
+      FROM (
+          SELECT ROWNUM RNUM, AA.*
+          FROM (
+              <include refid="loadSqlPerformancePacListRefId"/>
+          ) AA
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) AA
+      WHERE AA.RNUM <![CDATA[>]]> ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <sql id="loadSqlPerformancePacListRefId">
+      SELECT A.PERF_CHECK_NAME AS PERF_CHECK_NAME                                         /* SQL점검팩명    */
+           , A.PERF_CHECK_DESC AS PERF_CHECK_DESC                                         /* SQL점검팩 설명 */
+           , DB1.DB_NAME AS ORIGINAL_DB_NAME                                              /* ASIS DB(원천DB)*/
+           , DB2.DB_NAME AS PERF_CHECK_TARGET_DB_NAME                                     /* TOBE DB(목표DB)*/
+           , TO_CHAR(A.PERF_CHECK_RANGE_BEGIN_DT, 'YYYY-MM-DD') ||' ~ '||
+             TO_CHAR(A.PERF_CHECK_RANGE_END_DT, 'YYYY-MM-DD') AS CHECK_RANGE_PERIOD       /* 수집기간       */
+           , A.ALL_SQL_YN AS ALL_SQL_YN
+           , CASE WHEN A.ALL_SQL_YN = 'Y' THEN '전체'
+                  ELSE TO_CHAR(A.TOPN_CNT)
+              END AS TOPN_CNT                                                             /* TOP N          */
+           , A.OWNER_LIST AS OWNER_LIST                                                   /* Owner          */
+           , A.MODULE_LIST AS MODULE_LIST                                                 /* Module         */
+           , A.PARALLEL_DEGREE AS PARALLEL_DEGREE                                         /* 병렬실행       */
+           , A.DML_EXEC_YN AS DML_EXEC_YN                                                 /* DML 실행       */ 
+           , A.MULTIPLE_EXEC_CNT AS MULTIPLE_EXEC_CNT                                     /* Multiple 실행  */
+           , A.MULTIPLE_BIND_EXEC_CNT AS MULTIPLE_BIND_EXEC_CNT                           /* Multiple Bind 실행 */
+           , CASE WHEN SQL_TIME_LIMT_CD = '99' THEN TO_CHAR(SQL_TIME_DIRECT_PREF_VALUE)
+                  ELSE CD1.CD_NM
+              END AS SQL_TIME_LIMT_NM                                                     /* SQL Time Limit(분) */
+           , A.MAX_FETCH_CNT AS MAX_FETCH_CNT                                             /* 최대 Fetch 건수*/
+           , TO_CHAR(A.PERF_CHECK_EXEC_BEGIN_DT, 'YYYY-MM-DD') AS PERF_CHECK_EXEC_END_DT  /* 최종수행일시   */
+           , CASE WHEN FLOOR((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT)*24) = 0 THEN
+                  TRUNC(((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT)*24 - 
+                  FLOOR((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT)*24) )*60)||'분'
+             WHEN FLOOR((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT)*24) <![CDATA[<>]]> 0 THEN
+                  FLOOR((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT)*24)||'시간 '||
+                  TRUNC(((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT)*24 - 
+                  FLOOR((A.PERF_CHECK_EXEC_END_DT - A.PERF_CHECK_EXEC_BEGIN_DT)*24) )*60)||'분'
+             ELSE ''
+             END AS PERF_CHECK_EXEC_TIME                                                  /* 수행시간       */
+           , A.PERF_CHECK_FORCE_CLOSE_YN AS PERF_CHECK_FORCE_CLOSE_YN                     /* 강제완료처리   */
+           , U1.USER_NM AS USER_NM                                                        /* 수행자명       */
+           , A.PROJECT_ID AS PROJECT_ID
+           , A.SQL_AUTO_PERF_CHECK_ID AS SQL_AUTO_PERF_CHECK_ID
+        FROM SQL_AUTO_PERF_CHK A
+           , USERS U1
+           , CD CD1
+           , DATABASE DB1
+           , DATABASE DB2
+       WHERE A.PROJECT_ID = #{project_id}
+         AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+         AND A.PERF_CHECK_TYPE_CD = #{perf_check_type_cd}
+         AND A.PARENT_SQL_AUTO_PERF_CHECK_ID IS NULL
+         AND A.PERF_CHECK_EXECUTER_ID = U1.USER_ID(+)
+         AND CD1.GRP_CD_ID(+) = '1082'
+         AND CD1.CD(+) = A.SQL_TIME_LIMT_CD
+         AND A.ORIGINAL_DBID = DB1.DBID(+)
+         AND A.PERF_CHECK_TARGET_DBID = DB2.DBID(+)
+      ORDER BY SQL_AUTO_PERF_CHECK_ID
+    </sql>
+    
+    <select id="getExistCount" parameterType="sqlAutoPerformanceCompare" resultType="int">
+      /* AISQLPVDao.getExistCount */
+      SELECT COUNT(*)
+        FROM SQL_AUTO_PERF_CHK A 
+       WHERE A.PROJECT_ID = #{project_id}
+         AND A.PERF_CHECK_NAME = #{perf_check_name}
+         AND A.PARENT_PROJECT_ID IS NULL
+         AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+    </select>
+    
+    <select id="loadSummaryData" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.loadSummaryData */
+      <![CDATA[
+      WITH LAST_RECOMMEND_INDEX AS (
+           SELECT A.PROJECT_ID
+                , A.SQL_AUTO_PERF_CHECK_ID
+                , C.RECOMMEND_INDEX_CNT
+                , D.TABLE_OWNER
+                , D.TABLE_NAME
+                , D.TEMP_INDEX_NAME
+                , D.IDX_AD_NO
+                , D.ACCESS_PATH_COLUMN_LIST
+                , D.RECOMMEND_TYPE
+                , A.ORIGINAL_DBID AS ASIS_DBID
+                , A.PERF_CHECK_TARGET_DBID AS TOBE_DBID
+                , ROUND(C.TABLESPACE_USAGE, 2) AS TABLESPACE_USAGE
+                , ROUND(B.TOTAL_ELAPSED_TIME/1000000, 0) AS TOTAL_ELAPSED_TIME
+                , B.TOTAL_BUFFER_GETS
+             FROM SQL_AUTO_PERF_CHK A
+                , (
+                   SELECT PROJECT_ID 
+                        , SQL_AUTO_PERF_CHECK_ID
+                        , DBID
+                        , EXEC_SEQ
+                        , ACCESS_PATH_EXEC_DT AS INDEX_EXEC_BEGIN_DT
+                        , ACCESS_PATH_EXEC_END_DT
+                        , FORCE_CLOSE_YN
+                        , TOTAL_ELAPSED_TIME
+                        , TOTAL_BUFFER_GETS
+                        , ROW_NUMBER() OVER(PARTITION BY PROJECT_ID, SQL_AUTO_PERF_CHECK_ID ORDER BY EXEC_SEQ DESC) AS RNUM
+                     FROM ACC_PATH_EXEC
+                    WHERE ACCESS_PATH_TYPE = 'AUTOINDEX'
+                  ) B
+                , (
+                   SELECT IDX_AD_NO
+                        , DBID
+                        , EXEC_SEQ
+                        , TABLE_CNT
+                        , RUNNING_TABLE_CNT
+                        , RECOMMEND_INDEX_CNT
+                        , FORCE_CLOSE_YN
+                        , END_DT
+                        , TABLESPACE_USAGE
+                        , ROW_NUMBER() OVER(PARTITION BY DBID, EXEC_SEQ ORDER BY IDX_AD_NO DESC) AS RNUM
+                     FROM IDX_AD_MST
+                  ) C
+                , IDX_AD_RECOMMEND_INDEX D
+            WHERE A.PROJECT_ID = #{project_id}
+              AND A.SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+              AND A.PERF_CHECK_TYPE_CD = #{perf_check_type_cd}
+              AND A.DATABASE_KINDS_CD = #{database_kinds_cd}
+              AND NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') <> 'Y'
+              AND A.PERF_CHECK_EXEC_END_DT IS NOT NULL
+              AND B.PROJECT_ID = A.PROJECT_ID 
+              AND B.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+              AND B.DBID = A.ORIGINAL_DBID
+              AND B.RNUM = 1
+              AND NVL(B.FORCE_CLOSE_YN, 'N') <> 'Y'
+              AND B.ACCESS_PATH_EXEC_END_DT IS NOT NULL
+              AND C.DBID = B.DBID
+              AND C.EXEC_SEQ = B.EXEC_SEQ
+              AND C.RNUM = 1
+              AND NVL(C.FORCE_CLOSE_YN, 'N') <> 'Y'
+              AND C.END_DT IS NOT NULL
+              AND D.IDX_AD_NO = C.IDX_AD_NO
+              AND D.LAST_RECOMMEND_TYPE_CD = '1'
+        ), LAST_RECOMMEND_INDEX_USED_SQL AS (
+           SELECT DISTINCT
+                  C.PROJECT_ID
+                , C.SQL_AUTO_PERF_CHECK_ID
+                , C.SQL_ID 
+                , A.ASIS_DBID
+                , A.TOBE_DBID
+             FROM LAST_RECOMMEND_INDEX A
+                , SQL_AUTO_PERF_CHK B
+                , (SELECT DISTINCT PROJECT_ID, SQL_AUTO_PERF_CHECK_ID, SQL_ID, OBJECT_NAME
+                     FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+                    WHERE OBJECT_TYPE LIKE 'INDEX%'
+                      AND OBJECT_NAME IS NOT NULL
+                    UNION ALL
+                   SELECT DISTINCT PROJECT_ID, SQL_AUTO_PERF_CHECK_ID, SQL_ID, OBJECT_NAME
+                     FROM SQL_AUTO_PERF_SQL_PLAN
+                    WHERE OBJECT_TYPE LIKE 'INDEX%'
+                      AND OBJECT_NAME IS NOT NULL
+                  ) C
+            WHERE B.PARENT_PROJECT_ID = A.PROJECT_ID
+              AND B.PARENT_SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+              AND B.PERF_CHECK_TYPE_CD = #{perf_check_type_cd}
+              AND B.DATABASE_KINDS_CD = #{database_kinds_cd}
+              AND C.PROJECT_ID = B.PROJECT_ID
+              AND C.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID
+              AND C.OBJECT_NAME = A.TEMP_INDEX_NAME
+      ), LAST_SQL_AUTO_PERF_CHK AS (
+         SELECT COUNT(*) AS SQL_CNT                                                       /* SQL수              */
+              , ROUND(SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND B.SQL_ID IS NULL AND A.AFTER_ELAPSED_TIME IS NOT NULL THEN
+                              A.BEFORE_ELAPSED_TIME/1000000/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)
+                         ELSE 0
+                     END), 0) AS BEFORE_ELAPSED_TIME                                          /* ASIS ELAPESED TIME */
+              , ROUND(SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND B.SQL_ID IS NULL AND A.AFTER_ELAPSED_TIME IS NOT NULL THEN
+                              A.AFTER_ELAPSED_TIME/1000000/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS)
+                         ELSE 0
+                     END), 0) AS AFTER_ELAPSED_TIME                                           /* TOBE ELAPESED TIME */
+              , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND B.SQL_ID IS NULL AND A.AFTER_BUFFER_GETS IS NOT NULL THEN
+                              ROUND(A.BEFORE_BUFFER_GETS/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS))
+                         ELSE 0
+                     END) AS BEFORE_BUFFER_GETS                                           /* ASIS BUFFER GETS   */
+              , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND B.SQL_ID IS NULL AND A.AFTER_BUFFER_GETS IS NOT NULL THEN
+                              ROUND(A.AFTER_BUFFER_GETS/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS))
+                         ELSE 0
+                     END) AS AFTER_BUFFER_GETS                                            /* TOBE BUFFER GETS   */
+              , M.PROJECT_ID
+              , M.SQL_AUTO_PERF_CHECK_ID
+              , MIN(M.ASIS_DBID) AS ASIS_DBID
+              , MIN(M.TOBE_DBID) AS TOBE_DBID
+           FROM LAST_RECOMMEND_INDEX_USED_SQL M
+              , SQL_AUTO_PERF_CHK_TARGET A
+              , SQL_AUTO_PERF_CHK_ERROR B
+          WHERE A.PROJECT_ID = M.PROJECT_ID
+            AND A.SQL_AUTO_PERF_CHECK_ID = M.SQL_AUTO_PERF_CHECK_ID
+            AND A.SQL_ID = M.SQL_ID
+            AND B.PROJECT_ID(+) = A.PROJECT_ID
+            AND B.SQL_AUTO_PERF_CHECK_ID(+) = A.SQL_AUTO_PERF_CHECK_ID
+            AND B.SQL_ID(+) = A.SQL_ID
+         GROUP BY M.PROJECT_ID, M.SQL_AUTO_PERF_CHECK_ID
+      )
+      SELECT A.RECOMMEND_INDEX_ADD_CNT                                                    /* 추천 인덱스-ADD    */
+           , A.RECOMMEND_INDEX_MODIFY_CNT                                                 /* 추천 인덱스-MODIFY */
+           , B.SQL_CNT                                                                    /* SQL수              */
+           , B.BEFORE_ELAPSED_TIME AS ASIS_ELAPSED_TIME                                   /* Elapsed Time-ASIS  */
+           , B.AFTER_ELAPSED_TIME AS TOBE_ELAPSED_TIME                                    /* Elapsed Time-TOBE  */
+           , CASE WHEN B.AFTER_ELAPSED_TIME > B.BEFORE_ELAPSED_TIME 
+                       THEN ROUND(-B.AFTER_ELAPSED_TIME/DECODE(B.BEFORE_ELAPSED_TIME, 0, 1, B.BEFORE_ELAPSED_TIME) , 2)
+                  WHEN B.AFTER_ELAPSED_TIME <= B.BEFORE_ELAPSED_TIME 
+                       THEN ROUND(B.BEFORE_ELAPSED_TIME/DECODE(B.AFTER_ELAPSED_TIME, 0, 1, B.AFTER_ELAPSED_TIME), 2)
+                  END AS ELAPSED_TIME_RATIO                                               /* Elapsed Ratio      */
+           , B.BEFORE_BUFFER_GETS AS ASIS_BUFFER_GETS                                     /* Buffer Gets-ASIS   */
+           , B.AFTER_BUFFER_GETS AS TOBE_BUFFER_GETS                                      /* Buffer Gets-TOBE   */
+           , CASE WHEN B.AFTER_BUFFER_GETS > B.BEFORE_BUFFER_GETS 
+                       THEN ROUND(-B.AFTER_BUFFER_GETS/DECODE(B.BEFORE_BUFFER_GETS, 0, 1, B.BEFORE_BUFFER_GETS) , 2)
+                  WHEN B.AFTER_BUFFER_GETS <= B.BEFORE_BUFFER_GETS 
+                       THEN ROUND(B.BEFORE_BUFFER_GETS/DECODE(B.AFTER_BUFFER_GETS, 0, 1, B.AFTER_BUFFER_GETS), 2)
+                  END AS BUFFER_GETS_RATIO                                                /* Buffer Gets-Ratio  */
+           , A.TABLESPACE_USAGE                                                           /* 테이블 스페이스 증가(GB) */
+           , A.ASIS_TOTAL_ELAPSED_TIME AS ASIS_TOTAL_ELAPSED_TIME                         /* 전체 Elapsed Time-ASIS */
+           , A.ASIS_TOTAL_ELAPSED_TIME-(B.BEFORE_ELAPSED_TIME-B.AFTER_ELAPSED_TIME) AS TOBE_TOTAL_ELAPSED_TIME  /* 전체Elapsed Time-TOBE */
+           , CASE WHEN A.ASIS_TOTAL_ELAPSED_TIME = 0 THEN 0
+                  ELSE ROUND((A.ASIS_TOTAL_ELAPSED_TIME - (A.ASIS_TOTAL_ELAPSED_TIME-(B.BEFORE_ELAPSED_TIME-B.AFTER_ELAPSED_TIME)))/A.ASIS_TOTAL_ELAPSED_TIME*100,2)
+              END AS TOTAL_ELAPSED_TIME_PERCENT                                           /* 전체 Elapsed Ratio      */
+           , A.ASIS_TOTAL_BUFFER_GETS                                                     /* 전체 Buffer Gets-ASIS   */
+           , A.ASIS_TOTAL_BUFFER_GETS-(B.BEFORE_BUFFER_GETS-B.AFTER_BUFFER_GETS) AS TOBE_TOTAL_BUFFER_GETS /* 전체 Buffer Gets-TOBE */
+            , CASE WHEN A.ASIS_TOTAL_BUFFER_GETS = 0 THEN 0
+                  ELSE ROUND((A.ASIS_TOTAL_BUFFER_GETS - (A.ASIS_TOTAL_BUFFER_GETS-(B.BEFORE_BUFFER_GETS-B.AFTER_BUFFER_GETS)))/A.ASIS_TOTAL_BUFFER_GETS*100,2)
+              END AS TOTAL_BUFFER_GETS_PERCENT                                            /* 전체 Buffer Gets Ratio  */
+           , B.ASIS_DBID
+           , B.TOBE_DBID
+           , A.IDX_AD_NO
+        FROM (SELECT SUM(CASE WHEN RECOMMEND_INDEX_CNT > 0 AND RECOMMEND_TYPE = 'ADD' THEN 1
+                              WHEN RECOMMEND_INDEX_CNT > 0 THEN 0
+                          END) AS RECOMMEND_INDEX_ADD_CNT
+                   , SUM(CASE WHEN RECOMMEND_INDEX_CNT > 0 AND RECOMMEND_TYPE = 'MODIFY' THEN 1
+                              WHEN RECOMMEND_INDEX_CNT > 0 THEN 0
+                          END) AS RECOMMEND_INDEX_MODIFY_CNT
+                   , MIN(IDX_AD_NO) AS IDX_AD_NO
+                   , MIN(TABLESPACE_USAGE) AS TABLESPACE_USAGE
+                   , MIN(TOTAL_ELAPSED_TIME) AS ASIS_TOTAL_ELAPSED_TIME
+                   , MIN(TOTAL_BUFFER_GETS) AS ASIS_TOTAL_BUFFER_GETS
+                FROM LAST_RECOMMEND_INDEX
+              GROUP BY PROJECT_ID, SQL_AUTO_PERF_CHECK_ID
+             ) A
+           , LAST_SQL_AUTO_PERF_CHK B
+      ]]>
+    </select>
+    
+    <select id="loadIndexList" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.loadIndexList */
+      SELECT AA.*
+      FROM (
+          SELECT ROWNUM RNUM, AA.*
+          FROM (
+              <include refid="loadIndexListRefId"/>
+          ) AA
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) AA
+      WHERE AA.RNUM <![CDATA[>]]> ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="loadIndexListExcel" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.loadIndexListExcel */
+      <include refid="loadIndexListRefId"/>
+    </select>
+    
+    <sql id="loadIndexListRefId">
+      WITH LAST_RECOMMEND_INDEX AS (
+           SELECT A.PROJECT_ID
+                , A.SQL_AUTO_PERF_CHECK_ID
+                , D.TABLE_OWNER
+                , D.TABLE_NAME
+                , D.TEMP_INDEX_NAME
+                , D.ACCESS_PATH_COLUMN_LIST
+             FROM SQL_AUTO_PERF_CHK A
+                , (
+                   SELECT PROJECT_ID 
+                        , SQL_AUTO_PERF_CHECK_ID
+                        , DBID
+                        , EXEC_SEQ
+                        , ACCESS_PATH_EXEC_DT AS INDEX_EXEC_BEGIN_DT
+                        , ACCESS_PATH_EXEC_END_DT
+                        , FORCE_CLOSE_YN
+                        , ROW_NUMBER() OVER(PARTITION BY PROJECT_ID, SQL_AUTO_PERF_CHECK_ID ORDER BY EXEC_SEQ DESC) AS RNUM
+                     FROM ACC_PATH_EXEC
+                    WHERE ACCESS_PATH_TYPE = 'AUTOINDEX'
+                  ) B
+                , (
+                   SELECT IDX_AD_NO
+                        , DBID
+                        , EXEC_SEQ
+                        , TABLE_CNT
+                        , RUNNING_TABLE_CNT
+                        , RECOMMEND_INDEX_CNT
+                        , FORCE_CLOSE_YN
+                        , END_DT
+                        , ROW_NUMBER() OVER(PARTITION BY DBID, EXEC_SEQ ORDER BY IDX_AD_NO DESC) AS RNUM
+                     FROM IDX_AD_MST
+                  ) C
+                , IDX_AD_RECOMMEND_INDEX D
+            WHERE A.PROJECT_ID = ${project_id}
+              AND A.SQL_AUTO_PERF_CHECK_ID = ${sql_auto_perf_check_id}
+              AND A.PERF_CHECK_TYPE_CD = '${perf_check_type_cd}'
+              AND A.DATABASE_KINDS_CD = '${database_kinds_cd}'
+              AND NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+              AND A.PERF_CHECK_EXEC_END_DT IS NOT NULL
+              AND B.PROJECT_ID = A.PROJECT_ID 
+              AND B.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+              AND B.DBID = A.ORIGINAL_DBID
+              AND B.RNUM = 1
+              AND NVL(B.FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+              AND B.ACCESS_PATH_EXEC_END_DT IS NOT NULL
+              AND C.DBID = B.DBID
+              AND C.EXEC_SEQ = B.EXEC_SEQ
+              AND C.RNUM = 1
+              AND NVL(C.FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+              AND C.END_DT IS NOT NULL
+              AND D.IDX_AD_NO = C.IDX_AD_NO
+              AND D.LAST_RECOMMEND_TYPE_CD = '1'
+              <choose>
+                <when test='index_name == null or "".equals(index_name)'>
+                  <if test='table_owner != null and "".equals(table_owner) == false'>
+                    AND UPPER(D.TABLE_OWNER) LIKE '%' || UPPER('${table_owner}') || '%'
+                  </if>
+                  <if test='table_name != null and "".equals(table_name) == false'>
+                    AND UPPER(D.TABLE_NAME) LIKE '%' || UPPER('${table_name}') || '%'
+                  </if>
+                </when>
+                <otherwise>
+                  AND D.TABLE_OWNER = '${table_owner}'
+                  AND D.TABLE_NAME = '${table_name}'
+                  AND D.TEMP_INDEX_NAME = '${index_name}'
+                </otherwise>
+              </choose>
+      ), LAST_RECOMMEND_INDEX_USED_SQL AS (
+           SELECT DISTINCT 
+                  C.PROJECT_ID
+                , C.SQL_AUTO_PERF_CHECK_ID
+                , A.TABLE_OWNER
+                , A.TABLE_NAME
+                , C.OBJECT_NAME AS INDEX_NAME
+                , C.SQL_ID 
+                , A.ACCESS_PATH_COLUMN_LIST
+             FROM LAST_RECOMMEND_INDEX A
+                , SQL_AUTO_PERF_CHK B
+                , (SELECT DISTINCT PROJECT_ID, SQL_AUTO_PERF_CHECK_ID, SQL_ID, OBJECT_NAME
+                     FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+                    WHERE OBJECT_TYPE LIKE 'INDEX%'
+                      AND OBJECT_NAME IS NOT NULL
+                    UNION ALL
+                   SELECT DISTINCT PROJECT_ID, SQL_AUTO_PERF_CHECK_ID, SQL_ID, OBJECT_NAME
+                     FROM SQL_AUTO_PERF_SQL_PLAN
+                    WHERE OBJECT_TYPE LIKE 'INDEX%'
+                      AND OBJECT_NAME IS NOT NULL
+                  ) C
+            WHERE B.PARENT_PROJECT_ID = A.PROJECT_ID
+              AND B.PARENT_SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+              AND B.PERF_CHECK_TYPE_CD = '${perf_check_type_cd}'
+              AND B.DATABASE_KINDS_CD = '${database_kinds_cd}'
+              AND C.PROJECT_ID = B.PROJECT_ID
+              AND C.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID
+              AND C.OBJECT_NAME = A.TEMP_INDEX_NAME
+      )
+      SELECT A.TABLE_OWNER
+           , A.TABLE_NAME
+           , A.INDEX_NAME
+           , A.SQL_CNT
+           , A.ASIS_ELAPSED_TIME
+           , A.TOBE_ELAPSED_TIME
+           , CASE WHEN A.TOBE_ELAPSED_TIME <![CDATA[>]]> A.ASIS_ELAPSED_TIME THEN 
+                       ROUND(-A.TOBE_ELAPSED_TIME/DECODE(A.ASIS_ELAPSED_TIME, 0, 1, A.ASIS_ELAPSED_TIME) , 2)
+                  WHEN A.TOBE_ELAPSED_TIME <![CDATA[<=]]> A.ASIS_ELAPSED_TIME THEN 
+                       ROUND(A.ASIS_ELAPSED_TIME/DECODE(A.TOBE_ELAPSED_TIME, 0, 1, A.TOBE_ELAPSED_TIME), 2)
+              END AS ELAPSED_TIME_INCREASE_RATIO
+           , A.ASIS_BUFFER_GETS
+           , A.TOBE_BUFFER_GETS
+           , CASE WHEN A.TOBE_BUFFER_GETS <![CDATA[>]]> A.ASIS_BUFFER_GETS THEN 
+                       ROUND(-A.TOBE_BUFFER_GETS/DECODE(A.ASIS_BUFFER_GETS, 0, 1, A.ASIS_BUFFER_GETS) , 2)
+                  WHEN A.TOBE_BUFFER_GETS <![CDATA[<=]]> A.ASIS_BUFFER_GETS THEN 
+                       ROUND(A.ASIS_BUFFER_GETS/DECODE(A.TOBE_BUFFER_GETS, 0, 1, A.TOBE_BUFFER_GETS), 2)
+              END AS BUFFER_INCREASE_RATIO
+            , A.ACCESS_PATH_COLUMN_LIST
+            , A.SQL_AUTO_PERF_CHECK_ID
+            , A.GROUP_ORDER
+         FROM (
+              SELECT CASE WHEN GROUPING(M.TABLE_OWNER) = 1
+                          THEN '전체' ELSE M.TABLE_OWNER
+                     END AS TABLE_OWNER
+                   , M.TABLE_NAME                                                         /* 테이블명 */
+                   , CASE WHEN GROUPING(M.INDEX_NAME) = 1
+                          THEN 'SQL 중복 포함' ELSE M.INDEX_NAME
+                      END AS INDEX_NAME                                                   /* 인덱스명 */
+                   , COUNT(*) AS SQL_CNT                                                  /* SQL수    */
+                   , FN_ZERO_TO_DECIMAL_4_POINT(
+                     SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND B.SQL_ID IS NULL AND A.AFTER_ELAPSED_TIME IS NOT NULL THEN
+                                   ROUND(A.BEFORE_ELAPSED_TIME/1000000/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS), 4)
+                              ELSE 0
+                          END)) AS ASIS_ELAPSED_TIME                                      /* ASIS ELAPESED TIME */
+                   , FN_ZERO_TO_DECIMAL_4_POINT(
+                     SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND B.SQL_ID IS NULL AND A.AFTER_ELAPSED_TIME IS NOT NULL THEN
+                                   ROUND(A.AFTER_ELAPSED_TIME/1000000/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS), 4)
+                              ELSE 0
+                          END)) AS TOBE_ELAPSED_TIME                                      /* TOBE ELAPESED TIME */
+                   , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND B.SQL_ID IS NULL AND A.AFTER_BUFFER_GETS IS NOT NULL THEN
+                                   A.BEFORE_BUFFER_GETS
+                              ELSE 0
+                          END) AS ASIS_BUFFER_GETS                                        /* ASIS BUFFER GETS */
+                   , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND B.SQL_ID IS NULL AND A.AFTER_BUFFER_GETS IS NOT NULL THEN
+                                   A.AFTER_BUFFER_GETS
+                              ELSE 0
+                          END) AS TOBE_BUFFER_GETS                                        /* TOBE BUFFER GETS */
+                   , M.ACCESS_PATH_COLUMN_LIST
+                   , CASE WHEN GROUPING(M.PROJECT_ID) = 0 
+                          THEN M.PROJECT_ID ELSE LEAD(M.PROJECT_ID, 1) OVER (ORDER BY M.PROJECT_ID DESC)
+                      END AS PROJECT_ID
+                   , CASE WHEN GROUPING(M.PROJECT_ID) = 0
+                          THEN M.SQL_AUTO_PERF_CHECK_ID ELSE LEAD(M.SQL_AUTO_PERF_CHECK_ID, 1) OVER (ORDER BY M.PROJECT_ID DESC)
+                      END AS SQL_AUTO_PERF_CHECK_ID
+                   , GROUPING(M.PROJECT_ID) AS GROUP_ORDER
+                FROM LAST_RECOMMEND_INDEX_USED_SQL M
+                   , SQL_AUTO_PERF_CHK_TARGET A
+                   , SQL_AUTO_PERF_CHK_ERROR B
+               WHERE A.PROJECT_ID = M.PROJECT_ID
+                 AND A.SQL_AUTO_PERF_CHECK_ID = M.SQL_AUTO_PERF_CHECK_ID
+                 AND A.SQL_ID = M.SQL_ID
+                 AND B.PROJECT_ID(+) = A.PROJECT_ID
+                 AND B.SQL_AUTO_PERF_CHECK_ID(+) = A.SQL_AUTO_PERF_CHECK_ID
+                 AND B.SQL_ID(+) = A.SQL_ID
+                 GROUP BY ROLLUP((M.PROJECT_ID, M.SQL_AUTO_PERF_CHECK_ID, M.TABLE_OWNER, M.TABLE_NAME, M.INDEX_NAME, M.ACCESS_PATH_COLUMN_LIST))
+               ) A
+      ORDER BY A.GROUP_ORDER DESC, A.TABLE_OWNER, A.TABLE_NAME, A.INDEX_NAME
+    </sql>
+    
+    <select id="loadSqlListByIndex" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.loadSqlListByIndex */
+      SELECT AA.*
+      FROM (
+          SELECT ROWNUM RNUM, AA.*
+          FROM (
+              <include refid="loadSqlListByIndexRefId"/>
+          ) AA
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) AA
+      WHERE AA.RNUM <![CDATA[>]]> ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="loadSqlListByIndexExcel" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.loadSqlListByIndexExcel */
+      <include refid="loadSqlListByIndexRefId"/>
+    </select>
+    
+    <sql id="loadSqlListByIndexRefId">
+      WITH LAST_RECOMMEND_INDEX AS (
+           SELECT A.PROJECT_ID
+                , A.SQL_AUTO_PERF_CHECK_ID
+                , D.TABLE_OWNER
+                , D.TABLE_NAME
+                , D.TEMP_INDEX_NAME
+                , D.ACCESS_PATH_COLUMN_LIST
+             FROM SQL_AUTO_PERF_CHK A
+                , (
+                   SELECT PROJECT_ID 
+                        , SQL_AUTO_PERF_CHECK_ID
+                        , DBID
+                        , EXEC_SEQ
+                        , ACCESS_PATH_EXEC_DT AS INDEX_EXEC_BEGIN_DT
+                        , ACCESS_PATH_EXEC_END_DT
+                        , FORCE_CLOSE_YN
+                        , ROW_NUMBER() OVER(PARTITION BY PROJECT_ID, SQL_AUTO_PERF_CHECK_ID ORDER BY EXEC_SEQ DESC) AS RNUM
+                     FROM ACC_PATH_EXEC
+                    WHERE ACCESS_PATH_TYPE = 'AUTOINDEX'
+                  ) B
+                , (
+                   SELECT IDX_AD_NO
+                        , DBID
+                        , EXEC_SEQ
+                        , TABLE_CNT
+                        , RUNNING_TABLE_CNT
+                        , RECOMMEND_INDEX_CNT
+                        , FORCE_CLOSE_YN
+                        , END_DT
+                        , ROW_NUMBER() OVER(PARTITION BY DBID, EXEC_SEQ ORDER BY IDX_AD_NO DESC) AS RNUM
+                     FROM IDX_AD_MST
+                  ) C
+                , IDX_AD_RECOMMEND_INDEX D
+            WHERE A.PROJECT_ID = ${project_id}
+              AND A.SQL_AUTO_PERF_CHECK_ID = ${sql_auto_perf_check_id}
+              AND A.PERF_CHECK_TYPE_CD = '${perf_check_type_cd}'
+              AND A.DATABASE_KINDS_CD = '${database_kinds_cd}'
+              AND A.PERF_CHECK_EXEC_END_DT IS NOT NULL
+              AND NVL(A.PERF_CHECK_FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+              AND B.PROJECT_ID = A.PROJECT_ID
+              AND B.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+              AND B.DBID = A.ORIGINAL_DBID
+              AND B.RNUM = 1
+              AND NVL(B.FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+              AND B.ACCESS_PATH_EXEC_END_DT IS NOT NULL
+              AND C.DBID = B.DBID
+              AND C.EXEC_SEQ = B.EXEC_SEQ
+              AND C.RNUM = 1
+              AND NVL(C.FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+              AND C.END_DT IS NOT NULL
+              AND D.IDX_AD_NO = C.IDX_AD_NO
+              AND D.LAST_RECOMMEND_TYPE_CD = '1'
+              <choose>
+                <when test='index_name == null or "".equals(index_name)'>
+                  <if test='table_owner != null and "".equals(table_owner) == false'>
+                    AND UPPER(D.TABLE_OWNER) LIKE '%' || UPPER('${table_owner}') || '%'
+                  </if>
+                  <if test='table_name != null and "".equals(table_name) == false'>
+                    AND UPPER(D.TABLE_NAME) LIKE '%' || UPPER('${table_name}') || '%'
+                  </if>
+                </when>
+                <otherwise>
+                  AND D.TABLE_OWNER = '${table_owner}'
+                  AND D.TABLE_NAME = '${table_name}'
+                </otherwise>
+              </choose>
+      ), LAST_RECOMMEND_INDEX_USED_SQL AS ( 
+           SELECT DISTINCT
+                  C.PROJECT_ID
+                , C.SQL_AUTO_PERF_CHECK_ID
+                , A.TABLE_OWNER
+                , A.TABLE_NAME
+                , C.OBJECT_NAME AS INDEX_NAME
+                , C.SQL_ID
+                , A.ACCESS_PATH_COLUMN_LIST
+             FROM LAST_RECOMMEND_INDEX A
+                , SQL_AUTO_PERF_CHK B
+                , (SELECT DISTINCT PROJECT_ID, SQL_AUTO_PERF_CHECK_ID, SQL_ID, OBJECT_NAME
+                     FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+                    WHERE OBJECT_TYPE LIKE 'INDEX%'
+                      AND OBJECT_NAME IS NOT NULL
+                    UNION ALL
+                   SELECT DISTINCT PROJECT_ID, SQL_AUTO_PERF_CHECK_ID, SQL_ID, OBJECT_NAME
+                     FROM SQL_AUTO_PERF_SQL_PLAN
+                    WHERE OBJECT_TYPE LIKE 'INDEX%'
+                      AND OBJECT_NAME IS NOT NULL
+                  ) C
+            WHERE B.PARENT_PROJECT_ID = A.PROJECT_ID
+              AND B.PARENT_SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+              AND B.PERF_CHECK_TYPE_CD = '${perf_check_type_cd}'
+              AND B.DATABASE_KINDS_CD = '${database_kinds_cd}'
+              AND C.PROJECT_ID = B.PROJECT_ID
+              AND C.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID
+              AND C.OBJECT_NAME = A.TEMP_INDEX_NAME
+              <if test='index_name != null and "".equals(index_name) == false'>
+                  AND C.OBJECT_NAME = '${index_name}'
+              </if>
+      )
+      SELECT /*+ LEADING(A) USE_NL(B C) */
+             A.PERF_IMPACT_TYPE_NM                                                        /* 성능임팩트유형       */
+           , A.BUFFER_INCREASE_RATIO                                                      /* 버퍼 임팩트(배)      */
+           , A.ELAPSED_TIME_INCREASE_RATIO                                                /* 수행시간 임팩트(배)  */
+           , A.PERF_CHECK_RESULT_YN                                                       /* 성능점검결과         */
+           , A.PLAN_CHANGE_YN                                                             /* Plan변경여부         */
+           , A.SQL_ID                                                                     /* SQL ID               */
+           , A.ASIS_PLAN_HASH_VALUE                                                       /* ASIS PLAN HASH_VALUE */
+           , A.TOBE_PLAN_HASH_VALUE                                                       /* TOBE PLAN HASH VALUE */
+           , DECODE(A.ASIS_ELAPSED_TIME, 0, 0.0001, A.ASIS_ELAPSED_TIME) AS ASIS_ELAPSED_TIME    /* ASIS ELAPSED TIME */
+           , DECODE(A.TOBE_ELAPSED_TIME, 0, 0.0001, A.TOBE_ELAPSED_TIME) AS TOBE_ELAPSED_TIME    /* TOBE ELAPSED TIME */
+           , A.ASIS_BUFFER_GETS                                                           /* ASIS BUFFER GETS     */
+           , A.TOBE_BUFFER_GETS                                                           /* TOBE BUFFER GETS     */
+           , A.ASIS_EXECUTIONS                                                            /* ASIS EXECUTIONS      */
+           , A.TOBE_EXECUTIONS                                                            /* TOBE EXECUTIONS      */
+           , A.ASIS_ROWS_PROCESSED                                                        /* ASIS ROWS PROCESSED  */ 
+           , A.TOBE_ROWS_PROCESSED                                                        /* TOBE ROWS PROCESSED  */
+           , A.ASIS_FULLSCAN_YN                                                           /* ASIS FULLSCAN Y/N    */
+           , A.TOBE_FULLSCAN_YN                                                           /* TOBE FULLSCAN Y/N    */
+           , A.ASIS_PARTITION_ALL_ACCESS_YN                                               /* ASIS PARTITION ALL ACCESS Y/N */
+           , A.TOBE_PARTITION_ALL_ACCESS_YN                                               /* TOBE PARTITION ALL ACCESS Y/N */
+           , A.SQL_COMMAND_TYPE_CD                                                        /* SQL 명령 유형        */
+           , A.PARSING_SCHEMA_NAME                                                        /* PARSING_SCHEMA_NAME  */
+           , A.ERR_CODE                                                                   /* 에러코드             */
+           , A.ERR_MSG                                                                    /* 에러메시지           */
+           , B.REVIEW_SBST                                                                /* 검토결과             */
+           , DBMS_LOB.SUBSTR(A.SQL_TEXT, 200, 1) AS SQL_TEXT_WEB                          /* SQL TEXT             */
+           , A.SQL_TEXT AS SQL_TEXT_EXCEL                                                 /* SQL TEXT FOR EXCEL   */
+           , A.ORIGINAL_DBID
+           , A.PERF_CHECK_TARGET_DBID
+           , A.TABLE_OWNER                                                                /* OWNER                */
+           , A.TABLE_NAME                                                                 /* 테이블명             */
+           , A.INDEX_NAME                                                                 /* 인덱스명             */
+           , A.PROJECT_NM                                                                 /* 프로젝트명           */
+           , A.PERF_CHECK_NAME                                                            /* SQL점검팩명          */
+           , A.SQL_AUTO_PERF_CHECK_ID
+           , A.PROJECT_ID
+           , A.PERF_CHECK_SQL_SOURCE_TYPE_CD
+           , A.MODULE
+           , A.PERF_IMPACT_TYPE_CD
+           , A.TOTAL_ASIS_ELAPSED_TIME
+           , A.TOTAL_ASIS_BUFFER_GETS
+           , A.CHILD_PROJECT_ID
+           , A.CHILD_SQL_AUTO_PERF_CHECK_ID
+           , A.DML_EXEC_YN
+        FROM (
+              SELECT /*+ LEADING(A) USE_NL(B C E F CD1) PUSH_PRED(F) INDEX(A PK_SQL_AUTO_PERF_CHK_TARGET) */
+                     B.PROJECT_NM AS PROJECT_NM
+                   , E.PERF_CHECK_NAME AS PERF_CHECK_NAME
+                   , CD1.CD_NM AS PERF_IMPACT_TYPE_NM
+                   , A.BUFFER_INCREASE_RATIO AS BUFFER_INCREASE_RATIO
+                   , A.ELAPSED_TIME_INCREASE_RATIO AS ELAPSED_TIME_INCREASE_RATIO
+                   , CASE WHEN C.ERR_CODE IS NOT NULL THEN NULL
+                          WHEN (
+                                  SELECT COUNT(*) 
+                                    FROM SQL_AUTO_PERF_CHK_RESULT Z 
+                                   WHERE Z.PROJECT_ID = A.PROJECT_ID 
+                                     AND Z.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID 
+                                     AND Z.SQL_ID = A.SQL_ID
+                              ) = 0 THEN NULL
+                          WHEN (
+                                  SELECT COUNT(*)
+                                    FROM SQL_AUTO_PERF_CHK_RESULT Z
+                                   WHERE Z.PROJECT_ID = A.PROJECT_ID
+                                     AND Z.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+                                     AND Z.SQL_ID = A.SQL_ID
+                                     AND Z.PERF_CHECK_RESULT_DIV_CD = 'B'
+                                     AND ROWNUM = 1
+                               ) = 1 THEN '부적합' ELSE '적합' END AS PERF_CHECK_RESULT_YN
+                   , A.PLAN_CHANGE_YN AS PLAN_CHANGE_YN
+                   , A.SQL_ID AS SQL_ID
+                   , A.BEFORE_PLAN_HASH_VALUE AS ASIS_PLAN_HASH_VALUE
+                   , A.AFTER_PLAN_HASH_VALUE AS TOBE_PLAN_HASH_VALUE
+                   , A.BEFORE_EXECUTIONS AS ASIS_EXECUTIONS
+                   , A.AFTER_EXECUTIONS AS TOBE_EXECUTIONS
+                   , ROUND(A.BEFORE_ROWS_PROCESSED/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS ASIS_ROWS_PROCESSED
+                   , ROUND(A.AFTER_ROWS_PROCESSED/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS)) AS TOBE_ROWS_PROCESSED
+                   , ROUND(A.BEFORE_ELAPSED_TIME/1000000/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS), 4) AS ASIS_ELAPSED_TIME
+                   , ROUND(A.AFTER_ELAPSED_TIME/1000000/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS), 4) AS TOBE_ELAPSED_TIME
+                   , ROUND(A.BEFORE_BUFFER_GETS/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS ASIS_BUFFER_GETS
+                   , ROUND(A.AFTER_BUFFER_GETS/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS)) AS TOBE_BUFFER_GETS
+                   , A.BEFORE_FULLSCAN_YN AS ASIS_FULLSCAN_YN
+                   , A.AFTER_FULLSCAN_YN AS TOBE_FULLSCAN_YN
+                   , A.BEFORE_PARTITION_ALL_ACCESS_YN AS ASIS_PARTITION_ALL_ACCESS_YN
+                   , A.AFTER_PARTITION_ALL_ACCESS_YN AS TOBE_PARTITION_ALL_ACCESS_YN
+                   , A.SQL_COMMAND_TYPE_CD AS SQL_COMMAND_TYPE_CD
+                   , (CASE WHEN A.PERF_IMPACT_TYPE_CD IS NOT NULL THEN NULL ELSE C.ERR_CODE END) AS ERR_CODE
+                   , (CASE WHEN A.PERF_IMPACT_TYPE_CD IS NOT NULL THEN NULL ELSE C.ERR_MSG END) AS ERR_MSG
+                   , (CASE 
+                            WHEN E.PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' THEN (
+                                SELECT (CASE WHEN NVL( DBMS_LOB.GETLENGTH(S.SQL_TEXT) , 0) <![CDATA[>=]]> 0 AND NVL( DBMS_LOB.GETLENGTH(S.SQL_TEXT), 0) <![CDATA[<=]]> 1000 THEN  S.SQL_TEXT  
+                                             ELSE ( TO_CLOB( DBMS_LOB.SUBSTR(S.SQL_TEXT, 500) || CHR(13)||CHR(10) ||'   (중략) ...   '||CHR(13)||CHR(10)|| DBMS_LOB.SUBSTR(S.SQL_TEXT ,500,DBMS_LOB.GETLENGTH(S.SQL_TEXT)-500) ))
+                                        END) SQL_TEXT
+                                  FROM ODS_HIST_SQLTEXT S WHERE S.DBID = E.ORIGINAL_DBID AND S.SQL_ID = A.SQL_ID)
+                           ELSE (
+                                SELECT (CASE WHEN NVL( DBMS_LOB.GETLENGTH(S.SQL_FULLTEXT) , 0) <![CDATA[>=]]> 0 AND NVL( DBMS_LOB.GETLENGTH(S.SQL_FULLTEXT), 0) <![CDATA[<=]]> 1000 THEN  S.SQL_FULLTEXT  
+                                             ELSE ( TO_CLOB( DBMS_LOB.SUBSTR(S.SQL_FULLTEXT, 500) ||CHR(13)||CHR(10) ||'   (중략) ...   '||CHR(13)||CHR(10)|| DBMS_LOB.SUBSTR(S.SQL_FULLTEXT ,500 , DBMS_LOB.GETLENGTH(S.SQL_FULLTEXT)-500) ))
+                                        END) SQL_TEXT
+                                  FROM VSQL_TEXT S WHERE S.DBID = E.ORIGINAL_DBID AND S.SQL_ID = A.SQL_ID AND S.PLAN_HASH_VALUE = A.BEFORE_PLAN_HASH_VALUE)
+                      END) AS SQL_TEXT
+                   , E.ORIGINAL_DBID AS ORIGINAL_DBID
+                   , E.PERF_CHECK_TARGET_DBID
+                   , A.SQL_AUTO_PERF_CHECK_ID
+                   , A.PROJECT_ID
+                   , E.PERF_CHECK_SQL_SOURCE_TYPE_CD
+                   , (CASE 
+                           WHEN E.PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' THEN (SELECT MAX(S.PARSING_SCHEMA_NAME) FROM ODS_HIST_SQLSTAT S WHERE S.DBID = E.ORIGINAL_DBID AND S.SQL_ID = A.SQL_ID AND S.PLAN_HASH_VALUE = A.BEFORE_PLAN_HASH_VALUE)
+                           ELSE (SELECT MAX(S.PARSING_SCHEMA_NAME) FROM VSQL_TEXT S WHERE S.DBID = E.ORIGINAL_DBID AND S.SQL_ID = A.SQL_ID AND S.PLAN_HASH_VALUE = A.BEFORE_PLAN_HASH_VALUE)
+                      END) AS PARSING_SCHEMA_NAME
+                   , (CASE 
+                           WHEN E.PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' /* AWR */ THEN (SELECT MODULE FROM ODS_HIST_SQLSTAT ASQL WHERE ASQL.DBID = E.ORIGINAL_DBID AND ASQL.SQL_ID = A.SQL_ID AND ROWNUM = 1)
+                           ELSE /* VSQL */ (SELECT MODULE FROM VSQL_MODULE VSQL WHERE VSQL.DBID = E.ORIGINAL_DBID AND VSQL.SQL_ID = A.SQL_ID AND ROWNUM = 1)
+                      END) AS MODULE
+                   , A.PERF_IMPACT_TYPE_CD
+                   , A.BEFORE_ELAPSED_TIME AS TOTAL_ASIS_ELAPSED_TIME
+                   , A.BEFORE_BUFFER_GETS AS TOTAL_ASIS_BUFFER_GETS
+                   , M.TABLE_OWNER
+                   , M.TABLE_NAME
+                   , M.INDEX_NAME
+                   , M.ACCESS_PATH_COLUMN_LIST
+                   , M.PROJECT_ID AS CHILD_PROJECT_ID
+                   , M.SQL_AUTO_PERF_CHECK_ID AS CHILD_SQL_AUTO_PERF_CHECK_ID
+                   , E.DML_EXEC_YN
+                FROM LAST_RECOMMEND_INDEX_USED_SQL M
+                   , SQL_AUTO_PERF_CHK_TARGET A
+                   , PROJECT B
+                   , SQL_AUTO_PERF_CHK_ERROR C
+                   , SQL_AUTO_PERF_CHK E
+                   , CD CD1
+               WHERE A.PROJECT_ID = M.PROJECT_ID
+                 AND A.SQL_AUTO_PERF_CHECK_ID = M.SQL_AUTO_PERF_CHECK_ID
+                 AND A.SQL_ID = M.SQL_ID
+                 AND B.PROJECT_ID = A.PROJECT_ID 
+                 AND C.PROJECT_ID(+) = A.PROJECT_ID
+                 AND C.SQL_AUTO_PERF_CHECK_ID(+) = A.SQL_AUTO_PERF_CHECK_ID
+                 AND C.SQL_ID(+) = A.SQL_ID
+                 AND E.PROJECT_ID = A.PROJECT_ID
+                 AND E.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+                 AND E.DATABASE_KINDS_CD = '${database_kinds_cd}'
+                 AND E.PERF_CHECK_EXEC_END_DT IS NOT NULL
+                 AND NVL(E.PERF_CHECK_FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+                 AND CD1.GRP_CD_ID(+) = '1025'
+                 AND CD1.CD(+) = A.PERF_IMPACT_TYPE_CD
+              ) A 
+              , SQL_AUTO_PERF_CHK_REVIEW B
+          WHERE 1 = 1
+            AND A.ORIGINAL_DBID = B.DBID(+)
+            AND A.SQL_ID = B.SQL_ID(+)
+    </sql>
+    
+    <select id="loadAfterPlanTree" parameterType="sqlAutoPerformanceCompare" resultType="sqlGrid">
+      /* AISQLPVDao.loadAfterPlanTree */
+      WITH TUN AS (
+          SELECT *
+            FROM SQL_AUTO_PERF_SQL_PLAN
+           WHERE PROJECT_ID = #{project_id}
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+             AND PLAN_HASH_VALUE = #{tobe_plan_hash_value}
+      )
+      SELECT /*+  */
+          ID, NVL(PARENT_ID,'-1') AS PARENT_ID, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID,
+          (OPERATION
+          || DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+          || DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+          || DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+          || NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST || ' ' ELSE '' END)
+            || (CASE WHEN CARDINALITY IS NOT NULL THEN 'CARD=' || CARDINALITY || ' ' ELSE '' END)
+            || (CASE WHEN BYTES IS NOT NULL THEN 'BYTES=' || BYTES ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+          ) AS TEXT
+      FROM TUN
+      ORDER BY ID
+    </select>
+    
+    <select id="loadNoExecAfterPlanTree" parameterType="sqlAutoPerformanceCompare" resultType="sqlGrid">
+      /* AISQLPVDao.loadNoExecAfterPlanTree */
+      WITH TUN AS (
+          SELECT *
+            FROM SQL_AUTO_PERF_CHK_PLAN_TABLE
+           WHERE PROJECT_ID = #{project_id}
+             AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+             AND SQL_ID = #{sql_id}
+      )
+      SELECT /*+  */
+          ID, NVL(PARENT_ID,'-1') AS PARENT_ID, DECODE(SUBSTR(OBJECT_TYPE,1,5),'TABLE',1,'INDEX',2,0) IMID,
+          (OPERATION
+          || DECODE(OPTIONS, NULL, '', ' ' || OPTIONS)
+          || DECODE(OBJECT_NAME, NULL, '', ' OF ' || OBJECT_OWNER || '.' ||  OBJECT_NAME)
+          || DECODE(OBJECT_TYPE, NULL, '', '(' || OBJECT_TYPE || ')')
+          || NVL((CASE WHEN ID = 0 THEN ' OPTIMIZER=' || OPTIMIZER ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN '(' ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL THEN 'COST=' || COST || ' ' ELSE '' END)
+            || (CASE WHEN CARDINALITY IS NOT NULL THEN 'CARD=' || CARDINALITY || ' ' ELSE '' END)
+            || (CASE WHEN BYTES IS NOT NULL THEN 'BYTES=' || BYTES ELSE '' END)
+            || (CASE WHEN COST IS NOT NULL OR CARDINALITY IS NOT NULL OR BYTES IS NOT NULL THEN ')' ELSE '' END), ' ')
+          ) AS TEXT
+      FROM TUN
+      ORDER BY ID
+    </select>
+    
+    <select id="loadResultCount" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.loadResultCount */
+      SELECT A.PROJECT_ID
+           , A.SQL_AUTO_PERF_CHECK_ID
+           , '전체: '||COUNT(*) AS TOTAL_CNT
+           , '수행완료: '||NVL(SUM(CASE WHEN (B.PROJECT_ID IS NULL OR A.PERF_IMPACT_TYPE_CD IN ('4', '5')) AND A.SQL_COMMAND_TYPE_CD IS NOT NULL THEN 1 ELSE 0 END), 0) AS COMPLETED_CNT
+           , '오류: '||NVL(SUM(CASE WHEN B.PROJECT_ID IS NOT NULL AND (A.PERF_IMPACT_TYPE_CD IS NULL OR A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3')) THEN 1 ELSE 0 END), 0) AS ERR_CNT
+           , NVL(MAX(PERF_CHECK_FORCE_CLOSE_YN), 'N') AS PERF_CHECK_FORCE_CLOSE_YN
+           , NVL(TO_CHAR(C.PERF_CHECK_EXEC_END_DT), 'N') AS PERF_CHECK_ERROR
+        FROM SQL_AUTO_PERF_CHK_TARGET A
+           , SQL_AUTO_PERF_CHK_ERROR B
+           , SQL_AUTO_PERF_CHK C
+       WHERE C.PARENT_PROJECT_ID = #{project_id}
+         AND C.PARENT_SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+         AND C.DATABASE_KINDS_CD = #{database_kinds_cd}
+         AND C.PERF_CHECK_EXEC_END_DT IS NOT NULL
+         AND NVL(C.PERF_CHECK_FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+         AND A.PROJECT_ID = C.PROJECT_ID
+         AND A.SQL_AUTO_PERF_CHECK_ID = C.SQL_AUTO_PERF_CHECK_ID
+         AND A.PROJECT_ID = B.PROJECT_ID(+)
+         AND A.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID(+)
+         AND A.SQL_ID = B.SQL_ID(+)
+       GROUP BY A.PROJECT_ID, A.SQL_AUTO_PERF_CHECK_ID, C.PERF_CHECK_EXEC_END_DT
+    </select>
+    
+    <select id="loadPerfChartData"  parameterType="sqlAutomaticPerformanceCheck" resultType="sqlAutomaticPerformanceCheck">
+      /* AISQLPVDao.loadPerfChartData */
+      WITH SQL_AUTO_PERF_CHK_STATS AS 
+           (
+            SELECT PLAN_CHANGE_YN AS PLAN_CHANGE_YN
+                 , ROUND(DECODE(A.AFTER_ELAPSED_TIME, NULL, 0, A.BEFORE_ELAPSED_TIME)/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)/1000000, 4) AS BEFORE_ELAPSED_TIME
+                 , ROUND(DECODE(A.AFTER_BUFFER_GETS, NULL, 0, A.BEFORE_BUFFER_GETS)/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS BEFORE_BUFFER_GETS
+                 , A.AFTER_PLAN_HASH_VALUE AS AFTER_PLAN_HASH_VALUE
+                 , ROUND(A.AFTER_ELAPSED_TIME/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS)/1000000, 4) AS AFTER_ELAPSED_TIME
+                 , ROUND(A.AFTER_BUFFER_GETS/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS)) AS AFTER_BUFFER_GETS
+                 , (SELECT COUNT(*)
+                      FROM SQL_AUTO_PERF_CHK_RESULT Z
+                     WHERE Z.PROJECT_ID = A.PROJECT_ID
+                       AND Z.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+                       AND Z.SQL_ID = A.SQL_ID) PERF_CHK_RESULT_CNT
+                 , CASE WHEN (
+                              SELECT COUNT(*)
+                                FROM SQL_AUTO_PERF_CHK_RESULT Z
+                               WHERE Z.PROJECT_ID = A.PROJECT_ID
+                                 AND Z.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID
+                                 AND Z.SQL_ID = A.SQL_ID
+                                 AND Z.PERF_CHECK_RESULT_DIV_CD = 'B'
+                                 AND ROWNUM = 1) = 1 THEN 'Y'
+                        WHEN (
+                              SELECT COUNT(*) 
+                                FROM SQL_AUTO_PERF_CHK_ERROR Z 
+                               WHERE Z.PROJECT_ID = A.PROJECT_ID 
+                                 AND Z.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID 
+                                 AND Z.SQL_ID = A.SQL_ID) <![CDATA[>]]> 0 THEN ''
+                        ELSE 'N'
+               END AS PERF_CHECK_RESULT_YN
+                 , A.SQL_COMMAND_TYPE_CD AS SQL_COMMAND_TYPE_CD
+                 , A.PERF_IMPACT_TYPE_CD 
+                 , C.SQL_ID AS ERROR_SQL_ID
+              FROM SQL_AUTO_PERF_CHK_TARGET A
+                 , SQL_AUTO_PERF_CHK B 
+                 , SQL_AUTO_PERF_CHK_ERROR C
+             WHERE B.PARENT_PROJECT_ID = #{project_id}
+               AND B.PARENT_SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+               AND B.DATABASE_KINDS_CD = #{database_kinds_cd}
+               AND A.PROJECT_ID = B.PROJECT_ID
+               AND A.SQL_AUTO_PERF_CHECK_ID = B.SQL_AUTO_PERF_CHECK_ID
+               AND A.PROJECT_ID = C.PROJECT_ID(+)
+               AND A.SQL_AUTO_PERF_CHECK_ID = C.SQL_AUTO_PERF_CHECK_ID(+)
+               AND A.SQL_ID = C.SQL_ID(+)
+               AND B.PERF_CHECK_EXEC_END_DT IS NOT NULL
+               AND NVL(B.PERF_CHECK_FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+           )
+      SELECT
+             /* Elapsed Time */
+              'ASIS' AS BEFORE_ELAPSED_TIME_TITLE
+             ,'TOBE' AS AFTER_ELAPSED_TIME_TITLE
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND A.ERROR_SQL_ID IS NULL AND A.AFTER_ELAPSED_TIME IS NOT NULL THEN A.BEFORE_ELAPSED_TIME ELSE 0 END) AS BEFORE_ELAPSED_TIME_CHART
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND A.ERROR_SQL_ID IS NULL AND A.AFTER_ELAPSED_TIME IS NOT NULL THEN A.AFTER_ELAPSED_TIME ELSE 0 END) AS AFTER_ELAPSED_TIME_CHART
+             /* Buffer Gets */
+             , 'ASIS' AS BEFORE_BUFFER_GETS_TITLE
+             , 'TOBE' AS AFTER_BUFFER_GETS_TITLE
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND A.ERROR_SQL_ID IS NULL AND A.AFTER_BUFFER_GETS IS NOT NULL THEN A.BEFORE_BUFFER_GETS ELSE 0 END) AS BEFORE_BUFFER_GETS_CHART
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD IN ('1', '2', '3') AND A.ERROR_SQL_ID IS NULL AND A.AFTER_BUFFER_GETS IS NOT NULL THEN A.AFTER_BUFFER_GETS ELSE 0 END) AS AFTER_BUFFER_GETS_CHART
+             /* PLAN변경 */
+             , 'New Plan' AS PLAN_CHANGE_Y_TITLE
+             , 'Same Plan' AS PLAN_CHANGE_N_TITLE
+             , SUM(CASE WHEN A.PLAN_CHANGE_YN = 'Y' THEN 1 ELSE 0 END) AS PLAN_CHANGE_Y_CHART
+             , SUM(CASE WHEN A.PLAN_CHANGE_YN = 'N' THEN 1 ELSE 0 END) AS PLAN_CHANGE_N_CHART
+             /* 성능 임팩트 */
+             , 'Improved' AS PERF_IMPACT_IMPROVED_TITLE
+             , 'Regressed' AS PERF_IMPACT_REGRESSED_TITLE
+             , 'Unchanged' AS PERF_IMPACT_UNCHANGED_TITLE
+             , 'TimeOut' AS PERF_IMPACT_TIMEOUT_TITLE
+             , '최대Fetch초과' AS PERF_IMPACT_FETCH_EXCEED_TITLE
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '1' THEN 1 ELSE 0 END) AS PERF_IMPACT_IMPROVED_CHART
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '2' THEN 1 ELSE 0 END) AS PERF_IMPACT_REGRESSED_CHART
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '3' THEN 1 ELSE 0 END) AS PERF_IMPACT_UNCHANGED_CHART
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '4' THEN 1 ELSE 0 END) AS PERF_IMPACT_TIMEOUT_CHART
+             , SUM(CASE WHEN A.PERF_IMPACT_TYPE_CD = '5' THEN 1 ELSE 0 END) AS PERF_IMPACT_FETCH_EXCEED_CHART
+             /* 성능 */
+             ,'부적합' AS PERF_CHK_INDC_N_TITLE
+             , '적합' AS PERF_CHK_INDC_Y_TITLE
+             , SUM(CASE WHEN A.PERF_CHK_RESULT_CNT <![CDATA[>]]> 0 AND A.PERF_CHECK_RESULT_YN = 'Y' THEN 1 ELSE 0 END) AS PERF_CHK_INDC_N_CHART
+             , SUM(CASE WHEN A.PERF_CHK_RESULT_CNT <![CDATA[>]]> 0 AND A.PERF_CHECK_RESULT_YN = 'N' THEN 1 ELSE 0 END) AS PERF_CHK_INDC_Y_CHART
+      FROM SQL_AUTO_PERF_CHK_STATS A
+    </select>
+    
+    <select id="loadResultList" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.loadResultList */
+      SELECT *
+      FROM (
+          SELECT ROWNUM RNUM, AA.*
+          FROM (
+              <include refid="loadResultListRefId"/>
+              
+              <include refid="loadPerformanceResultOrderBy"/>
+          ) AA
+          WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+      ) AA
+      WHERE AA.RNUM <![CDATA[>]]> ${pagePerCount} * (${currentPage} - 1)
+    </select>
+    
+    <select id="loadResultListExcel" parameterType="sqlAutoPerformanceCompare" resultType="java.util.LinkedHashMap">
+      /* AISQLPVDao.loadResultListExcel */
+      <include refid="loadResultListRefId"/>
+      
+      <include refid="loadPerformanceResultOrderBy"/>
+    </select>
+    
+    <select id="loadNumberOfSearch" parameterType="sqlAutoPerformanceCompare" resultType="int">
+      /* AISQLPVDao.loadResultCount */
+      SELECT COUNT(*)
+        FROM (
+              <include refid="loadResultListRefId"/>
+              
+              <include refid="loadPerformanceResultOrderBy"/>
+              )
+    </select>
+    
+    <sql id="loadResultListRefId">
+      SELECT /*+ LEADING(A) USE_NL(B C) */
+             A.PERF_IMPACT_TYPE_NM                                                        /* 성능임팩트유형       */
+           , A.BUFFER_INCREASE_RATIO                                                      /* 버퍼 임팩트(배)      */
+           , A.ELAPSED_TIME_INCREASE_RATIO                                                /* 수행시간 임팩트(배)  */ 
+           , A.PERF_CHECK_RESULT_YN                                                       /* 성능점검결과         */
+           , A.SQL_ID                                                                     /* SQL ID               */
+           , A.ASIS_PLAN_HASH_VALUE                                                       /* ASIS PLAN HASH_VALUE */
+           , A.TOBE_PLAN_HASH_VALUE                                                       /* TOBE PLAN HASH VALUE */
+           , A.ASIS_EXECUTIONS                                                            /* ASIS EXECUTIONS      */
+           , A.TOBE_EXECUTIONS                                                            /* TOBE EXECUTIONS      */
+           , A.ASIS_ROWS_PROCESSED                                                        /* ASIS ROWS PROCESSED  */
+           , A.TOBE_ROWS_PROCESSED                                                        /* TOBE ROWS PROCESSED  */
+           , DECODE(A.ASIS_ELAPSED_TIME, 0, 0.0001, A.ASIS_ELAPSED_TIME) AS ASIS_ELAPSED_TIME     /* ASIS ELAPSED TIME  */
+           , DECODE(A.TOBE_ELAPSED_TIME, 0, 0.0001, A.TOBE_ELAPSED_TIME) AS TOBE_ELAPSED_TIME     /* TOBE ELAPSED TIME  */
+           , A.ASIS_BUFFER_GETS                                                           /* ASIS BUFFER GETS     */
+           , A.TOBE_BUFFER_GETS                                                           /* TOBE BUFFER GETS     */
+           , A.ASIS_FULLSCAN_YN                                                           /* ASIS FULLSCAN Y/N    */
+           , A.TOBE_FULLSCAN_YN                                                           /* TOBE FULLSCAN Y/N    */
+           , A.ASIS_PARTITION_ALL_ACCESS_YN                                               /* ASIS PARTITION ALL ACCESS Y/N */
+           , A.TOBE_PARTITION_ALL_ACCESS_YN                                               /* TOBE PARTITION ALL ACCESS Y/N */
+           , A.SQL_COMMAND_TYPE_CD                                                        /* SQL 명령 유형        */
+           , A.PARSING_SCHEMA_NAME                                                        /* PARSING_SCHEMA_NAME  */
+           , A.ERR_CODE                                                                   /* 에러코드             */
+           , A.ERR_MSG                                                                    /* 에러메시지           */
+           , DBMS_LOB.SUBSTR(A.SQL_TEXT, 200, 1) AS SQL_TEXT_WEB                          /* SQL TEXT             */
+           , A.SQL_TEXT AS SQL_TEXT_EXCEL                                                 /* SQL TEXT FOR EXCEL   */
+           , A.ORIGINAL_DBID
+           , A.PERF_CHECK_TARGET_DBID
+           , A.PROJECT_NM                                                                 /* 프로젝트명           */
+           , A.PERF_CHECK_NAME                                                            /* SQL점검팩명          */
+           , A.SQL_AUTO_PERF_CHECK_ID
+           , A.PROJECT_ID
+           , A.PERF_CHECK_SQL_SOURCE_TYPE_CD
+           , A.MODULE
+           , A.PERF_IMPACT_TYPE_CD
+           , A.TOTAL_ASIS_ELAPSED_TIME
+           , A.TOTAL_ASIS_BUFFER_GETS
+        FROM (
+              SELECT /*+ LEADING(M) USE_NL(A B C F CD1) */
+                     B.PROJECT_NM AS PROJECT_NM
+                   , M.PERF_CHECK_NAME AS PERF_CHECK_NAME
+                   , CD1.CD_NM AS PERF_IMPACT_TYPE_NM
+                   , A.BUFFER_INCREASE_RATIO AS BUFFER_INCREASE_RATIO
+                   , A.ELAPSED_TIME_INCREASE_RATIO AS ELAPSED_TIME_INCREASE_RATIO
+                   , CASE WHEN C.ERR_CODE IS NOT NULL THEN NULL
+                          WHEN (
+                                SELECT COUNT(*) 
+                                  FROM SQL_AUTO_PERF_CHK_RESULT Z 
+                                 WHERE Z.PROJECT_ID = A.PROJECT_ID 
+                                   AND Z.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID 
+                                   AND Z.SQL_ID = A.SQL_ID
+                               ) = 0 THEN NULL
+                          WHEN (
+                                SELECT COUNT(*) 
+                                  FROM SQL_AUTO_PERF_CHK_RESULT Z 
+                                 WHERE Z.PROJECT_ID = A.PROJECT_ID 
+                                   AND Z.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID 
+                                   AND Z.SQL_ID = A.SQL_ID
+                                   AND Z.PERF_CHECK_RESULT_DIV_CD = 'B'
+                                   AND ROWNUM = 1
+                               ) = 1 THEN '부적합' ELSE '적합' END AS PERF_CHECK_RESULT_YN
+                   , A.PLAN_CHANGE_YN AS PLAN_CHANGE_YN
+                   , A.SQL_ID AS SQL_ID
+                   , A.BEFORE_PLAN_HASH_VALUE AS ASIS_PLAN_HASH_VALUE
+                   , A.AFTER_PLAN_HASH_VALUE AS TOBE_PLAN_HASH_VALUE
+                   , A.BEFORE_EXECUTIONS AS ASIS_EXECUTIONS
+                   , A.AFTER_EXECUTIONS AS TOBE_EXECUTIONS
+                   , ROUND(A.BEFORE_ROWS_PROCESSED/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS ASIS_ROWS_PROCESSED
+                   , ROUND(A.AFTER_ROWS_PROCESSED/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS)) AS TOBE_ROWS_PROCESSED
+                   , ROUND(A.BEFORE_ELAPSED_TIME/1000000/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS), 4) AS ASIS_ELAPSED_TIME
+                   , ROUND(A.AFTER_ELAPSED_TIME/1000000/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS), 4) AS TOBE_ELAPSED_TIME
+                   , ROUND(A.BEFORE_BUFFER_GETS/DECODE(A.BEFORE_EXECUTIONS, 0, 1, A.BEFORE_EXECUTIONS)) AS ASIS_BUFFER_GETS
+                   , ROUND(A.AFTER_BUFFER_GETS/DECODE(A.AFTER_EXECUTIONS, 0, 1, A.AFTER_EXECUTIONS)) AS TOBE_BUFFER_GETS
+                   , A.BEFORE_FULLSCAN_YN AS ASIS_FULLSCAN_YN
+                   , A.AFTER_FULLSCAN_YN AS TOBE_FULLSCAN_YN
+                   , A.BEFORE_PARTITION_ALL_ACCESS_YN AS ASIS_PARTITION_ALL_ACCESS_YN
+                   , A.AFTER_PARTITION_ALL_ACCESS_YN AS TOBE_PARTITION_ALL_ACCESS_YN
+                   , A.SQL_COMMAND_TYPE_CD AS SQL_COMMAND_TYPE_CD
+                   , (CASE WHEN A.PERF_IMPACT_TYPE_CD IS NOT NULL THEN NULL ELSE C.ERR_CODE END) AS ERR_CODE
+                   , (CASE WHEN A.PERF_IMPACT_TYPE_CD IS NOT NULL THEN NULL ELSE C.ERR_MSG END) AS ERR_MSG
+                   , (CASE
+                           WHEN M.PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' THEN (
+                               SELECT (CASE WHEN NVL( DBMS_LOB.GETLENGTH(S.SQL_TEXT) , 0) <![CDATA[>=]]> 0 AND NVL( DBMS_LOB.GETLENGTH(S.SQL_TEXT), 0) <![CDATA[<=]]> 1000 THEN  S.SQL_TEXT  
+                                            ELSE ( TO_CLOB( DBMS_LOB.SUBSTR(S.SQL_TEXT, 500) || CHR(13)||CHR(10) ||'   (중략) ...   '||CHR(13)||CHR(10)|| DBMS_LOB.SUBSTR(S.SQL_TEXT ,500,DBMS_LOB.GETLENGTH(S.SQL_TEXT)-500) ))
+                                       END) SQL_TEXT
+                                 FROM ODS_HIST_SQLTEXT S WHERE S.DBID = M.ORIGINAL_DBID AND S.SQL_ID = A.SQL_ID)
+                           ELSE (
+                                SELECT (CASE WHEN NVL( DBMS_LOB.GETLENGTH(S.SQL_FULLTEXT) , 0) <![CDATA[>=]]> 0 AND NVL( DBMS_LOB.GETLENGTH(S.SQL_FULLTEXT), 0) <![CDATA[<=]]> 1000 THEN  S.SQL_FULLTEXT  
+                                             ELSE ( TO_CLOB( DBMS_LOB.SUBSTR(S.SQL_FULLTEXT, 500) ||CHR(13)||CHR(10) ||'   (중략) ...   '||CHR(13)||CHR(10)|| DBMS_LOB.SUBSTR(S.SQL_FULLTEXT ,500 , DBMS_LOB.GETLENGTH(S.SQL_FULLTEXT)-500) ))
+                                        END) SQL_TEXT
+                                  FROM VSQL_TEXT S WHERE S.DBID = M.ORIGINAL_DBID AND S.SQL_ID = A.SQL_ID AND S.PLAN_HASH_VALUE = A.BEFORE_PLAN_HASH_VALUE)
+                      END) AS SQL_TEXT
+                   , M.ORIGINAL_DBID AS ORIGINAL_DBID
+                   , M.PERF_CHECK_TARGET_DBID
+                   , A.SQL_AUTO_PERF_CHECK_ID
+                   , A.PROJECT_ID
+                   , M.PERF_CHECK_SQL_SOURCE_TYPE_CD
+                   , (CASE 
+                           WHEN M.PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' THEN (SELECT MAX(S.PARSING_SCHEMA_NAME) FROM ODS_HIST_SQLSTAT S WHERE S.DBID = M.ORIGINAL_DBID AND S.SQL_ID = A.SQL_ID AND S.PLAN_HASH_VALUE = A.BEFORE_PLAN_HASH_VALUE)
+                           ELSE (SELECT MAX(S.PARSING_SCHEMA_NAME) FROM VSQL_TEXT S WHERE S.DBID = M.ORIGINAL_DBID AND S.SQL_ID = A.SQL_ID AND S.PLAN_HASH_VALUE = A.BEFORE_PLAN_HASH_VALUE)
+                      END) AS PARSING_SCHEMA_NAME
+                   , (CASE 
+                           WHEN M.PERF_CHECK_SQL_SOURCE_TYPE_CD = '1' /* AWR */ THEN (SELECT MODULE FROM ODS_HIST_SQLSTAT ASQL WHERE ASQL.DBID = M.ORIGINAL_DBID AND ASQL.SQL_ID = A.SQL_ID AND ROWNUM = 1) 
+                           ELSE /* VSQL */ (SELECT MODULE FROM VSQL_MODULE VSQL WHERE VSQL.DBID = M.ORIGINAL_DBID AND VSQL.SQL_ID = A.SQL_ID AND ROWNUM = 1) 
+                      END) AS MODULE  
+                   , A.PERF_IMPACT_TYPE_CD
+                   , A.BEFORE_ELAPSED_TIME AS TOTAL_ASIS_ELAPSED_TIME
+                   , A.BEFORE_BUFFER_GETS AS TOTAL_ASIS_BUFFER_GETS
+                FROM SQL_AUTO_PERF_CHK M
+                   , SQL_AUTO_PERF_CHK_TARGET A
+                   , PROJECT B
+                   , SQL_AUTO_PERF_CHK_ERROR C
+                   , CD CD1
+               WHERE M.PARENT_PROJECT_ID = ${project_id}
+                 AND M.PARENT_SQL_AUTO_PERF_CHECK_ID = ${sql_auto_perf_check_id}
+                 AND M.DATABASE_KINDS_CD = '${database_kinds_cd}'
+                 AND M.PERF_CHECK_EXEC_END_DT IS NOT NULL
+                 AND A.PROJECT_ID = M.PROJECT_ID
+                 AND A.SQL_AUTO_PERF_CHECK_ID = M.SQL_AUTO_PERF_CHECK_ID
+                 AND A.PROJECT_ID = B.PROJECT_ID
+                 AND A.PROJECT_ID = C.PROJECT_ID(+)
+                 AND A.SQL_AUTO_PERF_CHECK_ID = C.SQL_AUTO_PERF_CHECK_ID(+)
+                 AND A.SQL_ID = C.SQL_ID(+)
+                 AND CD1.GRP_CD_ID(+) = '1025'
+                 AND A.PERF_IMPACT_TYPE_CD = CD1.CD(+)
+                 AND NVL(M.PERF_CHECK_FORCE_CLOSE_YN, 'N') <![CDATA[<>]]> 'Y'
+                 <if test="select_yn != null and dml_yn != null">
+                   <choose>
+                     <when test='"Y".equalsIgnoreCase(select_yn) and "N".equalsIgnoreCase(dml_yn)'>
+                       /* SELECT 문 */ 
+                       AND A.SQL_COMMAND_TYPE_CD = 'SELECT'
+                     </when>
+                     <when test='"N".equalsIgnoreCase(select_yn) and "Y".equalsIgnoreCase(dml_yn)'>
+                       /* DML문 선택 (SELETE를 제외하고 TRUNCATE, CALL, OTHER 등이 포함) */
+                       AND A.SQL_COMMAND_TYPE_CD <![CDATA[<>]]> 'SELECT'
+                     </when>
+                     <otherwise></otherwise>
+                   </choose>
+                 </if>
+                 <if test='perf_down_yn != null and "Y".equalsIgnoreCase(perf_down_yn)'>
+                   /* 성능저하(BUFFER GETS 기준) */
+                   AND A.BUFFER_INCREASE_RATIO <![CDATA[<]]> 0
+                 </if>
+                 <if test='notPerf_yn != null and "Y".equalsIgnoreCase(notPerf_yn)'>
+                   /* 성능 부적합 체크 */
+                   AND EXISTS (
+                               SELECT 'Y'
+                                 FROM SQL_AUTO_PERF_CHK_RESULT Z 
+                                WHERE Z.PROJECT_ID = A.PROJECT_ID 
+                                  AND Z.SQL_AUTO_PERF_CHECK_ID = A.SQL_AUTO_PERF_CHECK_ID 
+                                  AND Z.SQL_ID = A.SQL_ID
+                                  AND Z.PERF_CHECK_RESULT_DIV_CD = 'B'
+                                  AND ROWNUM = 1
+                               )
+                 </if>
+                 <if test='fullScan_yn != null and "Y".equalsIgnoreCase(fullScan_yn)'>
+                   /* FULL SCAN 체크 */
+                   AND A.AFTER_FULLSCAN_YN = 'Y'
+                 </if>
+                 <if test='partition_yn != null and "Y".equalsIgnoreCase(partition_yn)'>
+                   /* PARTITION ALL ACCESS 체크 */
+                   AND A.AFTER_PARTITION_ALL_ACCESS_YN = 'Y'
+                 </if>
+                 <if test='error_yn != null and "Y".equalsIgnoreCase(error_yn)'>
+                   /* 오류여부 체크 */
+                   AND C.ERR_MSG IS NOT NULL
+                 </if>
+                 <if test='search_sql_id != null and "".equals(search_sql_id) == false'>
+                   AND A.SQL_ID = '${search_sql_id}'
+                 </if>
+                 ) A 
+             WHERE 1 = 1
+             <if test='error_yn != null and "Y".equalsIgnoreCase(error_yn)'>
+               /* 오류여부 체크 */
+               AND (A.PERF_IMPACT_TYPE_CD NOT IN ('4', '5') OR A.PERF_IMPACT_TYPE_CD IS NULL)
+             </if>
+             <if test='timeOut_yn != null and "Y".equalsIgnoreCase(timeOut_yn)'>
+               /* Time-Out 체크 */
+               AND A.PERF_IMPACT_TYPE_CD = '4'
+             </if>
+             <if test='maxFetch_yn != null and "Y".equalsIgnoreCase(maxFetch_yn)'>
+               /* 최대 FETCH 초과 체크 */
+               AND A.PERF_IMPACT_TYPE_CD = '5'
+             </if>
+             <if test='buffer_gets_1day != null and "".equals(buffer_gets_1day) == false'>
+               /* BUFFER GETS(ASIS 일평균) */
+               AND A.ASIS_BUFFER_GETS <![CDATA[>=]]> ${buffer_gets_1day}
+             </if>
+             <if test='asis_elapsed_time != null and "".equals(asis_elapsed_time) == false'>
+               /* ELAPSED TIME(ASIS 일평균) */
+               AND A.ASIS_ELAPSED_TIME <![CDATA[>=]]> ${asis_elapsed_time}
+             </if>
+             <if test='buffer_gets_regres != null and "".equals(buffer_gets_regres) == false'>
+               /* Buffer Gets 성능저하 */
+               AND (A.TOBE_BUFFER_GETS/DECODE(A.ASIS_BUFFER_GETS, 0, 1, A.ASIS_BUFFER_GETS)) <![CDATA[>=]]> ${buffer_gets_regres}
+             </if>
+             <if test='elapsed_time_regres != null and "".equals(elapsed_time_regres) == false'>
+               /* Elapsed Time 성능저하 */
+               AND (A.TOBE_ELAPSED_TIME/DECODE(A.ASIS_ELAPSED_TIME, 0, 1, A.ASIS_ELAPSED_TIME)) <![CDATA[>=]]> ${elapsed_time_regres}
+             </if>
+    </sql>
+    
+    <sql id="loadPerformanceResultOrderBy">
+      <choose>
+          <when test="line_up_cd != null and ( line_up_cd eq '00'.toString() ) ">
+              /* TOTAL_ASIS_BUFFER_GETS */
+              ORDER BY A.TOTAL_ASIS_BUFFER_GETS ${orderOf} , A.SQL_ID
+          </when>
+          <when test="line_up_cd != null and ( line_up_cd eq '01'.toString() ) ">
+              /* TOTAL_ASIS_ELAPSED_TIME */
+              ORDER BY A.TOTAL_ASIS_ELAPSED_TIME ${orderOf} , A.SQL_ID
+          </when>
+          <when test="line_up_cd != null and ( line_up_cd eq '02'.toString() ) ">
+              /* ASIS_EXECUTIONS */
+              ORDER BY A.ASIS_EXECUTIONS ${orderOf} , A.SQL_ID
+          </when>
+          <when test="line_up_cd != null and ( line_up_cd eq '03'.toString() ) ">
+              /* ASIS_BUFFER_GETS */
+              ORDER BY A.ASIS_BUFFER_GETS ${orderOf} , A.SQL_ID
+          </when>
+          <when test="line_up_cd != null and ( line_up_cd eq '04'.toString() ) ">
+              /* ASIS_ELAPSED_TIME */
+              ORDER BY A.ASIS_ELAPSED_TIME ${orderOf} , A.SQL_ID
+          </when>
+          <when test="line_up_cd != null and ( line_up_cd eq '05'.toString() ) ">
+              /* SQL_ID */
+              ORDER BY A.SQL_ID ${orderOf}
+          </when>
+          <when test="line_up_cd != null and ( line_up_cd eq '06'.toString() ) ">
+              /* SQLTEXT */
+              ORDER BY SQL_TEXT_WEB ${orderOf}
+          </when>
+          <otherwise>
+              /* 기본값 */
+              ORDER BY A.SQL_ID ASC
+          </otherwise>
+      </choose>
+    </sql>
+    
+    <select id="loadSqlIdList" parameterType="vsqlText" resultType="vsqlText">
+      /* AISQLPVDao.loadSqlIdList */
+      SELECT ROWNUM AS RNUM
+           , A.DBID AS DBID
+           , A.EXEC_SEQ AS EXEC_SEQ
+           , A.SQL_ID AS SQL_ID
+           , A.PLAN_HASH_VALUE AS PLAN_HASH_VALUE
+      FROM (
+          SELECT DISTINCT A.DBID
+               , A.EXEC_SEQ
+               , A.SQL_ID
+               , A.PLAN_HASH_VALUE
+               , LISTAGG(COLUMN_NAME, ', ') WITHIN GROUP(ORDER BY ORDERED, COLUMN_NAME) COLUMN_NAME
+            FROM ACC_PATH A
+           WHERE A.DBID = #{dbid}
+             AND A.EXEC_SEQ = #{exec_seq}
+             AND A.TABLE_OWNER = #{owner}
+             AND A.TABLE_NAME = #{table_name}
+           GROUP BY A.DBID, A.EXEC_SEQ, A.SQL_ID, A.PLAN_HASH_VALUE, A.TABLE_NAME, A.QBLOCK_NAME
+          ) A
+      WHERE A.COLUMN_NAME = #{access_path}
+      ORDER BY RNUM
+    </select>
+    
+    <select id="sqlStateTrend" parameterType="sqls" resultType="sqls">
+      /* AISQLPVDao.sqlStateTrend */
+      <![CDATA[
+      SELECT A.LOG_DT
+           , SUM(A.EXECUTIONS) EXECUTIONS
+           , TRUNC(SUM(A.BUFFER_GETS) / DECODE(SUM(A.EXECUTIONS), 0, 1, SUM(A.EXECUTIONS)) ) BUFFER_GETS
+           , TRUNC(SUM(A.DISK_READS) /DECODE(SUM(A.EXECUTIONS), 0, 1, SUM(A.EXECUTIONS)) ) DISK_READS
+           , RTRIM(TO_CHAR(ROUND(SUM(A.ELAPSED_TIME) /DECODE(SUM(A.EXECUTIONS), 0, 1, SUM(A.EXECUTIONS))/1000000, 4), 'FM999999999999990.9999'), '.') ELAPSED_TIME
+       FROM (SELECT LOG_DT
+                  , DBID
+                  , SQL_ID
+                  , (CASE WHEN STATS_INITIALIZE_YN = 'Y' THEN BUFFER_GETS ELSE BUFFER_GETS - LAG(BUFFER_GETS) OVER(ORDER BY LOG_DT) END) BUFFER_GETS
+                  , (CASE WHEN STATS_INITIALIZE_YN = 'Y' THEN DISK_READS ELSE DISK_READS - LAG(DISK_READS) OVER(ORDER BY LOG_DT) END) DISK_READS
+                  , (CASE WHEN STATS_INITIALIZE_YN = 'Y' THEN ELAPSED_TIME ELSE ELAPSED_TIME - LAG(ELAPSED_TIME) OVER(ORDER BY LOG_DT) END) ELAPSED_TIME
+                  , (CASE WHEN STATS_INITIALIZE_YN = 'Y' THEN EXECUTIONS ELSE EXECUTIONS - LAG(EXECUTIONS) OVER(ORDER BY LOG_DT) END) EXECUTIONS
+                  , ROW_NUMBER() OVER(ORDER BY LOG_DT) RNUM
+              FROM (SELECT TO_CHAR(A.LOG_DT,'YY/MM/DD') AS LOG_DT
+                         , DBID
+                         , SQL_ID
+                         , SUM(BUFFER_GETS_TOTAL) BUFFER_GETS
+                         , SUM(DISK_READS_TOTAL) DISK_READS
+                         , SUM(ELAPSED_TIME_TOTAL) ELAPSED_TIME
+                         , SUM(EXECUTIONS_TOTAL) EXECUTIONS
+                         , (CASE
+                                WHEN SUM(BUFFER_GETS_TOTAL) - LAG(SUM(BUFFER_GETS_TOTAL)) OVER(ORDER BY TO_CHAR(A.LOG_DT,'YY/MM/DD')) < 0 OR
+                                     SUM(DISK_READS_TOTAL) - LAG(SUM(DISK_READS_TOTAL)) OVER(ORDER BY TO_CHAR(A.LOG_DT,'YY/MM/DD')) < 0 OR
+                                     SUM(ELAPSED_TIME_TOTAL) - LAG(SUM(ELAPSED_TIME_TOTAL)) OVER(ORDER BY TO_CHAR(A.LOG_DT,'YY/MM/DD')) < 0 OR
+                                     SUM(EXECUTIONS_TOTAL) - LAG(SUM(EXECUTIONS_TOTAL)) OVER(ORDER BY TO_CHAR(A.LOG_DT,'YY/MM/DD')) < 0
+                                THEN 'Y'
+                                ELSE 'N'
+                            END) STATS_INITIALIZE_YN
+                      FROM VSQL_STATS_D A
+                     WHERE A.DBID = #{dbid}
+                       AND A.SQL_ID = #{sql_id}
+                       AND A.LOG_DT BETWEEN TO_DATE(#{begin_dt},'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{end_dt},'YYYY-MM-DD HH24:MI:SS')
+                     GROUP BY TO_CHAR(A.LOG_DT,'YY/MM/DD')
+                         , DBID
+                         , SQL_ID
+              )
+       ) A
+       WHERE A.RNUM > 1
+       GROUP BY A.LOG_DT
+       ORDER BY A.LOG_DT ASC
+       ]]>
+    </select>
+    
+    <select id="getDeleteTargets" parameterType="sqlAutoPerformanceCompare" resultType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.getDeleteTargets */
+      SELECT PROJECT_ID
+           , SQL_AUTO_PERF_CHECK_ID
+        FROM SQL_AUTO_PERF_CHK
+       WHERE PROJECT_ID = #{project_id}
+         AND (SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+              OR PARENT_SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id})
+         AND DATABASE_KINDS_CD = #{database_kinds_cd}
+    </select>
+    
+    <delete id="deleteIdxAdAsisIndex" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteIdxAdAsisIndex */
+      DELETE IDX_AD_ASIS_INDEX
+       WHERE IDX_AD_NO
+          IN (SELECT IDX_AD_NO
+                FROM IDX_AD_MST
+               WHERE (DBID, EXEC_SEQ)
+                  IN (SELECT DBID, EXEC_SEQ
+                        FROM ACC_PATH_EXEC
+                       WHERE PROJECT_ID = #{project_id}
+                         AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}))
+    </delete>
+    
+    <delete id="deleteIdxAdColNdv" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteIdxAdColNdv */
+      DELETE IDX_AD_COL_NDV
+       WHERE IDX_AD_NO
+          IN (SELECT IDX_AD_NO
+                FROM IDX_AD_MST
+               WHERE (DBID, EXEC_SEQ)
+                  IN (SELECT DBID, EXEC_SEQ
+                        FROM ACC_PATH_EXEC
+                       WHERE PROJECT_ID = #{project_id}
+                         AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}))
+    </delete>
+    
+    <delete id="deleteIdxAdProcLog" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteIdxAdProcLog */
+      DELETE IDX_AD_PROC_LOG
+       WHERE IDX_AD_NO
+          IN (SELECT IDX_AD_NO
+                FROM IDX_AD_MST
+               WHERE (DBID, EXEC_SEQ)
+                  IN (SELECT DBID, EXEC_SEQ
+                        FROM ACC_PATH_EXEC
+                       WHERE PROJECT_ID = #{project_id}
+                         AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}))
+    </delete>
+    
+    <delete id="deleteIdxAdRecommendIndex" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteIdxAdRecommendIndex */
+      DELETE IDX_AD_RECOMMEND_INDEX
+       WHERE IDX_AD_NO
+          IN (SELECT IDX_AD_NO
+                FROM IDX_AD_MST
+               WHERE (DBID, EXEC_SEQ)
+                  IN (SELECT DBID, EXEC_SEQ
+                        FROM ACC_PATH_EXEC
+                       WHERE PROJECT_ID = #{project_id}
+                         AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}))
+    </delete>
+    
+    <delete id="deleteIdxDbWorkDeatil" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteIdxDbWorkDeatil */
+      DELETE IDX_DB_WORK_DEATIL
+        WHERE IDX_DB_WORK_ID
+           IN (SELECT IDX_DB_WORK_ID
+                 FROM IDX_DB_WORK
+                WHERE (DBID, EXEC_SEQ)
+                   IN (SELECT DBID, EXEC_SEQ
+                         FROM ACC_PATH_EXEC
+                        WHERE PROJECT_ID = #{project_id}
+                          AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}))
+    </delete>
+    
+    <delete id="deleteIdxDbWork" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteIdxDbWork */
+      DELETE IDX_DB_WORK
+       WHERE (DBID, EXEC_SEQ)
+          IN (SELECT DBID, EXEC_SEQ
+                FROM ACC_PATH_EXEC
+               WHERE PROJECT_ID = #{project_id}
+                 AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id})
+    </delete>
+    
+    <delete id="deleteIdxAdMst" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteIdxAdMst */
+      DELETE IDX_AD_MST
+       WHERE (DBID, EXEC_SEQ)
+          IN (SELECT DBID, EXEC_SEQ
+                FROM ACC_PATH_EXEC
+               WHERE PROJECT_ID = #{project_id}
+                 AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id})
+    </delete>
+    
+    <delete id="deleteAccPathIndexDesign" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteAccPathIndexDesign */
+      DELETE ACC_PATH_INDEX_DESIGN
+       WHERE (DBID, EXEC_SEQ)
+          IN (SELECT DBID, EXEC_SEQ
+                FROM ACC_PATH_EXEC
+               WHERE PROJECT_ID = #{project_id}
+                 AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id})
+    </delete>
+    
+    <delete id="deleteAccPath" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteAccPath */
+      DELETE ACC_PATH
+       WHERE (DBID, EXEC_SEQ)
+          IN (SELECT DBID, EXEC_SEQ
+                FROM ACC_PATH_EXEC
+               WHERE PROJECT_ID = #{project_id}
+                 AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id})
+    </delete>
+    
+    <delete id="deleteTableChgPerfChkTargetSql" parameterType="sqlAutoPerformanceCompare">
+      /* AISQLPVDao.deleteTableChgPerfChkTargetSql */
+      DELETE TABLE_CHG_PERF_CHK_TARGET_SQL
+       WHERE PROJECT_ID = #{project_id}
+         AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+    </delete>
+</mapper>

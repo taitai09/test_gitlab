@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+	
+	<util:properties id="defaultConfig" location="classpath:./default.properties"/>
+	<util:properties id="serverConfig" location="classpath:properties/openpop.jdbc.properties"/>
+	
+	<bean id="environmentVariablesConfiguration" class="org.jasypt.encryption.pbe.config.EnvironmentStringPBEConfig">
+		<property name="algorithm" value="PBEWithMD5AndDES" />
+		<property name="passwordEnvName" value="APP_ENCRYPTION_PASSWORD" />
+	</bean>
+	
+	<bean id="configurationEncryptor" class="org.jasypt.encryption.pbe.StandardPBEStringEncryptor">
+		<property name="config" ref="environmentVariablesConfiguration" />
+		<property name="password" value="madeopen" />
+	</bean>
+	
+	<bean id="propertyConfigurer" class="org.jasypt.spring31.properties.EncryptablePropertyPlaceholderConfigurer">
+		<constructor-arg ref="configurationEncryptor" />
+		<property name="locations">
+			<value>classpath:properties/openpop.jdbc.properties</value>
+		</property>
+	</bean>
+	
+	<!-- start PostgreSQL -->
+	<!--
+	<bean id="dataSourcePostgreSQL" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="${postgresql.jdbc.driverClass}" />
+		<property name="url" value="${postgresql.jdbc.url}" />
+		<property name="username" value="${postgresql.jdbc.user}" />
+		<property name="password" value="${postgresql.jdbc.password}" />
+	</bean>
+	
+	<bean id="sqlSessionFactoryPostgreSQL" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="logDataSourcePostgreSQL" />
+		<property name="configLocation" value="classpath:/mybatis/mybatis-config.xml"/>
+		<property name="mapperLocations">
+			<list>
+				<value>classpath*:mybatis/postgresql/*Mapper.xml</value>
+				<value>classpath*:mybatis/postgresql/**/*Mapper.xml</value>
+			</list>
+		</property>
+	</bean>
+	
+	<bean id="sqlSessionPostgreSQL" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg index="0" ref="sqlSessionFactoryPostgreSQL" />
+	</bean>
+	
+	<bean id="scannerPostgreSQL" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="omc.*.dao" />
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactoryPostgreSQL"/>
+	</bean>
+	
+	<bean id="transactionManagerPostgreSQL" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSourcePostgreSQL"/>
+	</bean>
+
+	<tx:advice id="txAdvicePostgreSQL" transaction-manager="transactionManagerPostgreSQL">
+		<tx:attributes>
+			<tx:method name="*" rollback-for="Exception"/>
+		</tx:attributes>
+	</tx:advice>
+	
+	<aop:config>
+		<aop:pointcut id="txPointcutPostgreSQL" expression="execution(* omc.spop.service.impl.*ServiceImpl.*(..))" />
+		<aop:advisor advice-ref="txAdvicePostgreSQL" pointcut-ref="txPointcutPostgreSQL"/>
+	</aop:config>
+	
+	-->
+	<!-- end of PostgreSQL -->
+	
+		<!-- start Oracle -->
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="${jdbc.driverClass}" />
+		<property name="url" value="${jdbc.url}" />
+		<property name="username" value="${jdbc.user}" />
+		<property name="password" value="${jdbc.password}" />
+		<property name="initialSize" value="5" />
+		<property name="maxActive" value="100" />
+<!-- 		<property name="maxTotal" value="100" /> -->
+		<property name="maxIdle" value="30" />
+		<property name="minIdle" value="10" />
+		<property name="maxWait" value="10000" />
+<!-- 		<property name="maxWaitMillis" value="10000" /> -->
+		<property name="poolPreparedStatements" value="true" />
+		<property name="maxOpenPreparedStatements" value="50" />
+		<property name="validationQuery" value="select 1 from dual" />
+	</bean>
+	
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="configLocation" value="classpath:/mybatis/mybatis-config.xml"/>
+		<property name="mapperLocations">
+			<list>
+				<value>classpath*:mybatis/mapper/*Mapper.xml</value>
+				<value>classpath*:mybatis/mapper/**/*Mapper.xml</value>
+			</list>
+		</property>
+	</bean>
+	
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg index="0" ref="sqlSessionFactory" />
+	</bean>
+	
+	<!-- scan for mappers and let them be autowired -->
+	<bean id="scanner" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="omc.*.dao" />
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+	</bean>
+	
+<!-- 	<tx:annotation-driven transaction-manager="transactionManager" order="200"/> -->
+
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"/>
+	</bean>
+	
+	<aop:config>
+		<aop:pointcut id="txPointcut" expression="execution(* omc.spop.service.impl.*ServiceImpl.*(..))" />
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="txPointcut"/>
+	</aop:config>
+	
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="*" rollback-for="Exception"/>
+		</tx:attributes>
+	</tx:advice>
+	
+</beans>

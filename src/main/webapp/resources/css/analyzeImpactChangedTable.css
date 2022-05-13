@@ -1,0 +1,144 @@
+@charset "UTF-8";
+
+/******** 공통 ********/
+.spacing {
+	margin: 0px 9px;
+}
+.radiobutton-readonly,
+.checkbox-readonly,
+.textbox-invalid {
+	border-color: #ccc9c7;
+}
+.radiobutton-readonly .radiobutton-inner,
+.checkbox-readonly.checkbox-checked {
+	background-color: #ccc9c7;
+}
+.bgWhite .textbox-text{
+	background: white;
+	color: #000000;
+}
+
+/******** 1st Tab - 성능 영향도 분석 ********/
+.perfImptAnalysis label > span {
+	margin-left: 10px;
+}
+.perfImptAnalysis .btn-wrapper {
+	margin-top:5px;
+	text-align: right;
+}
+.perfImptAnalysis .btn-wrapper a {
+	margin: 0px 5px;
+}
+.perfImptAnalysis #perf_check_target_dbid {
+	margin-left: 1px;
+}
+.perfImptAnalysis .radio-area {
+	padding-left: 10px;
+}
+.perfImptAnalysis .radio-area span:first-child {
+	margin-right: 8px;
+}
+.perfImptAnalysis .radio-area label {
+	margin: 0px 5px;
+}
+.perfImptAnalysis table:not(.calendar-dtable) tr {
+	height: 35px;
+}
+.perfImptAnalysis .table_name_list .textbox:not(.textbox-readonly) .bg_white{
+	background: white;
+}
+.perfImptAnalysis .table_name_list .textbox{
+	border-color: #ccc9c7;
+}
+.perfImptAnalysis .table_name_list .textbox-readonly .textbox-text{
+	background: #F2F3EF;
+}
+.perfImptAnalysis .innerSpacing {
+	display: inline-block;
+	width: 37px;
+	text-align: center;
+}
+.perfImptAnalysis .borderLine {
+	margin: 0px;
+	padding: 6px 0px;
+	width: 161px;
+	border: 1px solid #ccc9c7;
+}
+.perfImptAnalysis .marginLeft {
+	margin-left: 10px;
+}
+.perfImptAnalysis .marginLeft .combo {
+	margin-right: 5px;
+}
+
+/******** 2nd TAB - 성능 영향도 분석 결과 ********/
+.perfImptAnalysisRslt .result-wrapper .well table tbody tr {
+	height: 30px;
+}
+.perfImptAnalysisRslt .result-wrapper table:last-child tr {
+	height: 40px;
+	padding-top: 5px;
+}
+.perfImptAnalysisRslt .result-wrapper .well.borderLine {
+	margin: 10px 15px 0px 0px;
+	padding: 0px 12px 12px 12px;
+	float: left;
+	border:1px solid #eaeaea;
+}
+.perfImptAnalysisRslt .result-wrapper .well:nth-child(2) {
+	width: 1020px;
+}
+.perfImptAnalysisRslt .result-wrapper .well:nth-child(3) {
+	width: 235px;
+}
+.perfImptAnalysisRslt .multi {
+	margin-top:10px;
+}
+.perfImptAnalysisRslt .multi .performanceResultCount {
+	position: absolute;
+	top:17.5em;
+	right:1em;
+	border:0;
+	text-align:right;
+}
+.perfImptAnalysisRslt .table-wrapper {
+	margin: 10px 0px;
+}
+.perfImptAnalysisRslt .table-wrapper .easyui-layout {
+	height:385px;
+}
+.perfImptAnalysisRslt .innerBtn2 {
+	padding-left: 380px;
+}
+.perfImptAnalysisRslt span.textbox.numberbox {
+	margin-right: 10px;
+}
+.perfImptAnalysisRslt .datagrid-header td {
+	height: 55px;
+}
+.perfImptAnalysisRslt .borderLine table input::placeholder{
+	color: #D8D8D8;
+}
+
+/******** 3th TAB - 튜닝 실적 ********/
+.tuningPerf .bottom_table table tr td,
+.tuningPerf [field=perf_check_name], .tuningPerf [field=sql_all_cnt], 
+.tuningPerf [field=elap_time_impr_ratio], .tuningPerf [field=buffer_impr_ratio] {
+	cursor: default;
+}
+
+/******** 4th TAB - SQL점검팩 ********/
+.sqlCheck .datagrid-header td {
+	height: 50px;
+}
+.sqlCheck .datagrid-header-check {
+	height: 44px;
+	font-size: 11px;
+	line-height: 22px;
+}
+.sqlCheck .datagrid-header-check input{
+	display: none;
+}
+.sqlCheck #submit_form .multi a:first-child {
+	margin-right: 10px;
+}

@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.20	이원식	OPENPOP V2 최초작업	
+-->
+<mapper namespace="omc.spop.dao.IndexDesignAdviserDao">	
+	<sql id="autoIndexStatusListRefId">
+		SELECT A.IDX_AD_NO
+		     , B.ACCESS_PATH_TYPE
+		     , CASE WHEN B.ACCESS_PATH_TYPE = 'VSQL' THEN '수집SQL' ELSE '적재SQL' END AS ACCESS_PATH_TYPE_NM
+		     , A.TABLE_OWNER
+		     , TO_CHAR(A.START_DT,'YYYY-MM-DD HH24:MI:SS') START_DT
+		     , TO_CHAR(A.END_DT,'YYYY-MM-DD HH24:MI:SS') END_DT
+		     , A.TABLE_CNT
+		     , A.RUNNING_TABLE_CNT
+		     , (SELECT COUNT(*) FROM IDX_AD_RECOMMEND_INDEX S1 WHERE A.IDX_AD_NO = S1.IDX_AD_NO) RECOMMEND_INDEX_CNT
+		     , DECODE(B.START_SNAP_NO, NULL, '', TO_CHAR(C.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS')) AS START_COLLECT_DT
+		     , DECODE(B.END_SNAP_NO, NULL, '', TO_CHAR(D.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS')) AS END_COLLECT_DT
+		     , B.ANALYSIS_SQL_CNT
+		     , (CASE WHEN A.END_DT IS NULL THEN 'EXECUTING' ELSE 'COMPLETE' END) AS STATUS
+		  FROM IDX_AD_MST A
+		     , ACC_PATH_EXEC B
+		     , VSQL_SNAPSHOT C
+		     , VSQL_SNAPSHOT D
+		WHERE A.DBID = #{dbid}
+		AND A.DBID = B.DBID
+		AND A.EXEC_SEQ = B.EXEC_SEQ
+		AND B.DBID = C.DBID(+)
+		AND B.START_SNAP_NO = C.SNAP_NO(+)
+		AND B.DBID = D.DBID(+)
+		AND B.END_SNAP_NO = D.SNAP_NO(+)
+		<!-- AND B.ACCESS_PATH_TYPE IN ('VSQL', 'DBIO') -->
+		
+		/* 검색조건 */
+		
+		/* 자동설계일시 */
+		AND A.START_DT BETWEEN TO_DATE(#{start_dt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')     
+		AND TO_DATE(#{end_dt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')   -- 배포요청일시  
+		
+		/* 소스구분 */
+		<choose>
+			<when test='access_path_type != null and access_path_type != "" and access_path_type.equals("VSQL") or access_path_type.equals("DBIO")'>
+				AND B.ACCESS_PATH_TYPE = #{access_path_type}
+			</when>
+			<when test='access_path_type != null and access_path_type != "" and access_path_type.equals("ALL")'>
+				AND B.ACCESS_PATH_TYPE IN ('VSQL', 'DBIO')
+			</when>
+		</choose>
+		
+		/* 진행상태 */
+		<choose>
+			<when test='status != null and status != "" and status.equals("C")'>
+				AND A.END_DT IS NOT NULL
+			</when>
+			<when test='status != null and status != "" and status.equals("E")'>
+				AND A.END_DT IS NULL
+			</when>
+		</choose>
+		
+		AND A.PARAM_TABLE_NAME IS NULL
+		ORDER BY A.IDX_AD_NO DESC
+	</sql>
+
+	<select id="autoIndexStatusList" parameterType="idxAdMst" resultType="idxAdMst">
+		/* IndexDesignAdviserDao.autoIndexStatusList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="autoIndexStatusListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>
+
+	<select id="autoIndexStatusList4Excel" parameterType="idxAdMst" resultType="java.util.LinkedHashMap">
+		/* IndexDesignAdviserDao.autoIndexStatusList4Excel */
+		<include refid="autoIndexStatusListRefId"/>
+	</select>
+	
+	<update id="updateForceComplete" parameterType="hashmap">
+		<foreach item="item" collection="param" index="index" separator=";"> 
+			UPDATE IDX_AD_MST
+			SET END_DT = SYSDATE
+			WHERE IDX_AD_NO =
+			#{item}
+		</foreach>
+	</update>
+	
+	<update id="updateForceCompleteList" parameterType="java.util.List">
+	UPDATE IDX_AD_MST
+			SET END_DT = SYSDATE
+			WHERE IDX_AD_NO IN
+		<foreach item="item" collection="list" index="index" separator="," open="(" close=")"> 
+			 #{item.idx_ad_no}
+		</foreach>
+	</update>
+	
+	<select id="indexRecommendStatusList" parameterType="idxAdRecommendIndex" resultType="idxAdRecommendIndex">
+		SELECT ROWNUM AS RNUM, A.*
+		FROM
+		( 
+			SELECT TABLE_NAME, 
+				ROW_NUMBER() OVER(PARTITION BY TABLE_NAME ORDER BY ACCESS_PATH_COLUMN_LIST) AS SEQ, 
+				RECOMMEND_TYPE, 
+				ACCESS_PATH_COLUMN_LIST, 
+				SOURCE_INDEX_NAME,
+				SOURCE_INDEX_COLUMN_LIST,
+				CASE WHEN RECOMMEND_TYPE = 'MODIFY'
+    				THEN SUBSTR(REPLACE(REPLACE(ACCESS_PATH_COLUMN_LIST,',',''),' ',''), LENGTH(REPLACE(REPLACE(SOURCE_INDEX_COLUMN_LIST,',',''),' ',''))+1)
+    				ELSE ''
+				END AS MODIFY_COLUMN
+			FROM IDX_AD_MST A, IDX_AD_RECOMMEND_INDEX B
+			WHERE A.IDX_AD_NO =  B.IDX_AD_NO
+			AND A.IDX_AD_NO = #{idx_ad_no}
+		) A
+	</select>	
+	
+	<select id="autoCollectionIndexDesignList" parameterType="accPathExec" resultType="accPathExecV2">
+		/* IndexDesignAdviserDao.autoCollectionIndexDesignList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="autoCollectionIndexDesignListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>	
+
+	<select id="autoCollectionIndexDesignList4Excel" parameterType="accPathExec" resultType="java.util.LinkedHashMap">
+		/* IndexDesignAdviserDao.autoCollectionIndexDesignList4Excel */
+		<include refid="autoCollectionIndexDesignListRefId"/>
+	</select>	
+
+	<sql id="autoCollectionIndexDesignListRefId">
+		/* IndexDesignAdviserDao.autoCollectionIndexDesignListRefId */
+		SELECT EXEC_SEQ
+			, TO_CHAR(B.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') AS START_COLLECT_DT
+			, TO_CHAR(C.SNAP_DT, 'YYYY-MM-DD HH24:MI:SS') AS END_COLLECT_DT
+			, ANALYSIS_SQL_CNT
+			, TABLE_COUNT
+			, ACCESS_PATH_COUNT
+			, TO_CHAR(ACCESS_PATH_EXEC_DT,'YYYY-MM-DD HH24:MI:SS') ACCESS_PATH_EXEC_DT
+		FROM ACC_PATH_EXEC A, VSQL_SNAPSHOT B, VSQL_SNAPSHOT C
+		WHERE A.DBID = B.DBID(+)
+		AND A.START_SNAP_NO = B.SNAP_NO(+)
+		AND A.DBID = C.DBID(+)
+		AND A.END_SNAP_NO = C.SNAP_NO(+)
+		AND A.DBID = #{dbid}
+		AND A.ACCESS_PATH_TYPE = 'VSQL'
+		AND A.ACCESS_PATH_EXEC_END_DT IS NOT NULL
+		ORDER BY A.EXEC_SEQ DESC
+	</sql>	
+	
+	<select id="autoLoadIndexDesignList" parameterType="accPathExec" resultType="accPathExecV2">
+		/* IndexDesignAdviserDao.autoLoadIndexDesignList */
+		SELECT A.EXEC_SEQ
+			, A.FILE_NO
+			, B.FILE_NM
+			, A.EXPLAIN_EXEC_SEQ
+			, A.ANALYSIS_SQL_CNT
+			, A.TABLE_COUNT
+			, A.ACCESS_PATH_COUNT
+			, TO_CHAR(A.ACCESS_PATH_EXEC_DT, 'YYYY-MM-DD HH24:MI:SS') ACCESS_PATH_EXEC_DT
+		FROM ACC_PATH_EXEC A, DBIO_LOAD_FILE B
+		WHERE A.FILE_NO = B.FILE_NO
+		AND A.DBID = #{dbid}
+		AND A.ACCESS_PATH_TYPE = 'DBIO'
+		AND A.ACCESS_PATH_EXEC_END_DT IS NOT NULL
+		ORDER BY A.EXEC_SEQ DESC
+	</select>
+	
+	<select id="isTaskStartIndexAutoDesign" parameterType="accPathExec" resultType="accPathExecV2">
+		/* IndexDesignAdviserDao.isTaskStartIndexAutoDesign */
+		SELECT COUNT(*) RNUM
+		FROM IDX_AD_MST A
+			, ACC_PATH_EXEC B
+			, DATABASE DB
+		WHERE A.DBID = B.DBID
+		AND A.EXEC_SEQ = B.EXEC_SEQ
+		AND A.DBID = DB.DBID 
+		AND A.DBID = #{dbid}
+		AND A.END_DT IS NULL
+		AND A.PARAM_TABLE_NAME IS NULL
+		AND B.ACCESS_PATH_TYPE IN ('DBIO', 'VSQL')
+	</select>
+</mapper>

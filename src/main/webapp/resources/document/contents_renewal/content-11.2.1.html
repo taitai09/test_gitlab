@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+	
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+	<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+	<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+	
+	<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>11. 성능 최적화</h1>
+		<h2>11.2. SQL 튜닝대상 선정</h2>
+		<h3>11.2.1. 자동 선정</h3>
+			
+		<div>
+			<h4 class="titleStyle-none">개요</h4>
+			<p>
+				주기적으로 튜닝 대상을 선정할 경우 자동으로 선정할 수 있다. 
+				선정주기, 선정범위, 임계값 등의 조건을 설정하여 등록하면 자동으로 대상 SQL을 
+				선정하고, 성능 개선 관리대상으로 자동 등록된다.
+			</p>
+			
+			<h4 class="titleStyle-none">화면 구성</h4>
+			<h6>Tab Area</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>Tab 명</th>
+							<th>Tab 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>자동 선정</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										자동선정 조건을 설정하여 TOP SQL을 선정하고 성능 개선 관리대상으로 등록되도록 
+										스케줄링을 할 수있다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>자동 선정 현황(선정회차)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										자동선정 조건에 의해 선정되어 튜닝이 진행되고 있는 TOP SQL 목록을 확인한다. 
+										선정회차별 일괄 튜닝종료가 가능하다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>자동 선정 현황(검색)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										자동선정 조건에 의해 선정되어 튜닝이 진행되고 있는 TOP SQL 목록을 확인한다. 
+										선정조건번호 단위로 일괄 튜닝종료가 가능하다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>자동 선정 이력</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정조건 변경에 대한 이력 정보를 조회한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[자동 선정] 탭</h5>
+			<p>
+				DB단위로 자동선정주기, 선정범위, 임계값 등의 조건을 설정하여 TOP SQL을 선정하고 성능 개선 관리대상으로 자동 등록되도록 스케줄링 한다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/21-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DB를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 담당자를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로그램 유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로그램 유형을 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정종료일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정종료일자를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로젝트를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>선정조건번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정조건의 순번
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정 대상 DB 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로그램 유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										온라인/배치
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>자동할당여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										자동 선정 시 튜닝담당자 자동 할당 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝담당자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집주기</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										일/주/월 등의 스케줄러 수행 주기
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집범위</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										일/주/월/분기/년 등의 TOP SQL의 수행 범위
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정시작일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										스케줄러 수행 시작일자
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정종료일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										스케줄러 수행 종료일자
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>이전 선정 SQL제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전에 선정된 SQL 제외 여부<br>
+										‘Yes’를 선택할 경우 이전에 선정된 SQL은 제외한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>이전 튜닝 SQL 제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전에 튜닝한 SQL 제외 여부<br>
+										‘Yes’를 선택할 경우 이전에 선정된 SQL은 제외한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Elapsed Time</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOP SQL Elapsed Time
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Buffer Gets</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOP SQL Buffer Gets
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Execution</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOP SQL Execution
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOP N</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOP SQL 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Ordered</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										정렬 기준 항목
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module명 1</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Module명 1
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module명 2</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Module명 2
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Parsing Schema Name</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL 수행 파싱스키마 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL Text</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL 텍스트
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정한 일시
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>애플리케이션 필터 여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										애플리케이션 필터 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>사용여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										자동선정 조건의 사용여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>삭제여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										데이터 삭제여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로젝트 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝진행단계</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝진행단계
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>등록/수정Area &gt; [등록/수정(건별)] 탭</h6>
+			<p class="title-h7">입력항목 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>선정 대상 데이터베이스</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝담당자 자동 할당</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>‘Yes’: 튜닝담당자를 자동 할당</li>
+									<li>‘No’: 인 경우 튜닝담당자(튜너) 지정</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로그램 유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>온라인/배치 유형 선택</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집주기</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>일: 매일 수행</li>
+									<li>주: 매주 수행</li>
+									<li>월: 매월 수행</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집범위</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>일: 전일자</li>
+									<li>주: 전일자부터 이전 1주일</li>
+									<li>월: 전일자부터 이전 1개월</li>
+									<li>분기: 전일자부터 이전 3개월</li>
+									<li>년: 전일자부터 이전 1년</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정시작일, 선정종료일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>스케줄러 수행 시작일자과 수행 종료일자</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>이전 선정 SQL제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>이전에 선정된 SQL을 제외할 지 여부</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>이전 튜닝 SQL 제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>이전에 튜닝한 SQL을 제외할 지 여부</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Elapsed Time</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>입력한 Elapsed Time을 초과</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Buffer Gets</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>입력한 Buffer Gets을 초과</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Executions</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>입력한 Executions 이상</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module명 1</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>입력한 Module명 1이 조건에 포함(대소문자 구분 없음)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module명 2</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>입력한 Module명 2이 조건에 포함(대소문자 구분 없음)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Parsing Schema Name</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>SQL 수행 파싱스키마명</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL Text</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>입력한 SQL 텍스트 포함(대소문자 구분 없음)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOP N</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>TOP SQL 최대 건수</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Ordered</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>TOP SQL 선정 시 정렬을 위한 기준 항목</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>애플리케이션 필터 여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>애플리케이션 필터 여부</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>사용여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>자동선정 조건의 사용여부(‘Yes’: 사용)</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>삭제여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>데이터의 삭제여부</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">등록</p>
+			<ol class="listStyle-number">
+				<li>
+					[초기화] 버튼을 클릭 한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-2.png">
+					</div>
+				</li>
+				<li>
+					관련 정보를 입력하고 [저장] 버튼을 클릭한다. 저장이 완료되면 아래와 같은 메시지 창이 뜬다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-3.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">수정</p>
+			<ol class="listStyle-number">
+				<li>
+					수정하고자 하는 행을 클릭한다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-4.png">
+					</div>
+				</li>
+				<li>
+					선택된 값이 조회되며, 변경할 값을 입력하고 [저장] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-5.png">
+					</div>
+				</li>
+				<li>
+					메시지 창이 뜨고 데이터가 저장된다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-6.png">
+					</div>
+				</li>
+			</ol>
+			
+			<div class="noteBox">
+				<p class="noteTitle">NOTE</p>
+				<p>
+					통상 온라인 프로그램과 배치 프로그램의 TOP SQL 선정조건이 다르기 때문에 
+					하나의 DB에 여러 개의 자동선정 조건을 등록하여 사용할 수 있다.
+				</p>
+			</div>
+			
+			<h6>선정 현황</h6>
+			<p>
+				[자동 선정 현황(선정회차)] 탭으로 이동한다.
+			</p>
+			
+			<h6>선정조건 변경이력</h6>
+			<p>
+				[자동 선정 이력] 탭으로 이동한다.
+			</p>
+			
+			<h6>등록/수정Area &gt; [일괄 수정] 탭</h6>
+			<p>
+				선정 조건에 대한 일괄 수정 필요시 사용한다.
+			</p>
+			<br>
+			
+			<p class="title-h7">전체 일괄 수정</p>
+			<p>
+				검색된 데이터의 전체 목록을 일괄 수정한다. 
+			</p>
+			<ol class="listStyle-number">
+				<li>
+					‘전체’ 체크 박스를 클릭하면 하위의 모든 체크 박스가 체크된다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-7.png">
+					</div>
+				</li>
+				<li>
+					[일괄 수정] 탭에서 일괄 수정 대상 항목을 체크한다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-8.png">
+					</div>
+				</li>
+				<li>
+					변경할 값을 입력 후 [일괄 수정] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-9.png">
+					</div>
+				</li>
+				<li>
+					일괄 수정하시겠습니까? 메시지가 뜬 후 YES를 클릭하면 수정이 완료된다.
+					<div class="imageBox" style="width: 730px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-10.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">개별 일괄 수정</p>
+			<p>
+				검색된 데이터를 개별 선택하여 수정한다.
+			</p>
+			<ol class="listStyle-number">
+				<li>
+					일괄 수정할 선정조건에 대한 체크 박스를 클릭한다. 멀티 선택이 가능하다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/21-11.png">
+					</div>
+				</li>
+				<li>
+					이후의 처리 과정은 ‘&gt; 전체 일괄 수정’ 과 처리 과정이 동일하므로 해당 매뉴얼을 참조한다.
+				</li>
+			</ol>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[자동 선정 현황(선정회차)] 탭</h5>
+			<p>
+				자동선정 조건에 의해 튜닝대상으로 선정되어 튜닝이 진행되고 있는 TOP SQL 목록을 확인한다.<br>
+				튜닝대상 선정이 잘못되었거나 튜닝이 불필요한 경우 목록을 선택하여 
+				<span class="text-bold">선정회차별</span> 일괄 튜닝종료가 가능하다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/22-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DB를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정조건번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정조건번호를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정일자를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DB 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정조건번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정조건번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정회차</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정회차
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정일자
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정건수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-middleTitle" colspan="2">선정조건</td>
+						</tr>
+						<tr>
+							<td class="table-indent">수집주기</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정조건 수집주기
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">수집범위</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정조건 수집범위
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">이전 선정 SQL 제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전 선정 SQL 제외 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">이전 튜닝 SQL 제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전 튜닝 SQL 제외 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">Elapsed Time(sec)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Elapsed Time(sec)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">Buffer Gets</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Buffer Gets
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">Executions</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Executions
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">TOP N</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOP SQL 최대 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td class="table-indent">Ordered</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										정렬 기준 항목
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로젝트 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝진행단계</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝진행단계
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">그리드 클릭</p>
+			<ol class="listStyle-number">
+				<li>
+					그리드를 클릭한다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/22-2.png">
+					</div>
+				</li>
+				<li>
+					하단 그리드에 상단에서 선택한 로우의 상세 데이터가 조회된다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/22-3.png">
+					</div>
+				</li>
+			</ol>
+			
+			<h6>일괄 튜닝 종료</h6>
+			<p class="title-h7">일괄 튜닝 종료 대상 전체 선택</p>
+			<ol class="listStyle-number">
+				<li>
+					‘전체’ 체크 박스를 클릭하면 하위의 모든 체크 박스가 체크된다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/22-4.png">
+					</div>
+				</li>
+				<li>
+					[일괄 튜닝 종료] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 200px;">
+						<img src="/resources/images/menual/bgimg_renewal/22-5.png">
+					</div>
+				</li>
+				<li>
+					일괄 튜닝 종료 팝업창이 뜨고, 튜닝종료 사유를 선택하고 내용을 입력하여 확인버튼을 클릭한다.
+					<div class="imageBox" style="width: 500px;">
+						<img src="/resources/images/menual/bgimg_renewal/22-6.png">
+					</div>
+				</li>
+				<li>
+					튜닝종료 알림 메시지창이 뜨고 튜닝이 종료된다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/22-7.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">일괄 튜닝 종료 대상 개별 선택</p>
+			<ol class="listStyle-number">
+				<li>
+					튜닝대상 SQL에 대한 체크 박스를 클릭한다. 멀티 선택이 가능하다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/22-8.png">
+					</div>
+				</li>
+				<li>
+					이후의 처리 과정은 ‘&gt; 일괄 튜닝 종료 대상 전체 선택’ 과 처리 과정이 동일하므로 해당 매뉴얼을 참조한다.
+				</li>
+			</ol>
+			
+			<h6>상세 그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>튜닝번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝담당자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝상태</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 진행 상태
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL_ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL ID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>PLAN_HASH_VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										PLAN_HASH_VALUE
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>PARSING_SCHEMA_NAME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										PARSING_SCHEMA_NAME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ELAPSED_TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										ELAPSED_TIME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>BUFFER_GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										BUFFER_GETS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>EXECUTIONS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										EXECUTIONS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>DISK_READS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DISK_READS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ROWS_PROCESSED</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										ROWS_PROCESSED
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>MODULE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										MODULE
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>RATIO_BUFFER_GET_TOTAL</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										RATIO_BUFFER_GET_TOTAL
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>RATIO_CPU_TOTAL</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										RATIO_CPU_TOTAL
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>RATIO_CPU_PER_EXECUTIONS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										RATIO_CPU_PER_EXECUTIONS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL_TEXT</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL_TEXT
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>엑셀(M)</h6>
+			<p>
+				자동 선정 현황(선정회차) 상단 그리드를 엑셀파일로 다운받는다.
+			</p>
+			
+			<h6>엑셀(S)</h6>
+			<p>
+				자동 선정 현황(선정회차) 하단 그리드를 엑셀파일로 다운받는다.
+			</p>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[자동 선정 현황(검색)] 탭</h5>
+			<p>
+				자동선정 조건에 의해 튜닝대상으로 선정되어 튜닝이 진행되고 있는 TOP SQL 목록을 확인한다. 
+				튜닝대상 선정이 잘못되었거나 튜닝이 불필요한 경우 
+				<span class="text-bold">선정조건번호 단위</span>로 일괄 튜닝종료가 가능하다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/23-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DB를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>신청조건번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										신청조건 번호를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>신청일자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정일자기간을 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝 담당자를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로젝트를 선택한다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>그리드 Area</h6>
+			<p>
+				그리드 컬럼정보는 [자동 선정 현황(선정회차)] 와 동일하다.
+			</p>
+			
+			<p class="title-h7">그리드 클릭</p>
+			<ol class="listStyle-number">
+				<li>
+					그리드를 클릭한다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/23-2.png">
+					</div>
+				</li>
+				<li>
+					하단 그리드에 상단에서 선택한 로우의 상세 데이터가 조회된다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/23-3.png">
+					</div>
+				</li>
+				<li>
+					체크박스의 항목을 선택하고 일괄 튜닝 종료를 선택한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/23-4.png">
+					</div>
+				</li>
+				<li>
+					일괄 튜닝 종료 팝업창이 뜨고, 튜닝종료 사유를 선택하고 내용을 입력하여 확인버튼을 클릭한다.
+					<div class="imageBox" style="width: 400px;">
+						<img src="/resources/images/menual/bgimg_renewal/23-5.png">
+					</div>
+				</li>
+				<li>
+					튜닝종료 알림 메시지창이 뜨고 튜닝이 종료된다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/23-6.png">
+					</div>
+				</li>
+			</ol>
+			
+			<h6>엑셀(M)</h6>
+			<p>
+				자동 선정 현황(검색) 상단 그리드를 엑셀파일로 다운받는다.
+			</p>
+			
+			<h6>엑셀(S)</h6>
+			<p>
+				자동 선정 현황(검색) 하단 그리드를 엑셀파일로 다운받는다.
+			</p>
+			
+			
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[자동 선정 이력] 탭</h5>
+			<p>
+				선정조건 변경에 대한 이력 정보를 조회한다.
+			</p>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>선정조건번호</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정조건번호
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수정일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										수정일시
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DB 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로그램유형</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로그램 유형
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>자동할당여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										자동할당여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝담당자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝담당자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집주기</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										수집주기
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수집범위</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										수집범위
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정시작일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정시작일
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정종료일</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정종료일
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>이전 선정 SQL 제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전 선정 SQL 제외 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>이전 튜닝 SQL 제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전 튜닝 SQL 제외 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Elapsed Time(sec)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Elapsed Time(sec)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Buffer Gets</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Buffer Gets
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Executions</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Executions
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOP N</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOP N SQL 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Ordered</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Ordered
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module명 1</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Module명 1
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module명 2</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Module명 2
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Parsing Schema Name</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										Parsing Schema Name
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL TEXT</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL TEXT
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>애플리케이션 필터 여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										애플리케이션 필터 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>사용 여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										사용 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>삭제 여부</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										삭제 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정자
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>선정일시</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정일시
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수정자</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										수정자 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>프로젝트</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										프로젝트 명
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>튜닝진행단계</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										튜닝진행단계
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">자동 선정 이력 데이터 조회</p>
+			<ol class="listStyle-number">
+				<li>
+					[자동 선정] 탭에서 조회하고자 하는 선정조건번호를 클릭 &gt; [선정조건 변경이력] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/24-1.png">
+					</div>
+				</li>
+				<li>
+					[자동 선정 이력] 탭으로 이동되면서 자동 선정 이력 데이터가 조회된다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/24-2.png">
+					</div>
+				</li>
+			</ol>
+		</div>
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.27	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.ScheduleDao">
+	<select id="scheduleList" parameterType="schedule" resultType="schedule">
+		SELECT A.USER_ID, B.USER_NM AS USER_NM, A.SCHED_SEQ, A.SCHED_TYPE_CD, CD1.CD_NM AS SCHED_TYPE_NM, A.SCHED_TITLE, SUBSTR(A.SCHED_SBST,1,20) AS SCHED_SBST, 
+			TO_CHAR(A.SCHED_START_DT, 'YYYY-MM-DD HH24:MI') AS SCHED_START_DT, TO_CHAR(A.SCHED_END_DT, 'YYYY-MM-DD HH24:MI') AS SCHED_END_DT,
+			TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI') AS REG_DT
+		FROM SCHEDULE A, USERS B, CD CD1
+		WHERE A.USER_ID = B.USER_ID
+		AND CD1.GRP_CD_ID = '1013'
+		AND A.SCHED_TYPE_CD = CD1.CD(+)
+		AND ((A.SCHED_TYPE_CD = 1 AND A.USER_ID = #{user_id})  OR A.SCHED_TYPE_CD = '2')
+		<choose>
+			<when test="strGubun != null and (strGubun eq '01'.toString())"> <!-- 일정시작일자 -->
+				AND A.SCHED_START_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS') 
+			</when>
+			<when test="strGubun != null and (strGubun eq '02'.toString())"> <!-- 일정종료일자 -->
+				AND A.SCHED_END_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+			<when test="strGubun != null and (strGubun eq '03'.toString())"> <!-- 등록일자 -->
+				AND A.REG_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			</when>
+		</choose>		
+		<choose>
+			<when test="searchKey != null and (searchKey eq '01'.toString())">
+				AND A.SCHED_TITLE LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '02'.toString())">
+				AND A.SCHED_SBST LIKE '%' || #{searchValue} || '%'
+			</when>
+			<when test="searchKey != null and (searchKey eq '03'.toString())">
+				AND (A.SCHED_TITLE LIKE '%' || #{searchValue} || '%' OR A.SCHED_SBST LIKE '%' || #{searchValue} || '%')
+			</when>
+		</choose>				
+		ORDER BY A.SCHED_START_DT DESC, A.SCHED_END_DT DESC, A.REG_DT DESC 
+	</select>
+
+	<select id="getSchedule" parameterType="schedule" resultType="schedule">
+		SELECT A.USER_ID, B.USER_NM AS USER_NM, A.SCHED_SEQ, A.SCHED_TYPE_CD, CD1.CD_NM AS SCHED_TYPE_NM, A.SCHED_TITLE, A.SCHED_SBST, 
+			TO_CHAR(A.SCHED_START_DT, 'YYYY-MM-DD HH24:MI') AS SCHED_START_DT, TO_CHAR(A.SCHED_END_DT, 'YYYY-MM-DD HH24:MI') AS SCHED_END_DT,
+			TO_CHAR(A.SCHED_START_DT, 'YYYY-MM-DD') AS SCHED_START_DATE, TO_CHAR(A.SCHED_START_DT, 'HH24:MI') AS SCHED_START_TIME, 
+			TO_CHAR(A.SCHED_END_DT, 'YYYY-MM-DD') AS SCHED_END_DATE, TO_CHAR(A.SCHED_END_DT, 'HH24:MI') AS SCHED_END_TIME,
+			TO_CHAR(A.REG_DT, 'YYYY-MM-DD HH24:MI:SS') AS REG_DT
+		FROM SCHEDULE A, USERS B, CD CD1
+		WHERE A.USER_ID = #{user_id}
+		AND A.SCHED_SEQ = #{sched_seq}
+		AND A.USER_ID = B.USER_ID
+		AND CD1.GRP_CD_ID = '1013'
+		AND A.SCHED_TYPE_CD = CD1.CD(+)
+	</select>
+
+	<select id="getMaxSchedNo" parameterType="schedule" resultType="string">
+		SELECT NVL(MAX(SCHED_SEQ) + 1, 1) AS SCHED_SEQ
+		FROM SCHEDULE
+		WHERE USER_ID = #{user_id}
+	</select>
+	
+	<insert id="insertSchedule" parameterType="schedule">
+		INSERT INTO SCHEDULE (
+			USER_ID, SCHED_SEQ, SCHED_TYPE_CD, SCHED_TITLE, SCHED_SBST, 
+			SCHED_START_DT, SCHED_END_DT, ALLDAY_YN, RPT_YN, REG_DT
+		) VALUES (
+			#{user_id}, #{sched_seq}, #{sched_type_cd}, #{sched_title}, #{sched_sbst},
+			TO_DATE(#{sched_start_dt},'YYYY-MM-DD HH24:MI:SS'), TO_DATE(#{sched_end_dt},'YYYY-MM-DD HH24:MI:SS'), 'N', 'N', SYSDATE
+		)	
+	</insert>	
+	
+	<update id="updateSchedule" parameterType="schedule">
+		UPDATE SCHEDULE
+		<set>
+			<if test="sched_type_cd != null">SCHED_TYPE_CD = #{sched_type_cd},</if>
+			<if test="sched_title != null">SCHED_TITLE = #{sched_title},</if>
+			<if test="sched_sbst != null">SCHED_SBST = #{sched_sbst},</if>
+			<if test="sched_start_dt != null">SCHED_START_DT = TO_DATE(#{sched_start_dt},'YYYY-MM-DD HH24:MI:SS'),</if>
+			<if test="sched_end_dt != null">SCHED_END_DT = TO_DATE(#{sched_end_dt},'YYYY-MM-DD HH24:MI:SS'),</if>
+		</set>
+		<trim prefix="SET" suffixOverrides=","></trim>		
+		WHERE USER_ID = #{user_id} AND SCHED_SEQ = #{sched_seq}	
+	</update>
+	
+	<update id="deleteSchedule" parameterType="schedule">
+		DELETE FROM SCHEDULE WHERE USER_ID = #{user_id} AND SCHED_SEQ = #{sched_seq}
+	</update>
+</mapper>

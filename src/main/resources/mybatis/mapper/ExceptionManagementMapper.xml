@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2017.08.10	이원식	최초작성	
+-->
+<mapper namespace="omc.spop.dao.ExceptionManagementDao">
+	<!-- 예외 점검 항목 조회  -->
+	<select id="getCheckItemList" parameterType="dbCheckConfig" resultType="dbCheckConfig">
+		/* ExceptionManagementDao.getCheckItemList */
+		SELECT B.CHECK_PREF_ID, 
+		       B.CHECK_PREF_NM
+		  FROM DB_CHECK_EXCEPTION_HEAD_TITLLE A
+		     , BASIC_CHECK_CONFIG B
+		 WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID
+		ORDER BY B.CHECK_CLASS_DIV_CD, B.CHECK_PREF_ID
+	</select>
+	<!-- 예외관리 검색조건 콤보 데이터  -->
+	<select id="getDbCheckExceptionHeadTitleList" parameterType="dbCheckExceptionHeadTitle" resultType="dbCheckExceptionHeadTitle">
+		/* ExceptionManagementDao.getDbCheckExceptionHeadTitleList */
+		SELECT A.CHECK_PREF_ID
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_1
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_2
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_3
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_4
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_5
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_6
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_7
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_8
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_9
+		     , A.CHECK_EXCEPT_HEAD_TITLE_NM_10
+		     , A.CHECK_EXCEPT_KEY_CNT 
+		  FROM DB_CHECK_EXCEPTION_HEAD_TITLLE A
+		 WHERE A.CHECK_PREF_ID = #{check_pref_id}
+	</select>
+
+	<!-- 
+	3) 예외 내역 검색 
+	    3.1) 예외 타이틀 검색 - Query 2) 번항목과 동일
+	    3.2) 예외 내역 검색
+	        * CHECK_EXCEPT_KEY_CNT 의 값만큼 CHECK_EXCEPT_OBJECT_NAME_n 값을 그리드에 출력
+	-->
+	<sql id="getDbCheckExceptionListRefId">
+		/* ExceptionManagementDao.getDbCheckExceptionListRefId */
+		SELECT A.CHECK_EXCEPT_OBJECT_NAME_1
+		     , A.CHECK_EXCEPT_OBJECT_NAME_2
+		     , A.CHECK_EXCEPT_OBJECT_NAME_3
+		     , A.CHECK_EXCEPT_OBJECT_NAME_4
+		     , A.CHECK_EXCEPT_OBJECT_NAME_5
+		     , A.CHECK_EXCEPT_OBJECT_NAME_6
+		     , A.CHECK_EXCEPT_OBJECT_NAME_7
+		     , A.CHECK_EXCEPT_OBJECT_NAME_8
+		     , A.CHECK_EXCEPT_OBJECT_NAME_9
+		     , A.CHECK_EXCEPT_OBJECT_NAME_10 
+		     , TO_CHAR(A.EXCEPT_PROCESS_DT, 'YYYY-MM-DD HH24:MI:SS') EXCEPT_PROCESS_DT   -- 예외등록일시
+		     , U.USER_NM                                                                 -- 예외등록자
+		     
+<!-- 		     /* HIDDEN */ -->
+		     , A.DB_CHECK_EXCEPTION_NO
+		     , B.CHECK_PREF_ID
+			 , B.CHECK_PREF_NM                   -- 점검항목
+		     , DB.DB_NAME
+		     , DB.DBID
+		  FROM DB_CHECK_EXCEPTION A
+		     , BASIC_CHECK_CONFIG B
+		     , DATABASE DB
+		     , USERS U
+		 WHERE A.CHECK_PREF_ID = B.CHECK_PREF_ID
+		   AND A.DBID = DB.DBID
+		   AND A.EXCEPT_PROCESSOR_ID = U.USER_ID
+		   AND A.DBID = #{dbid}
+		   AND A.CHECK_PREF_ID = #{check_pref_id}
+		   AND NVL(A.EXCEPT_DEL_YN, 'N') = 'N'
+		   
+<!-- 		   /* 검색조건 -->
+<!-- 		       * 검색 항목 콤보박스에서 선택된 조건 -->
+<!-- 		       * CHECK_EXCEPT_OBJECT_NAME_1  선택 -->
+<!-- 		   */ -->
+		<if test="searchValue != null and searchValue != ''">
+			<if test="check_except_object_index != null and check_except_object_index != ''">
+				AND UPPER(A.CHECK_EXCEPT_OBJECT_NAME_${check_except_object_index}) LIKE '%' || UPPER(#{searchValue}) || '%'
+		   </if>
+		</if>
+		   
+		 ORDER BY A.CHECK_EXCEPT_OBJECT_NAME_1, A.CHECK_EXCEPT_OBJECT_NAME_2
+		        , A.CHECK_EXCEPT_OBJECT_NAME_3, A.CHECK_EXCEPT_OBJECT_NAME_4
+		        , A.CHECK_EXCEPT_OBJECT_NAME_5, A.CHECK_EXCEPT_OBJECT_NAME_6
+		        , A.CHECK_EXCEPT_OBJECT_NAME_7, A.CHECK_EXCEPT_OBJECT_NAME_8
+		        , A.CHECK_EXCEPT_OBJECT_NAME_9, A.CHECK_EXCEPT_OBJECT_NAME_10 
+	</sql>
+
+	<select id="getDbCheckExceptionList" parameterType="dbCheckException" resultType="dbCheckException">
+		/* ExceptionManagementDao.getDbCheckExceptionList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="getDbCheckExceptionListRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="getDbCheckExceptionList4Excel" parameterType="dbCheckException" resultType="java.util.LinkedHashMap">
+		/* ExceptionManagementDao.getDbCheckExceptionList4Excel */
+		<include refid="getDbCheckExceptionListRefId"/>
+	</select>	
+
+<!-- 4) 예외 등록 삭제 -->
+<!--     * 물리적 삭제하지 않고 삭제 FLAG 만 업데이트 -->
+	<update id="updateExceptDelYn" parameterType="dbCheckException">
+		/* ExceptionManagementDao.updateExceptDelYn */
+		UPDATE DB_CHECK_EXCEPTION
+		   SET EXCEPT_DEL_ID = #{user_id}   -- 로그인 USER_ID
+		     , EXCEPT_DEL_DT = SYSDATE    -- 현재시간
+		     , EXCEPT_DEL_YN = 'Y'        -- 삭제 : 'Y'
+		 WHERE DB_CHECK_EXCEPTION_NO = #{db_check_exception_no}
+	</update>
+	
+	<select id="checkExceptionDup" parameterType="dbCheckException" resultType="int">
+		/* ExceptionManagementDao.checkExceptionDup */
+		SELECT COUNT(*) FROM DB_CHECK_EXCEPTION
+		WHERE CHECK_PREF_ID = #{check_pref_id}
+		AND DBID = #{dbid}
+		${search_condition}
+		AND EXCEPT_DEL_YN = 'N'
+	</select>
+	
+	<insert id="registException" parameterType="dbCheckException">
+		/* ExceptionManagementDao.registException */
+		INSERT INTO DB_CHECK_EXCEPTION(DB_CHECK_EXCEPTION_NO, CHECK_PREF_ID, DBID,${check_except_object_name}, EXCEPT_PROCESSOR_ID, EXCEPT_PROCESS_DT, EXCEPT_DEL_YN )
+		VALUES( SQ_SPOP_DB_CHECK_EXCEPTION_NO.NEXTVAL, #{check_pref_id}, #{dbid},${check_except_object_value}, #{user_id}, SYSDATE, 'N')
+	</insert>
+	
+</mapper>

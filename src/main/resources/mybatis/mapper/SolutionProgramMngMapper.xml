@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.spop.dao.SolutionProgramMngDao">
+	
+	<select id="programListTree" parameterType="solutionProgramMng" resultType="solutionProgramMng">
+		/* SolutionProgramMngDao.programListTree */
+		 /* #2: 목차 조회 */
+		SELECT  
+		       ROWNUM AS RNUM  
+		     , (SELECT CD_NM FROM CD WHERE GRP_CD_ID = '1074' AND CD = A.SLT_PROGRAM_DIV_CD) AS SLT_PROGRAM_DIV_NM                 /* 솔루션프로그램구분 */              
+		     , A.CONTENTS_ID AS ID                             /* 목차ID             */        
+		     , A.CONTENTS_ID AS CONTENTS_ID                             /* 목차ID             */        
+		     , LPAD(' ', 4*(LEVEL-1))||A.CONTENTS_NAME AS PATH /* 목차명 (계층표현)  */
+		     , A.CONTENTS_DESC                                 /* 설명               */
+		     , A.CONTENTS_URL_ADDR                             /* 호출 URL주소       */
+		     , EXADATA_CONTENTS_YN                             /* Exadata여부        */
+		     , A.CONTENTS_ORDERING                             /* 정렬순서           */
+		     , A.USE_YN                                        /* 사용여부           */
+		     -- HIDDEN
+  			 , SLT_PROGRAM_DIV_CD
+		     , LEVEL      
+		     , A.CONTENTS_NAME AS TEXT  /* 목차명 */      
+		     , A.CONTENTS_NAME  /* 목차명 */      
+		     , NVL(A.PARENT_CONTENTS_ID,'-1') AS PARENT_CONTENTS_ID     
+		     , A.SLT_PROGRAM_DIV_CD
+		  FROM SLT_PROGRAM_CONTENTS A
+		 WHERE 
+			    A.SLT_PROGRAM_DIV_CD = #{slt_program_div_cd}
+		 START WITH A.PARENT_CONTENTS_ID IS NULL
+		 CONNECT BY PRIOR A.CONTENTS_ID = A.PARENT_CONTENTS_ID
+		ORDER SIBLINGS BY A.CONTENTS_ID, A.CONTENTS_ORDERING   
+	</select>
+	
+	<select id="getParentContentsIdList" parameterType="solutionProgramMng" resultType="String">
+		/* SolutionProgramMngDao.getParentContentsIdList */
+		SELECT CONTENTS_ID FROM SLT_PROGRAM_CONTENTS WHERE PARENT_CONTENTS_ID = #{contents_id} 
+	</select>
+	
+    <update id="updateSolutionProgramListMng" parameterType="users">
+    	/* SolutionProgramMngDao.updateSolutionProgramListMng */
+    	/* #3: UPDATE - 목차  */
+		 UPDATE SLT_PROGRAM_CONTENTS     									  -- 솔루션프로그램목차기본(TABLE)
+			<trim prefix="SET" suffixOverrides=",">
+			   	   PARENT_CONTENTS_ID = #{parent_contents_id}                    -- 부모목차ID
+				<if test="contents_name != null and contents_name != ''">
+			     , CONTENTS_NAME = #{contents_name}                              -- 목차명
+				</if>
+				<if test="slt_program_div_cd != null and slt_program_div_cd != ''">
+			     , SLT_PROGRAM_DIV_CD = #{slt_program_div_cd}                    -- 솔루션프로그램구분코드
+				</if>
+				<if test="contents_desc != null and contents_desc != ''">
+			     , CONTENTS_DESC = #{contents_desc}                              -- 목차 설명
+				</if>
+				<if test="contents_url_addr != null and contents_url_addr != ''">
+			     , CONTENTS_URL_ADDR = #{contents_url_addr}                      -- 목차URL주소
+				</if>
+				<if test="exadata_contents_yn != null and exadata_contents_yn != ''">
+			     , EXADATA_CONTENTS_YN = #{exadata_contents_yn}                  -- Exadata목차여부
+				</if>
+				<if test="contents_ordering != null and contents_ordering != ''">
+			     , CONTENTS_ORDERING = #{contents_ordering}                      -- 목차정렬순서
+				</if>
+				<if test="use_yn != null and use_yn != ''">
+			     , USE_YN = #{use_yn}                                            -- 사용여부
+				</if>
+			 WHERE CONTENTS_ID = #{contents_id}                                  -- 목차ID
+			</trim>
+	</update>
+	
+	<insert id="insertSolutionProgramListMng" parameterType="solutionProgramMng">
+		/* SolutionProgramMngDao.insertSolutionProgramListMng */
+		/* #4: INSERT - 목차 */
+		INSERT INTO   SLT_PROGRAM_CONTENTS     									-- 솔루션프로그램목차기본(TABLE)
+		        ( CONTENTS_ID                                                 -- 목차ID
+		        , PARENT_CONTENTS_ID                                          -- 부모목차ID
+		        , CONTENTS_NAME                                               -- 목차명
+		        , SLT_PROGRAM_DIV_CD                                          -- 솔루션프로그램구분코드
+		        , CONTENTS_DESC                                               -- 목차 설명
+		        , CONTENTS_URL_ADDR                                           -- 목차URL주소
+		        , EXADATA_CONTENTS_YN                                         -- Exadata목차여부
+		        , CONTENTS_ORDERING                                           -- 목차정렬순서
+		        , USE_YN                                                      -- 사용여부
+		 ) VALUES (
+		           (SELECT #{slt_program_div_cd}||NVL(MAX(SUBSTR(A.CONTENTS_ID, 2, LENGTH(A.CONTENTS_ID))) +1, 101)
+		              FROM SLT_PROGRAM_CONTENTS A
+		             WHERE SLT_PROGRAM_DIV_CD = #{slt_program_div_cd})        -- 목차ID
+		        , #{parent_contents_id}                                       -- 부모목차ID
+		        , #{contents_name}                                            -- 목차명
+		        , #{slt_program_div_cd}                                       -- 솔루션프로그램구분코드
+		        , #{contents_desc}                                            -- 목차 설명
+		        , #{contents_url_addr}                                        -- 목차URL주소
+		        , #{exadata_contents_yn}                                      -- Exadata목차여부
+		        , #{contents_ordering}                                        -- 목차정렬순서
+		        , #{use_yn}                                                   -- 사용여부
+		        ) 
+	</insert>
+	
+	<delete id="deleteSolutionProgramListMng" parameterType="solutionProgramMng">
+		/* SolutionProgramMngDao.insertSolutionProgramListMng */
+		/* #5: DELETE - 목차  */
+		DELETE SLT_PROGRAM_CONTENTS A     -- 솔루션프로그램목차기본(TABLE)
+		 WHERE A.CONTENTS_ID = #{contents_id}                                  -- 목차ID
+	</delete>
+	
+	
+    <select id="contentsIsEmpty" parameterType="solutionProgramMng" resultType="int">
+       	/* SolutionProgramMngDao.contentsIsEmpty */
+			SELECT COUNT(contents_id) FROM SLT_PROGRAM_CONTENTS WHERE PARENT_CONTENTS_ID = #{contents_id}    
+	</select>
+	
+	<sql id="programRuleRefId" >
+	/* SolutionProgramMngDao.programRuleRefId */
+	SELECT CD1.CD_NM AS SLT_PROGRAM_DIV_NM
+		     , A.SLT_PROGRAM_SQL_NUMBER
+		     , A.SLT_PROGRAM_SQL_NAME
+		     , B.CONTENTS_NAME
+		     , A.SLT_PROGRAM_SQL_DESC
+		     , A.SLT_PROGRAM_CHK_SQL
+		     -- HIDDEN
+		     , A.SLT_PROGRAM_DIV_CD     
+		     , A.CONTENTS_ID     
+		  FROM SLT_PROGRAM_SQL A
+		     , SLT_PROGRAM_CONTENTS B
+		     , CD CD1
+		 WHERE A.SLT_PROGRAM_DIV_CD = #{slt_program_div_cd}
+		   AND A.CONTENTS_ID = B.CONTENTS_ID(+)
+		   AND CD1.GRP_CD_ID = '1074'
+		   AND CD1.CD = A.SLT_PROGRAM_DIV_CD
+		<if test="slt_program_sql_name != null and slt_program_sql_name != ''">
+		   -- '프로그램 RULE명'이 입력되면
+		   AND SLT_PROGRAM_SQL_NAME LIKE '%'||#{slt_program_sql_name}||'%'
+		</if>
+		 ORDER BY SLT_PROGRAM_SQL_NUMBER
+	</sql>
+	
+	<select id="programRule" parameterType="solutionProgramMng" resultType="solutionProgramMng">
+		/* SolutionProgramMngDao.programRule */
+		/* #2: 그리드 조회 */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, AA.*
+		    FROM (
+				<include refid="programRuleRefId"/>
+		    ) AA
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > (${pagePerCount} * (${currentPage}-1))	
+	</select>
+	
+	<select id="programRuleByExcelDown" parameterType="solutionProgramMng" resultType="java.util.LinkedHashMap">
+		/* UserMngDao.programRuleByExcelDown */
+		<include refid="programRuleRefId"/>
+	</select>
+	
+<!-- 	<select id="contentsNameList" parameterType="solutionProgramMng" resultType="solutionProgramMng">
+		/* SolutionProgramMngDao.contentsNameList */
+		SELECT CONTENTS_NAME FROM SLT_PROGRAM_CONTENTS
+	</select> -->
+	
+    <update id="updateProgramRule" parameterType="solutionProgramMng">
+    	/* SolutionProgramMngDao.updateSolutionProgramRule */
+		/* #4: UPDATE */
+		/*  UPDATE SLT_PROGRAM_SQL       -- 솔루션프로그램SQL(TABLE) */
+		
+		UPDATE SLT_PROGRAM_SQL       -- 솔루션프로그램SQL(TABLE)
+		   SET 
+			<if test="slt_program_sql_name != null and slt_program_sql_name != ''">
+		   	   SLT_PROGRAM_SQL_NAME = #{slt_program_sql_name}                -- 솔루션프로그램SQL명
+			</if>
+			<if test="slt_program_div_cd != null and slt_program_div_cd != ''">
+		     , SLT_PROGRAM_DIV_CD = #{slt_program_div_cd}                    -- 솔루션프로그램구분코드
+			</if>
+	     	, CONTENTS_ID = #{contents_id}                                  -- 목차ID
+			<if test="slt_program_sql_desc != null and slt_program_sql_desc != ''">
+		     , SLT_PROGRAM_SQL_DESC = #{slt_program_sql_desc}                -- 솔루션프로그램SQL설명
+			</if>
+			<if test="slt_program_chk_sql != null and slt_program_chk_sql != ''">
+		     , SLT_PROGRAM_CHK_SQL = #{slt_program_chk_sql}                  -- 솔루션프로그램점검SQL
+			</if>
+		 WHERE SLT_PROGRAM_SQL_NUMBER = #{slt_program_sql_number}            -- 솔루션프로그램SQL번호
+	</update>
+	
+	<insert id="insertProgramRule" parameterType="solutionProgramMng">
+		/* SolutionProgramMngDao.insertSolutionProgramRule */
+		/* #3: INSERT */
+		/* INSERT INTO SLT_PROGRAM_SQL */  										  -- 솔루션프로그램SQL(TABLE)
+		
+		INSERT INTO SLT_PROGRAM_SQL  									  -- 솔루션프로그램SQL(TABLE)
+		        ( SLT_PROGRAM_SQL_NUMBER                                      -- 솔루션프로그램SQL번호
+		        , SLT_PROGRAM_SQL_NAME                                        -- 솔루션프로그램SQL명
+		        , SLT_PROGRAM_DIV_CD                                          -- 솔루션프로그램구분코드
+		        , CONTENTS_ID                                                 -- 목차ID
+		        , SLT_PROGRAM_SQL_DESC                                        -- 솔루션프로그램SQL설명
+		        , SLT_PROGRAM_CHK_SQL                                         -- 솔루션프로그램점검SQL
+		 ) VALUES (  
+		          (SELECT NVL(MAX(SLT_PROGRAM_SQL_NUMBER) + 1, 10001)
+		           FROM SLT_PROGRAM_SQL) 										-- 솔루션프로그램SQL번호
+		        , #{slt_program_sql_name}                                       -- 솔루션프로그램SQL명
+		        , #{slt_program_div_cd}                                         -- 솔루션프로그램구분코드
+		        , #{contents_id}                                                -- 목차ID
+		        , #{slt_program_sql_desc}                                       -- 솔루션프로그램SQL설명
+		        , #{slt_program_chk_sql}                                        -- 솔루션프로그램점검SQL
+		)
+	</insert>
+	
+	<delete id="deleteProgramRule" parameterType="solutionProgramMng">
+		/* SolutionProgramMngDao.deleteSolutionProgramRule */
+		/* #5: DELETE - 목차  */
+		DELETE SLT_PROGRAM_SQL A  		   -- 솔루션프로그램SQL(TABLE)
+		 WHERE A.SLT_PROGRAM_SQL_NUMBER = #{slt_program_sql_number}            -- 솔루션프로그램SQL번호 
+	</delete>
+	
+
+	<select id="getSolutionProgramListBack" parameterType="solutionProgramMng" resultType="solutionProgramMng">
+		/* SolutionProgramMngDao.getSolutionProgramListBack */
+		SELECT * FROM SLT_PROGRAM_SQL
+	</select>
+	
+	<select id="getSolutionProgramChkSql" parameterType="solutionProgramMng" resultType="solutionProgramMng">
+		/* SolutionProgramMngDao.getSolutionProgramChkSql */
+		SELECT SLT_PROGRAM_CHK_SQL
+		FROM SLT_PROGRAM_SQL
+		WHERE SLT_PROGRAM_SQL_NUMBER  = #{slt_program_sql_number}
+	</select>
+	<!-- <select id="dataCollectionStatusLoadSql" parameterType="solutionProgramMng" resultType="java.util.LinkedHashMap">
+		/* SolutionProgramMngDao.dataCollectionStatusLoadSql */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, AA.*
+			FROM (
+				${slt_program_chk_sql}
+			) AA
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) AA
+		WHERE AA.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select> -->
+	<select id="dataCollectionStatusLoadSql" parameterType="solutionProgramMng" resultType="java.util.LinkedHashMap">
+		/* SolutionProgramMngDao.dataCollectionStatusLoadSql */
+				${slt_program_chk_sql}
+	</select>
+	
+</mapper>

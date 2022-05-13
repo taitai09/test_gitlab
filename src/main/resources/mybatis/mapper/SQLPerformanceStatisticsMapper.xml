@@ -1,0 +1,1060 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--  
+	2019.08.28	임호경	최초작성	
+-->
+<mapper namespace="omc.spop.dao.SQLPerformanceStatisticsDao">	
+
+	<select id="getChartCpuUsage_old" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getChartCpuUsage */
+				SELECT INSTANCE_NUMBER AS INST_ID
+		     , TO_CHAR(SNAPTIME, 'YYYY-MM-DD HH24:MI') SNAP_DT
+		     , ROUND(BUSYDELTA / (BUSYDELTA + IDLEDELTA) * 100, 2) AS CNT
+		FROM (
+		    SELECT S.DBID,
+		           S.INSTANCE_NUMBER,
+		           S.BEGIN_INTERVAL_TIME SNAPTIME,
+		           OS1.VALUE - LAG(OS1.VALUE) OVER (ORDER BY S.SNAP_ID) BUSYDELTA,
+		           OS2.VALUE - LAG(OS2.VALUE) OVER (ORDER BY S.SNAP_ID) IDLEDELTA
+		      FROM ODS_HIST_SNAPSHOT S, ODS_HIST_OSSTAT OS1, ODS_HIST_OSSTAT OS2
+		     WHERE S.SNAP_ID = OS1.SNAP_ID 
+		       AND S.SNAP_ID = OS2.SNAP_ID
+		       AND S.INSTANCE_NUMBER = OS1.INSTANCE_NUMBER 
+		       AND S.INSTANCE_NUMBER = OS2.INSTANCE_NUMBER
+		       AND S.DBID = OS1.DBID 
+		       AND S.DBID = OS2.DBID
+		       AND OS1.STAT_NAME = 'BUSY_TIME'
+		       AND OS2.STAT_NAME = 'IDLE_TIME'
+		       AND S.DBID = #{dbid}
+				<if test="inst_id != null and inst_id != ''">
+		       AND S.INSTANCE_NUMBER = #{inst_id}
+				</if>
+		       AND S.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{startDate} || #{startTime} || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+		                                     AND TO_TIMESTAMP(#{endDate} || #{endTime} || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')  
+		)
+		WHERE ROUND(BUSYDELTA / (BUSYDELTA + IDLEDELTA) * 100, 2) IS NOT NULL
+		ORDER BY INST_ID, SNAP_DT
+	</select>
+	
+	<select id="getChartCpuUsage" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getChartCpuUsage */
+		SELECT INST_NM 
+		     , TO_CHAR(SNAPTIME, 'YYYY-MM-DD HH24:MI') SNAP_DT
+		     , ROUND(BUSYDELTA / (BUSYDELTA + IDLEDELTA) * 100, 2) AS CNT
+		FROM (
+		    SELECT S.DBID,
+		           S.INSTANCE_NUMBER,
+		           S.BEGIN_INTERVAL_TIME SNAPTIME,
+		           OS1.VALUE - LAG(OS1.VALUE) OVER (PARTITION BY S.INSTANCE_NUMBER ORDER BY S.SNAP_ID) BUSYDELTA,
+		           OS2.VALUE - LAG(OS2.VALUE) OVER (PARTITION BY S.INSTANCE_NUMBER ORDER BY S.SNAP_ID) IDLEDELTA
+		      FROM ODS_HIST_SNAPSHOT S, ODS_HIST_OSSTAT OS1, ODS_HIST_OSSTAT OS2
+		     WHERE S.SNAP_ID = OS1.SNAP_ID 
+		       AND S.SNAP_ID = OS2.SNAP_ID
+		       AND S.INSTANCE_NUMBER = OS1.INSTANCE_NUMBER 
+		       AND S.INSTANCE_NUMBER = OS2.INSTANCE_NUMBER
+		       AND S.DBID = OS1.DBID 
+		       AND S.DBID = OS2.DBID
+		       AND OS1.STAT_NAME = 'BUSY_TIME'
+		       AND OS2.STAT_NAME = 'IDLE_TIME'
+		       AND S.DBID = #{dbid}
+				<if test="inst_id != null and inst_id != ''">
+		       AND S.INSTANCE_NUMBER = #{inst_id}
+				</if>
+		        AND S.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{startDate} || #{startTime} || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+		                                     AND TO_TIMESTAMP(#{endDate} || #{endTime} || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')  
+		    ) A, INSTANCE B
+		WHERE A.DBID = B.DBID
+		  AND A.INSTANCE_NUMBER = B.INST_ID
+		  AND ROUND(BUSYDELTA / (BUSYDELTA + IDLEDELTA) * 100, 2) IS NOT NULL
+		ORDER BY INST_NM, SNAP_DT
+	</select>
+	
+	<select id="getChartTopSqlTrendStatus_old" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getChartTopSqlTrendStatus */
+			SELECT TO_CHAR((TO_DATE(SNAP_DT, 'YYYYMMDD')),'YYYY-MM-DD') AS SNAP_DT
+			     , INSTANCE_NUMBER AS INST_ID
+			     , COUNT(*) CNT
+			  FROM (
+			        SELECT 
+			              TO_CHAR(B.BEGIN_INTERVAL_TIME, 'YYYYMMDD') SNAP_DT
+			             ,B.INSTANCE_NUMBER 
+			             ,A.SQL_ID
+			              /* 조건에 따라 선택 */ 
+		          		<choose>
+       			 			<when test="whatChartIs != null and whatChartIs == 'elapsed_time'">
+					             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER ()) * 100, 2) AS RATIO    /* ELAPSED_TIME */
+			             	</when>
+       			 			<when test="whatChartIs != null and whatChartIs == 'cpu_time'">
+								 ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER ()) * 100, 2) AS RATIO        /* CPU_TIME */
+							</when>
+       			 			<when test="whatChartIs != null and whatChartIs == 'executions'">
+								 ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER ()) * 100) AS RATIO         /* EXECUTIONS */
+							</when>
+       			 			<when test="whatChartIs != null and whatChartIs == 'buffer_gets'">
+								 ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER ()) * 100) AS RATIO        /* BUFFER_GETS */
+							</when>
+       			 			<when test="whatChartIs != null and whatChartIs == 'disk_reads'">
+								 ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER ()) * 100) AS RATIO         /* DISK_READS */
+							</when>
+						</choose>	
+			        FROM ODS_HIST_SQLSTAT A,
+			             ODS_HIST_SNAPSHOT B
+			        WHERE A.DBID = B.DBID
+			        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+			        AND A.SNAP_ID = B.SNAP_ID
+					<if test="dbid != null and dbid != ''">
+		        	AND B.DBID = #{dbid}
+	 	     	    </if>
+					<if test="inst_id != null and inst_id != ''">
+			        AND B.INSTANCE_NUMBER = #{inst_id}        
+		     	    </if>
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{startDate} || #{startTime} || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{endDate} || #{endTime} || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')  
+			        GROUP BY B.INSTANCE_NUMBER, TO_CHAR(B.BEGIN_INTERVAL_TIME, 'YYYYMMDD'), A.SQL_ID
+			    )
+			 WHERE 1 = 1
+			   <if test="activity != null and activity != ''">
+			   AND RATIO >= #{activity}
+			   </if>
+			GROUP BY SNAP_DT, INSTANCE_NUMBER
+			ORDER BY SNAP_DT, INSTANCE_NUMBER
+	</select>
+	
+	<select id="getChartTopSqlTrendStatus" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getChartTopSqlTrendStatus */
+		SELECT TO_CHAR(CAL.DAY, 'YYYY-MM-DD') SNAP_DT, A.INST_NM, COUNT(A.SQL_ID) CNT
+  		  FROM (SELECT DAY, DAY_8CHAR
+                  FROM CALENDAR
+                 WHERE DAY BETWEEN TO_TIMESTAMP(#{startDate} || #{startTime} || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3')
+                               AND TO_TIMESTAMP(#{endDate} || #{endTime} || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+               ) CAL 
+          LEFT OUTER JOIN 
+  		  	   (SELECT SNAP_DT
+				     , INST_NM 
+					 , SQL_ID
+				  FROM (
+				        SELECT A.DBID 
+				              ,TO_CHAR(B.BEGIN_INTERVAL_TIME, 'YYYYMMDD') SNAP_DT
+				              ,B.INSTANCE_NUMBER
+				              ,A.SQL_ID
+				              /* 조건에 따라 선택 */ 
+				          		<choose>
+		       			 			<when test="whatChartIs != null and whatChartIs == 'elapsed_time'">
+							             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER ()) * 100, 4) AS RATIO    /* ELAPSED_TIME */
+					             	</when>
+		       			 			<when test="whatChartIs != null and whatChartIs == 'cpu_time'">
+										 ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER ()) * 100, 4) AS RATIO        /* CPU_TIME */
+									</when>
+		       			 			<when test="whatChartIs != null and whatChartIs == 'executions'">
+										 ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER ()) * 100, 4) AS RATIO         /* EXECUTIONS */
+									</when>
+		       			 			<when test="whatChartIs != null and whatChartIs == 'buffer_gets'">
+										 ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER ()) * 100, 4) AS RATIO        /* BUFFER_GETS */
+									</when>
+		       			 			<when test="whatChartIs != null and whatChartIs == 'disk_reads'">
+										 ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER ()) * 100, 4) AS RATIO         /* DISK_READS */
+									</when>
+								</choose>	
+				        FROM ODS_HIST_SQLSTAT A,
+				             ODS_HIST_SNAPSHOT B
+				        WHERE A.DBID = B.DBID
+				        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+				        AND A.SNAP_ID = B.SNAP_ID
+						<if test="dbid != null and dbid != ''">
+			        	AND B.DBID = #{dbid}
+		 	     	    </if>
+						<if test="inst_id != null and inst_id != ''">
+				        AND B.INSTANCE_NUMBER = #{inst_id}        
+			     	    </if>      
+				        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{startDate} || #{startTime} || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+					                                  AND TO_TIMESTAMP(#{endDate} || #{endTime} || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')  
+				        GROUP BY A.DBID, B.INSTANCE_NUMBER, TO_CHAR(B.BEGIN_INTERVAL_TIME, 'YYYYMMDD'), A.SQL_ID
+				    ) A, INSTANCE B
+				 WHERE A.DBID = B.DBID
+				   AND A.INSTANCE_NUMBER = B.INST_ID
+				   <if test="activity != null and activity != ''">
+				   AND RATIO >= #{activity}
+		   		  </if>
+		   		) A PARTITION BY (A.INST_NM) ON CAL.DAY_8CHAR = A.SNAP_DT 
+		 GROUP BY TO_CHAR(CAL.DAY, 'YYYY-MM-DD') , A.INST_NM
+		 ORDER BY TO_CHAR(CAL.DAY, 'YYYY-MM-DD') , A.INST_NM
+	</select>
+	
+	<select id="getGridModule_old" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getGridModule */
+		SELECT (CASE WHEN GROUPING_ID = 1 THEN '합계' ELSE MODULE END) MODULE
+		     , CPU_TIME_RATIO      /* CPU_TIME(%) */
+		     , ELAPSED_TIME_RATIO  /* ELAPSED_TIME(%) */
+		     , DISK_READS_RATIO    /* DISK_READS(%) */
+		     , BUFFER_GETS_RATIO   /* BUFFER_GETS(%) */
+		     , EXECUTIONS_RATIO    /* EXECUTIONS(%) */
+		     , PARSE_CALLS_RATIO   /* PARSE_CALLS(%) */
+		     , WAIT_RATIO          /* WAIT(%) */
+		     , AVG_CPU_TIME        /* AVG_CPU_TIME(SEC) */
+		     , AVG_ELAPSED_TIME    /* AVG_ELAPSED_TIME(SEC) */
+		     , AVG_DISK_READS      /* AVG_DISK_READS */
+		     , AVG_BUFFER_GETS     /* AVG_BUFFER_GETS */
+		     , AVG_WAIT            /* AVG_WAIT */
+		  FROM (
+		        SELECT 
+		              MODULE
+		             ,GROUPING_ID(MODULE) AS GROUPING_ID
+		             ,ROUND(SUM(CPU_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_CPU_TIME
+		             ,ROUND(SUM(ELAPSED_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_ELAPSED_TIME
+		             ,ROUND(SUM(DISK_READS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_DISK_READS
+		             ,ROUND(SUM(BUFFER_GETS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_BUFFER_GETS
+		             ,ROUND(SUM(PARSE_CALLS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_PARSE_CALLS
+		             ,ROUND(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_WAIT
+		             ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(MODULE))) * 100, 2) AS CPU_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(MODULE))) * 100, 2) AS ELAPSED_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER (PARTITION BY GROUPING_ID(MODULE))) * 100) AS DISK_READS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER (PARTITION BY GROUPING_ID(MODULE))) * 100) AS BUFFER_GETS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER (PARTITION BY GROUPING_ID(MODULE))) * 100) AS EXECUTIONS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(PARSE_CALLS_DELTA)) OVER (PARTITION BY GROUPING_ID(MODULE))) * 100) AS PARSE_CALLS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)) OVER (PARTITION BY GROUPING_ID(MODULE))) * 100, 2) AS WAIT_RATIO
+		
+		              /* 조건에 따라 선택 */
+					<choose>
+						<when test="whatGridIs != null and whatGridIs == 'elapsed_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(ELAPSED_TIME_DELTA) DESC) RANK   /* ELAPSED_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'cpu_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(CPU_TIME_DELTA) DESC) RANK   /* CPU_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'executions'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(EXECUTIONS_DELTA) DESC) RANK   /* EXECUTIONS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'buffer_gets'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(BUFFER_GETS_DELTA) DESC) RANK   /* BUFFER_GETS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'disk_reads'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(DISK_READS_DELTA) DESC) RANK   /* DISK_READS */
+						</when>
+					</choose>
+		
+		        FROM ODS_HIST_SQLSTAT A,
+		             ODS_HIST_SNAPSHOT B
+		        WHERE A.DBID = B.DBID
+		        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		        AND A.SNAP_ID = B.SNAP_ID
+				<if test="dbid != null and dbid != ''">
+		        AND B.DBID = #{dbid}
+		        </if>
+				<if test="inst_id != null and inst_id != ''">
+		        AND B.INSTANCE_NUMBER = #{inst_id}        
+		        </if>       
+				
+				/* 전체 주간 야간 */
+				<choose>
+					<when test="(whatTime != null and whatTime == 'allTime') and (strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			    	/* 전체 */ 
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'dayTime'">
+					/* 주간 */
+					AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '09:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '17:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'nightTime'">
+					/* 야간 */
+					AND ((B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                        AND TO_TIMESTAMP(#{strEndDt} || '08:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3'))
+					OR (B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '18:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')))
+	                </when>
+                </choose> 
+                
+		        GROUP BY ROLLUP(MODULE)  
+		    )
+		 WHERE 1 = 1
+		   AND RANK  <![CDATA[<=]]> 
+			<if test="top != null and top != ''">
+		   	#{top} + 1
+			</if>
+		ORDER BY GROUPING_ID
+		       , RANK 
+	</select>
+	
+	<select id="getGridModule" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getGridModule */
+
+		SELECT 
+		       MODULE
+		     , DECODE(GROUPING_ID(MODULE), 0, MODULE, '합계') MODULE2
+		
+		     , SUM(CPU_TIME_RATIO)      CPU_TIME_RATIO /* CPU_TIME(%) */
+		     , SUM(ELAPSED_TIME_RATIO)  ELAPSED_TIME_RATIO /* ELAPSED_TIME(%) */
+		     , SUM(DISK_READS_RATIO)    DISK_READS_RATIO /* DISK_READS(%) */
+		     , SUM(BUFFER_GETS_RATIO)   BUFFER_GETS_RATIO /* BUFFER_GETS(%) */
+		     , SUM(EXECUTIONS_RATIO)    EXECUTIONS_RATIO /* EXECUTIONS(%) */
+		     , SUM(PARSE_CALLS_RATIO)   PARSE_CALLS_RATIO /* PARSE_CALLS(%) */
+		     , SUM(WAIT_RATIO)          WAIT_RATIO /* WAIT(%) */
+		     , SUM(AVG_CPU_TIME)        AVG_CPU_TIME /* AVG_CPU_TIME(SEC) */
+		     , SUM(AVG_ELAPSED_TIME)    AVG_ELAPSED_TIME /* AVG_ELAPSED_TIME(SEC) */
+		     , SUM(AVG_DISK_READS)      AVG_DISK_READS /* AVG_DISK_READS */
+		     , SUM(AVG_BUFFER_GETS)     AVG_BUFFER_GETS /* AVG_BUFFER_GETS */
+		     , SUM(AVG_WAIT)            AVG_WAIT /* AVG_WAIT */
+		     , MAX(RANK)                RANK
+		  FROM (
+		        SELECT 
+		              MODULE
+		             ,ROUND(SUM(CPU_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_CPU_TIME
+		             ,ROUND(SUM(ELAPSED_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_ELAPSED_TIME
+		             ,ROUND(SUM(DISK_READS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_DISK_READS
+		             ,ROUND(SUM(BUFFER_GETS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_BUFFER_GETS
+		             ,ROUND(SUM(PARSE_CALLS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_PARSE_CALLS
+		             ,ROUND(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_WAIT
+		             ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER ()) * 100, 2) AS CPU_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER ()) * 100, 2) AS ELAPSED_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER ()) * 100) AS DISK_READS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER ()) * 100) AS BUFFER_GETS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER ()) * 100) AS EXECUTIONS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(PARSE_CALLS_DELTA)) OVER ()) * 100) AS PARSE_CALLS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)) OVER ()) * 100, 2) AS WAIT_RATIO
+		
+		              /* 조건에 따라 선택 */
+					<choose>
+						<when test="whatGridIs != null and whatGridIs == 'elapsed_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(ELAPSED_TIME_DELTA) DESC) RANK   /* ELAPSED_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'cpu_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(CPU_TIME_DELTA) DESC) RANK   /* CPU_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'executions'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(EXECUTIONS_DELTA) DESC) RANK   /* EXECUTIONS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'buffer_gets'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(BUFFER_GETS_DELTA) DESC) RANK   /* BUFFER_GETS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'disk_reads'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(DISK_READS_DELTA) DESC) RANK   /* DISK_READS */
+						</when>
+					</choose>
+		
+		        FROM ODS_HIST_SQLSTAT A,
+		             ODS_HIST_SNAPSHOT B
+		        WHERE A.DBID = B.DBID
+		        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		        AND A.SNAP_ID = B.SNAP_ID
+		        AND B.DBID = #{dbid}
+   				<if test="inst_nm != null and inst_nm != ''">
+		        AND B.INSTANCE_NUMBER = (SELECT INST_ID FROM INSTANCE WHERE DBID = #{dbid} AND INST_NM = #{inst_nm})
+		        </if>  
+		        
+				/* 전체 주간 야간 */
+				<choose>
+					<when test="(whatTime != null and whatTime == 'allTime') and (strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			    	/* 전체 */ 
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'dayTime'">
+					/* 주간 */
+					AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '09:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '17:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'nightTime'">
+					/* 야간 */
+					AND ((B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                        AND TO_TIMESTAMP(#{strEndDt} || '08:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3'))
+					OR (B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '18:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')))
+	                </when>
+                </choose> 
+                		                                      
+		        GROUP BY MODULE  
+		    )
+
+		<if test="top != null and top != ''">
+			 WHERE 
+			 RANK  <![CDATA[<=]]> #{top}
+		</if>		 
+		 GROUP BY ROLLUP(MODULE)
+		ORDER BY GROUPING_ID(MODULE), RANK 
+	</select>
+	
+	<select id="getGridAction_old" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getGridAction */
+		SELECT (CASE WHEN GROUPING_ID = 1 THEN '합계' ELSE ACTION END) ACTION
+		     , CPU_TIME_RATIO      /* CPU_TIME(%) */
+		     , ELAPSED_TIME_RATIO  /* ELAPSED_TIME(%) */
+		     , DISK_READS_RATIO    /* DISK_READS(%) */
+		     , BUFFER_GETS_RATIO   /* BUFFER_GETS(%) */
+		     , EXECUTIONS_RATIO    /* EXECUTIONS(%) */
+		     , PARSE_CALLS_RATIO   /* PARSE_CALLS(%) */
+		     , WAIT_RATIO          /* WAIT(%) */
+		     , AVG_CPU_TIME        /* AVG_CPU_TIME(SEC) */
+		     , AVG_ELAPSED_TIME    /* AVG_ELAPSED_TIME(SEC) */
+		     , AVG_DISK_READS      /* AVG_DISK_READS */
+		     , AVG_BUFFER_GETS     /* AVG_BUFFER_GETS */
+		     , AVG_WAIT            /* AVG_WAIT */
+		  FROM (
+		        SELECT 
+		              ACTION
+		             ,GROUPING_ID(ACTION) AS GROUPING_ID
+		             ,ROUND(SUM(CPU_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_CPU_TIME
+		             ,ROUND(SUM(ELAPSED_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_ELAPSED_TIME
+		             ,ROUND(SUM(DISK_READS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_DISK_READS
+		             ,ROUND(SUM(BUFFER_GETS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_BUFFER_GETS
+		             ,ROUND(SUM(PARSE_CALLS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_PARSE_CALLS
+		             ,ROUND(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_WAIT
+		             ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(ACTION))) * 100, 2) AS CPU_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(ACTION))) * 100, 2) AS ELAPSED_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER (PARTITION BY GROUPING_ID(ACTION))) * 100) AS DISK_READS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER (PARTITION BY GROUPING_ID(ACTION))) * 100) AS BUFFER_GETS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER (PARTITION BY GROUPING_ID(ACTION))) * 100) AS EXECUTIONS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(PARSE_CALLS_DELTA)) OVER (PARTITION BY GROUPING_ID(ACTION))) * 100) AS PARSE_CALLS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)) OVER (PARTITION BY GROUPING_ID(ACTION))) * 100, 2) AS WAIT_RATIO
+		
+		              /* 조건에 따라 선택 */
+					<choose>
+						<when test="whatGridIs != null and whatGridIs == 'elapsed_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(ELAPSED_TIME_DELTA) DESC) RANK   /* ELAPSED_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'cpu_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(CPU_TIME_DELTA) DESC) RANK   /* CPU_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'executions'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(EXECUTIONS_DELTA) DESC) RANK   /* EXECUTIONS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'buffer_gets'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(BUFFER_GETS_DELTA) DESC) RANK   /* BUFFER_GETS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'disk_reads'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(DISK_READS_DELTA) DESC) RANK   /* DISK_READS */
+						</when>
+					</choose>
+		
+		
+		        FROM ODS_HIST_SQLSTAT A,
+		             ODS_HIST_SNAPSHOT B
+		        WHERE A.DBID = B.DBID
+		        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		        AND A.SNAP_ID = B.SNAP_ID
+				<if test="dbid != null and dbid != ''">
+		        AND B.DBID = #{dbid}
+		        </if>
+				<if test="inst_id != null and inst_id != ''">
+		        AND B.INSTANCE_NUMBER = #{inst_id}        
+		        </if>   
+		           
+				/* 전체 주간 야간 */
+				<choose>
+					<when test="(whatTime != null and whatTime == 'allTime') and (strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			    	/* 전체 */ 
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'dayTime'">
+					/* 주간 */
+					AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '09:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '17:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'nightTime'">
+					/* 야간 */
+					AND ((B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                        AND TO_TIMESTAMP(#{strEndDt} || '08:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3'))
+					OR (B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '18:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')))
+	                </when>
+                </choose> 
+                
+		        GROUP BY ROLLUP(ACTION)  
+		    )
+		 WHERE 1 = 1
+		   AND RANK  <![CDATA[<=]]> 
+			<if test="top != null and top != ''">
+		   	#{top} + 1
+			</if>
+		ORDER BY GROUPING_ID
+		       , RANK 
+	</select>
+	
+	<select id="getGridAction" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getGridAction */
+			SELECT 
+		       ACTION
+		     , DECODE(GROUPING_ID(ACTION), 0, ACTION, '합계') ACTION2
+		
+		     , SUM(CPU_TIME_RATIO)      CPU_TIME_RATIO /* CPU_TIME(%) */
+		     , SUM(ELAPSED_TIME_RATIO)  ELAPSED_TIME_RATIO /* ELAPSED_TIME(%) */
+		     , SUM(DISK_READS_RATIO)    DISK_READS_RATIO /* DISK_READS(%) */
+		     , SUM(BUFFER_GETS_RATIO)   BUFFER_GETS_RATIO /* BUFFER_GETS(%) */
+		     , SUM(EXECUTIONS_RATIO)    EXECUTIONS_RATIO /* EXECUTIONS(%) */
+		     , SUM(PARSE_CALLS_RATIO)   PARSE_CALLS_RATIO /* PARSE_CALLS(%) */
+		     , SUM(WAIT_RATIO)          WAIT_RATIO /* WAIT(%) */
+		     , SUM(AVG_CPU_TIME)        AVG_CPU_TIME /* AVG_CPU_TIME(SEC) */
+		     , SUM(AVG_ELAPSED_TIME)    AVG_ELAPSED_TIME /* AVG_ELAPSED_TIME(SEC) */
+		     , SUM(AVG_DISK_READS)      AVG_DISK_READS /* AVG_DISK_READS */
+		     , SUM(AVG_BUFFER_GETS)     AVG_BUFFER_GETS /* AVG_BUFFER_GETS */
+		     , SUM(AVG_WAIT)            AVG_WAIT /* AVG_WAIT */
+		     , MAX(RANK)                RANK
+		  FROM (
+		        SELECT 
+		              ACTION
+
+		             ,ROUND(SUM(CPU_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_CPU_TIME
+		             ,ROUND(SUM(ELAPSED_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_ELAPSED_TIME
+		             ,ROUND(SUM(DISK_READS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_DISK_READS
+		             ,ROUND(SUM(BUFFER_GETS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_BUFFER_GETS
+		             ,ROUND(SUM(PARSE_CALLS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_PARSE_CALLS
+		             ,ROUND(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_WAIT
+		             ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER ()) * 100, 2) AS CPU_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER ()) * 100, 2) AS ELAPSED_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER ()) * 100) AS DISK_READS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER ()) * 100) AS BUFFER_GETS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER ()) * 100) AS EXECUTIONS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(PARSE_CALLS_DELTA)) OVER ()) * 100) AS PARSE_CALLS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)) OVER ()) * 100, 2) AS WAIT_RATIO
+		
+		              /* 조건에 따라 선택 */
+					<choose>
+						<when test="whatGridIs != null and whatGridIs == 'elapsed_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(ELAPSED_TIME_DELTA) DESC) RANK   /* ELAPSED_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'cpu_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(CPU_TIME_DELTA) DESC) RANK   /* CPU_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'executions'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(EXECUTIONS_DELTA) DESC) RANK   /* executions */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'buffer_gets'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(BUFFER_GETS_DELTA) DESC) RANK   /* BUFFER_GETS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'disk_reads'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(DISK_READS_DELTA) DESC) RANK   /* DISK_READS */
+						</when>
+					</choose>
+		
+		        FROM ODS_HIST_SQLSTAT A,
+		             ODS_HIST_SNAPSHOT B
+		        WHERE A.DBID = B.DBID
+		        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		        AND A.SNAP_ID = B.SNAP_ID
+		        AND B.DBID = #{dbid}
+   				<if test="inst_nm != null and inst_nm != ''">
+		        AND B.INSTANCE_NUMBER = (SELECT INST_ID FROM INSTANCE WHERE DBID = #{dbid} AND INST_NM = #{inst_nm})
+		        </if>  
+		        
+				/* 전체 주간 야간 */
+				<choose>
+					<when test="(whatTime != null and whatTime == 'allTime') and (strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			    	/* 전체 */ 
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'dayTime'">
+					/* 주간 */
+					AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '09:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '17:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'nightTime'">
+					/* 야간 */
+					AND ((B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                        AND TO_TIMESTAMP(#{strEndDt} || '08:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3'))
+					OR (B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '18:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')))
+	                </when>
+                </choose> 
+                		                                      
+		        GROUP BY ACTION
+		    )
+
+		<if test="top != null and top != ''">
+			 WHERE 
+			 RANK  <![CDATA[<=]]> #{top}
+		</if>		 
+		GROUP BY ROLLUP(ACTION)
+		ORDER BY GROUPING_ID(ACTION), RANK 
+	</select>
+	
+	
+	<select id="getGridParsingSchema_old" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getGridParsingSchema */
+				SELECT (CASE WHEN GROUPING_ID = 1 THEN '합계' ELSE PARSING_SCHEMA_NAME END) PARSING_SCHEMA_NAME
+		     , CPU_TIME_RATIO      /* CPU_TIME(%) */
+		     , ELAPSED_TIME_RATIO  /* ELAPSED_TIME(%) */
+		     , DISK_READS_RATIO    /* DISK_READS(%) */
+		     , BUFFER_GETS_RATIO   /* BUFFER_GETS(%) */
+		     , EXECUTIONS_RATIO    /* EXECUTIONS(%) */
+		     , PARSE_CALLS_RATIO   /* PARSE_CALLS(%) */
+		     , WAIT_RATIO          /* WAIT(%) */
+		     , AVG_CPU_TIME        /* AVG_CPU_TIME(SEC) */
+		     , AVG_ELAPSED_TIME    /* AVG_ELAPSED_TIME(SEC) */
+		     , AVG_DISK_READS      /* AVG_DISK_READS */
+		     , AVG_BUFFER_GETS     /* AVG_BUFFER_GETS */
+		     , AVG_WAIT            /* AVG_WAIT */
+		  FROM (
+		        SELECT 
+		              PARSING_SCHEMA_NAME
+		             ,GROUPING_ID(PARSING_SCHEMA_NAME) AS GROUPING_ID
+		             ,ROUND(SUM(CPU_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_CPU_TIME
+		             ,ROUND(SUM(ELAPSED_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_ELAPSED_TIME
+		             ,ROUND(SUM(DISK_READS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_DISK_READS
+		             ,ROUND(SUM(BUFFER_GETS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_BUFFER_GETS
+		             ,ROUND(SUM(PARSE_CALLS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_PARSE_CALLS
+		             ,ROUND(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_WAIT
+		             ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(PARSING_SCHEMA_NAME))) * 100, 2) AS CPU_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(PARSING_SCHEMA_NAME))) * 100, 2) AS ELAPSED_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER (PARTITION BY GROUPING_ID(PARSING_SCHEMA_NAME))) * 100) AS DISK_READS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER (PARTITION BY GROUPING_ID(PARSING_SCHEMA_NAME))) * 100) AS BUFFER_GETS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER (PARTITION BY GROUPING_ID(PARSING_SCHEMA_NAME))) * 100) AS EXECUTIONS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(PARSE_CALLS_DELTA)) OVER (PARTITION BY GROUPING_ID(PARSING_SCHEMA_NAME))) * 100) AS PARSE_CALLS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)) OVER (PARTITION BY GROUPING_ID(PARSING_SCHEMA_NAME))) * 100, 2) AS WAIT_RATIO
+		
+		              /* 조건에 따라 선택 */
+					<choose>
+						<when test="whatGridIs != null and whatGridIs == 'elapsed_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(ELAPSED_TIME_DELTA) DESC) RANK   /* ELAPSED_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'cpu_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(CPU_TIME_DELTA) DESC) RANK   /* CPU_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'executions'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(EXECUTIONS_DELTA) DESC) RANK   /* executions */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'buffer_gets'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(BUFFER_GETS_DELTA) DESC) RANK   /* BUFFER_GETS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'disk_reads'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(DISK_READS_DELTA) DESC) RANK   /* DISK_READS */
+						</when>
+					</choose>
+		
+		        FROM ODS_HIST_SQLSTAT A,
+		             ODS_HIST_SNAPSHOT B
+		        WHERE A.DBID = B.DBID
+		        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		        AND A.SNAP_ID = B.SNAP_ID
+				<if test="dbid != null and dbid != ''">
+		        AND B.DBID = #{dbid}
+		        </if>
+				<if test="inst_id != null and inst_id != ''">
+		        AND B.INSTANCE_NUMBER = #{inst_id}        
+		        </if>     
+		        
+				/* 전체 주간 야간 */
+				<choose>
+					<when test="(whatTime != null and whatTime == 'allTime') and (strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			    	/* 전체 */ 
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'dayTime'">
+					/* 주간 */
+					AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '09:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '17:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'nightTime'">
+					/* 야간 */
+					AND ((B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                        AND TO_TIMESTAMP(#{strEndDt} || '08:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3'))
+					OR (B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '18:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')))
+	                </when>
+                </choose>  
+                
+		        GROUP BY ROLLUP(PARSING_SCHEMA_NAME)  
+		    )
+		 WHERE 1 = 1
+		   AND RANK  <![CDATA[<=]]> 
+			<if test="top != null and top != ''">
+		   	#{top} + 1
+			</if>
+		ORDER BY GROUPING_ID
+		       , RANK 
+	</select>
+	
+	<select id="getGridParsingSchema" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getGridParsingSchema */
+			SELECT 
+		       PARSING_SCHEMA_NAME
+	    	 , DECODE(GROUPING_ID(PARSING_SCHEMA_NAME), 0, PARSING_SCHEMA_NAME, '합계') PARSING_SCHEMA_NAME2
+		
+		     , SUM(CPU_TIME_RATIO)      CPU_TIME_RATIO /* CPU_TIME(%) */
+		     , SUM(ELAPSED_TIME_RATIO)  ELAPSED_TIME_RATIO /* ELAPSED_TIME(%) */
+		     , SUM(DISK_READS_RATIO)    DISK_READS_RATIO /* DISK_READS(%) */
+		     , SUM(BUFFER_GETS_RATIO)   BUFFER_GETS_RATIO /* BUFFER_GETS(%) */
+		     , SUM(EXECUTIONS_RATIO)    EXECUTIONS_RATIO /* EXECUTIONS(%) */
+		     , SUM(PARSE_CALLS_RATIO)   PARSE_CALLS_RATIO /* PARSE_CALLS(%) */
+		     , SUM(WAIT_RATIO)          WAIT_RATIO /* WAIT(%) */
+		     , SUM(AVG_CPU_TIME)        AVG_CPU_TIME /* AVG_CPU_TIME(SEC) */
+		     , SUM(AVG_ELAPSED_TIME)    AVG_ELAPSED_TIME /* AVG_ELAPSED_TIME(SEC) */
+		     , SUM(AVG_DISK_READS)      AVG_DISK_READS /* AVG_DISK_READS */
+		     , SUM(AVG_BUFFER_GETS)     AVG_BUFFER_GETS /* AVG_BUFFER_GETS */
+		     , SUM(AVG_WAIT)            AVG_WAIT /* AVG_WAIT */
+		     , MAX(RANK)                RANK
+		  FROM (
+		        SELECT 
+		              PARSING_SCHEMA_NAME
+
+		             ,ROUND(SUM(CPU_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_CPU_TIME
+		             ,ROUND(SUM(ELAPSED_TIME_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_ELAPSED_TIME
+		             ,ROUND(SUM(DISK_READS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_DISK_READS
+		             ,ROUND(SUM(BUFFER_GETS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_BUFFER_GETS
+		             ,ROUND(SUM(PARSE_CALLS_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))) AVG_PARSE_CALLS
+		             ,ROUND(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)/DECODE(SUM(EXECUTIONS_DELTA), 0, 1, SUM(EXECUTIONS_DELTA))/1000000, 2) AVG_WAIT
+		             ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER ()) * 100, 2) AS CPU_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER ()) * 100, 2) AS ELAPSED_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER ()) * 100) AS DISK_READS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER ()) * 100) AS BUFFER_GETS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER ()) * 100) AS EXECUTIONS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(PARSE_CALLS_DELTA)) OVER ()) * 100) AS PARSE_CALLS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)) OVER ()) * 100, 2) AS WAIT_RATIO
+		
+		              /* 조건에 따라 선택 */
+					<choose>
+						<when test="whatGridIs != null and whatGridIs == 'elapsed_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(ELAPSED_TIME_DELTA) DESC) RANK   /* ELAPSED_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'cpu_time'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(CPU_TIME_DELTA) DESC) RANK   /* CPU_TIME */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'executions'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(EXECUTIONS_DELTA) DESC) RANK   /* executions */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'buffer_gets'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(BUFFER_GETS_DELTA) DESC) RANK   /* BUFFER_GETS */
+						</when>
+						<when test="whatGridIs != null and whatGridIs == 'disk_reads'">
+				             ,ROW_NUMBER() OVER(ORDER BY SUM(DISK_READS_DELTA) DESC) RANK   /* DISK_READS */
+						</when>
+					</choose>
+		
+		        FROM ODS_HIST_SQLSTAT A,
+		             ODS_HIST_SNAPSHOT B
+		        WHERE A.DBID = B.DBID
+		        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		        AND A.SNAP_ID = B.SNAP_ID
+		        AND B.DBID = #{dbid}
+   				<if test="inst_nm != null and inst_nm != ''">
+		        AND B.INSTANCE_NUMBER = (SELECT INST_ID FROM INSTANCE WHERE DBID = #{dbid} AND INST_NM = #{inst_nm})
+		        </if>  
+
+				/* 전체 주간 야간 */
+				<choose>
+					<when test="(whatTime != null and whatTime == 'allTime') and (strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			    	/* 전체 */ 
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'dayTime'">
+					/* 주간 */
+					AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '09:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '17:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'nightTime'">
+					/* 야간 */
+					AND ((B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                        AND TO_TIMESTAMP(#{strEndDt} || '08:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3'))
+					OR (B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '18:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')))
+	                </when>
+                </choose> 
+                		                                      
+		        GROUP BY PARSING_SCHEMA_NAME
+		    )
+
+		<if test="top != null and top != ''">
+			 WHERE 
+			 RANK  <![CDATA[<=]]> #{top}
+		</if>		 
+	 	GROUP BY ROLLUP(PARSING_SCHEMA_NAME)
+		ORDER BY GROUPING_ID(PARSING_SCHEMA_NAME), RANK
+	</select>
+	
+	<select id="getGridTopSqlResultList" resultType="sqlPerformanceStatistics"  parameterType="sqlPerformanceStatistics">
+		/* SQLStandardsMapper.getGridTopSqlResultList */
+			<include refid="getGridTopSqlResultRefId"/>
+	</select>
+	
+	<select id="getGridTopSqlResultListByExcelDown" parameterType="sqlPerformanceStatistics" resultType="java.util.LinkedHashMap">
+		/* SQLStandardsMapper.getGridTopSqlResultListByExcelDown */
+			<include refid="getGridTopSqlResultRefId"/>
+	</select>
+	
+	
+	<sql id="getGridTopSqlResultRefId" >
+   	/* SQLStandardsMapper.getGridTopSqlResultRefId */
+		SELECT A.SQL_ID
+		     , A.PLAN_HASH_VALUE
+		     , A.MODULE                 
+		     , A.ACTION
+		     , A.PARSING_SCHEMA_NAME    
+		     , A.ELAPSED_TIME           /* ELAPSED_TIME(SEC) */
+		     , A.CPU_TIME               /* CPU_TIME(SEC) */
+		     , A.EXECUTIONS             /* EXECUTIONS */
+		     , A.BUFFER_GETS            /* BUFFER_GETS */
+		     , A.DISK_READS             /* DISK_READS */
+		     , A.ROWS_PROCESSED         /* ROWS_PROCESSED */
+		     , DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) SQL_TEXT  /* SQL_TEXT */
+		     
+		     , A.ELAPSED_TIME_RATIO     
+		     , A.CPU_TIME_RATIO         
+		     , A.EXECUTIONS_RATIO
+		     , A.BUFFER_GETS_RATIO
+		     , A.DISK_READS_RATIO
+		     , A.ROWS_PROCESSED_RATIO
+		  FROM (
+		       SELECT A.DBID 
+		             ,A.SQL_ID
+		             ,MAX(PLAN_HASH_VALUE) PLAN_HASH_VALUE
+		             ,MAX(MODULE) MODULE
+		             ,MAX(ACTION) ACTION
+		             ,MAX(PARSING_SCHEMA_NAME) PARSING_SCHEMA_NAME
+		             ,GROUPING_ID(SQL_ID) AS GROUPING_ID
+		             ,SUM(EXECUTIONS_DELTA) EXECUTIONS
+		             ,ROUND(SUM(CPU_TIME_DELTA)/1000000, 2) CPU_TIME
+		             ,ROUND(SUM(ELAPSED_TIME_DELTA)/1000000, 2) ELAPSED_TIME
+		             ,SUM(DISK_READS_DELTA) DISK_READS
+		             ,SUM(BUFFER_GETS_DELTA) BUFFER_GETS
+		             ,SUM(ROWS_PROCESSED_DELTA) ROWS_PROCESSED
+		             ,ROUND(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)/1000000, 2) WAIT
+		             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100, 2) AS ELAPSED_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100, 2) AS CPU_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100) AS EXECUTIONS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100) AS BUFFER_GETS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100) AS DISK_READS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(ROWS_PROCESSED_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100) AS ROWS_PROCESSED_RATIO
+		
+		        FROM ODS_HIST_SQLSTAT A,
+		             ODS_HIST_SNAPSHOT B
+		        WHERE A.DBID = B.DBID
+		        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		        AND A.SNAP_ID = B.SNAP_ID
+  		        <if test="dbid != null and dbid != ''">
+		        AND B.DBID = #{dbid}
+		        </if>
+				<if test="inst_nm != null and inst_nm != ''">
+		        AND B.INSTANCE_NUMBER = (SELECT INST_ID FROM INSTANCE WHERE INST_NM = #{inst_nm})
+		        </if>   
+		        
+		       /* 전체 주간 야간 */
+				<choose>
+					<when test="(whatTime != null and whatTime == 'allTime') and (strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			    	/* 전체 */ 
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'dayTime'">
+					/* 주간 */
+					AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '09:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '17:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'nightTime'">
+					/* 야간 */
+					AND ((B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                        AND TO_TIMESTAMP(#{strEndDt} || '08:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3'))
+					OR (B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '18:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')))
+	                </when>
+                </choose> 
+                
+                
+  				<if test="module != null and module != '' and module != 'NULL'">
+			       AND A.MODULE = #{module}
+				</if>
+  				<if test="module != null and module != '' and module == 'NULL'">
+			       AND A.MODULE IS NULL
+				</if>
+				<if test="action != null and action != '' and action != 'NULL'">
+			       AND A.ACTION = #{action}
+				</if>
+				<if test="action != null and action != '' and action == 'NULL'">
+			       AND A.ACTION IS NULL
+				</if>
+				<if test="parsing_schema_name != null and parsing_schema_name != '' and parsing_schema_name != 'NULL'">
+			       AND A.PARSING_SCHEMA_NAME = #{parsing_schema_name}
+				</if>
+				<if test="parsing_schema_name != null and parsing_schema_name != '' and parsing_schema_name == 'NULL'">
+			       AND A.PARSING_SCHEMA_NAME IS NULL
+				</if>
+		          
+		        GROUP BY A.DBID, ROLLUP(A.SQL_ID)
+		    ) A
+		    , ODS_HIST_SQLTEXT B
+		 WHERE A.DBID = B.DBID
+		   AND A.SQL_ID = B.SQL_ID
+		
+			/* 조건에 따라 선택 */
+			<choose>
+				<when test="whatGridIs != null and whatGridIs == 'elapsed_time' and activity != ''">
+			   AND ELAPSED_TIME_RATIO >= #{activity}
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'cpu_time' and activity != ''">
+			   AND CPU_TIME_RATIO >= #{activity}
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'executions' and activity != ''">
+			   AND EXECUTIONS_RATIO >= #{activity}
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'buffer_gets' and activity != ''">
+			   AND BUFFER_GETS_RATIO >= #{activity}
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'disk_reads' and activity != ''">
+			   AND DISK_READS_RATIO >= #{activity}
+				</when>
+			</choose>
+			
+		ORDER BY GROUPING_ID
+		
+			/* 조건에 따라 선택 */
+			<choose>
+				<when test="whatGridIs != null and whatGridIs == 'elapsed_time'">
+		       , ELAPSED_TIME_RATIO DESC
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'cpu_time'">
+		       , CPU_TIME_RATIO DESC
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'executions'">
+		       , EXECUTIONS_RATIO DESC
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'buffer_gets'">
+		       , BUFFER_GETS_RATIO DESC
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'disk_reads'">
+		       , DISK_READS_RATIO DESC
+				</when>
+			</choose>
+			
+	</sql>
+	
+	
+	<sql id="getGridTopSqlResultRefId_old" >
+   	/* SQLStandardsMapper.getGridTopSqlResultRefId */
+		SELECT A.SQL_ID
+		     , A.PLAN_HASH_VALUE
+		     , A.MODULE                 
+		     , A.ACTION
+		     , A.PARSING_SCHEMA_NAME    
+		     , A.ELAPSED_TIME           /* ELAPSED_TIME(SEC) */
+		     , A.CPU_TIME               /* CPU_TIME(SEC) */
+		     , A.EXECUTIONS             /* EXECUTIONS */
+		     , A.BUFFER_GETS            /* BUFFER_GETS */
+		     , A.DISK_READS             /* DISK_READS */
+		     , A.ROWS_PROCESSED         /* ROWS_PROCESSED */
+		     , DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) SQL_TEXT  /* SQL_TEXT */
+		     
+		     , A.ELAPSED_TIME_RATIO     
+		     , A.CPU_TIME_RATIO         
+		     , A.EXECUTIONS_RATIO
+		     , A.BUFFER_GETS_RATIO
+		     , A.DISK_READS_RATIO
+		     , A.ROWS_PROCESSED_RATIO
+		  FROM (
+		       SELECT A.DBID 
+		             ,A.SQL_ID
+		             ,MAX(PLAN_HASH_VALUE) PLAN_HASH_VALUE
+		             ,MAX(MODULE) MODULE
+		             ,MAX(ACTION) ACTION
+		             ,MAX(PARSING_SCHEMA_NAME) PARSING_SCHEMA_NAME
+		             ,GROUPING_ID(SQL_ID) AS GROUPING_ID
+		             ,SUM(EXECUTIONS_DELTA) EXECUTIONS
+		             ,ROUND(SUM(CPU_TIME_DELTA)/1000000, 2) CPU_TIME
+		             ,ROUND(SUM(ELAPSED_TIME_DELTA)/1000000, 2) ELAPSED_TIME
+		             ,SUM(DISK_READS_DELTA) DISK_READS
+		             ,SUM(BUFFER_GETS_DELTA) BUFFER_GETS
+		             ,SUM(ROWS_PROCESSED_DELTA) ROWS_PROCESSED
+		             ,ROUND(SUM(IOWAIT_DELTA+CLWAIT_DELTA+APWAIT_DELTA+CCWAIT_DELTA)/1000000, 2) WAIT
+		             ,ROUND((RATIO_TO_REPORT(SUM(ELAPSED_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100, 2) AS ELAPSED_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(CPU_TIME_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100, 2) AS CPU_TIME_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(EXECUTIONS_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100) AS EXECUTIONS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(BUFFER_GETS_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100) AS BUFFER_GETS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(DISK_READS_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100) AS DISK_READS_RATIO
+		             ,ROUND((RATIO_TO_REPORT(SUM(ROWS_PROCESSED_DELTA)) OVER (PARTITION BY GROUPING_ID(SQL_ID))) * 100) AS ROWS_PROCESSED_RATIO
+		
+		        FROM ODS_HIST_SQLSTAT A,
+		             ODS_HIST_SNAPSHOT B
+		        WHERE A.DBID = B.DBID
+		        AND A.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+		        AND A.SNAP_ID = B.SNAP_ID
+		        <if test="dbid != null and dbid != ''">
+		        AND B.DBID = #{dbid}
+		        </if>
+				<if test="inst_id != null and inst_id != ''">
+		        AND B.INSTANCE_NUMBER = #{inst_id}        
+		        </if>   
+		        
+				/* 전체 주간 야간 */
+				<choose>
+					<when test="(whatTime != null and whatTime == 'allTime') and (strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			    	/* 전체 */ 
+			        AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'dayTime'">
+					/* 주간 */
+					AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '09:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '17:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')
+	                </when>
+					<when test="whatTime != null and whatTime == 'nightTime'">
+					/* 야간 */
+					AND ((B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '00:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                        AND TO_TIMESTAMP(#{strEndDt} || '08:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3'))
+					OR (B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP(#{strStartDt} || '18:00' || ':00.000', 'YYYY-MM-DD HH24:MI:SS.FF3') 
+			                                      AND TO_TIMESTAMP(#{strEndDt} || '23:59' || ':59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')))
+	                </when>
+                </choose> 
+                
+				<if test="module != null and module != ''">
+			       AND A.MODULE = #{module}
+				</if>
+				<if test="action != null and action != ''">
+			       AND A.ACTION = #{action}
+				</if>
+				<if test="parsing_schema_name != null and parsing_schema_name != ''">
+			       AND A.PARSING_SCHEMA_NAME = #{parsing_schema_name}
+				</if>
+		        GROUP BY A.DBID, ROLLUP(A.SQL_ID)
+		    ) A
+		    , ODS_HIST_SQLTEXT B
+		 WHERE A.DBID = B.DBID
+		   AND A.SQL_ID = B.SQL_ID
+		   
+			/* 조건에 따라 선택 */
+			<choose>
+				<when test="whatGridIs != null and whatGridIs == 'elapsed_time' and activity != ''">
+			   AND ELAPSED_TIME_RATIO >= #{activity}
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'cpu_time' and activity != ''">
+			   AND CPU_TIME_RATIO >= #{activity}
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'executions' and activity != ''">
+			   AND EXECUTIONS_RATIO >= #{activity}
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'buffer_gets' and activity != ''">
+			   AND BUFFER_GETS_RATIO >= #{activity}
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'disk_reads' and activity != ''">
+			   AND DISK_READS_RATIO >= #{activity}
+				</when>
+			</choose>
+					
+		ORDER BY GROUPING_ID
+		
+			/* 조건에 따라 선택 */
+			<choose>
+				<when test="whatGridIs != null and whatGridIs == 'elapsed_time'">
+		       , ELAPSED_TIME_RATIO 
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'cpu_time'">
+		       , CPU_TIME_RATIO 
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'executions'">
+		       , EXECUTIONS_RATIO 
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'buffer_gets'">
+		       , BUFFER_GETS_RATIO 
+				</when>
+				<when test="whatGridIs != null and whatGridIs == 'disk_reads'">
+		       , DISK_READS_RATIO
+				</when>
+			</choose>
+	</sql>
+	
+	
+	
+	
+	
+</mapper>

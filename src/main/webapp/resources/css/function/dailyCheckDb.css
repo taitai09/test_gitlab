@@ -1,0 +1,81 @@
+@charset "utf-8";
+
+.severity_0{display:inline;content:url(../../images/daily/severity_0.png);vertical-align: middle;}
+.severity_1{display:inline;content:url(../../images/daily/severity_1.png);vertical-align: middle;}
+.severity_2{display:inline;content:url(../../images/daily/severity_2.png);vertical-align: middle;}
+.severity_3{display:inline;content:url(../../images/daily/severity_3.png);vertical-align: middle;}
+.severity_4{display:inline;content:url(../../images/daily/severity_4.png);vertical-align: middle;}
+
+.severity_e_0{display:inline;content:url(../../images/daily/severity_e_0.png);vertical-align: middle;}
+.severity_e_1{display:inline;content:url(../../images/daily/severity_e_1.png);vertical-align: middle;}
+.severity_e_2{display:inline;content:url(../../images/daily/severity_e_2.png);vertical-align: middle;}
+.severity_e_3{display:inline;content:url(../../images/daily/severity_e_3.png);vertical-align: middle;}
+
+.group_db_title{font:Bold 18px Open Sans;}
+
+.canvas{padding:5px;border:1px solid #9f9f9f;}
+
+.minute_title_1{font:Bold 18px Open Sans; color:#004370; padding:50px 0px 0px 30px;}
+.minute_title_2{font:Bold 17px Open Sans; color:#000000; padding:0px 0px 0px 40px;}
+.minute_title_3{font:Bold 16px Open Sans; color:#000000; padding:5px 0px 0px 60px;}
+
+.title_1{padding-bottom:10px;}
+
+body.om         {font:bold 14px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; letter-spacing:-2px; text-align:left;}
+h1.top              {font:bold 30px Arial,Helvetica,Geneva,sans-serif; color:#383838; background-color:White; margin-top:0px; margin-bottom:30px; letter-spacing:-2px; text-align:left;}
+h1.title            {font:bold 30px Arial,Helvetica,Geneva,sans-serif; color:#383838; background-color:White; margin-top:50px; margin-bottom:30px; letter-spacing:-2px; text-align:left;}
+h2.title            {font:bold 23px Arial,Helvetica,Geneva,sans-serif; color:#383838; background-color:White; margin-top:30px; margin-bottom:5px; margin-left:15px; letter-spacing:-2px; text-align:left;}
+h3.title            {font:bold 17px Arial,Helvetica,Geneva,sans-serif; color:#004370; background-color:White; margin-top:22px; margin-bottom:0px; margin-left:25px; letter-spacing:-1px; text-align:left;}
+h4.title            {font:bold 13px Arial,Helvetica,Geneva,sans-serif;color:#383838;background-color:White; margin-top:5px; margin-bottom:0px; margin-left:35px; letter-spacing:-1px; text-align:left;}
+t1.title            {font:14px Arial,Helvetica,Geneva,sans-serif;color:black;background-color:White; margin-top:20px; margin-bottom:0px; letter-spacing:-2px; text-align:left;}
+li.title            {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White;letter-spacing:-1px; text-align:left;}
+a.om                {font:bold 12px Arial,Helvetica,sans-serif; text-decoration: underline; color:#663300; vertical-align:top; margin-top:0px; margin-bottom:0px; text-align:left;}
+li.contents     {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; letter-spacing:-1px; text-align:left;}
+dd.contents2        {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; margin-top:0px; margin-bottom:15px; margin-left:25px; letter-spacing:0px; text-align:left;}
+dd.contents2-b5 {font: 14px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; margin-top:0px; margin-bottom:5px; margin-left:25px; letter-spacing:0px; text-align:left;}
+dd.contents3        {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; margin-top:0px; margin-bottom:15px; margin-left:25px; letter-spacing:0px; text-align:left;}
+dd.contents4        {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; margin-top:0px; margin-bottom:15px; margin-left:25px; letter-spacing:0px; text-align:left;}
+table.awr           {border-spacing:0px !important;padding-bottom:30px;}
+table.om            {border-spacing:0px !important; margin-bottom:10px;}
+table.om2           {border-spacing:0px !important; margin-top:0px; margin-bottom:10px; margin-left:60px; width:1500px;}
+table.minute        {border-spacing:0px !important; margin-top:0px; margin-bottom:10px; margin-left:65px; padding-top:20px; width:1500px;}
+table.om2_width           {border-spacing:0px !important; margin-top:0px; margin-bottom:10px; margin-left:60px; width:3000px;}
+table.minute_width        {border-spacing:0px !important; margin-top:0px; margin-bottom:10px; margin-left:65px; padding-top:20px; width:3000px;}
+table.om3           {border-spacing:0px !important; margin-top:0px; margin-bottom:10px; margin-left:80px; width:1480px;}
+table.om3_width           {border-spacing:0px !important; margin-top:0px; margin-bottom:10px; margin-left:80px; width:2980px;}
+table.om4           {border-spacing:0px !important; margin-top:-5px; margin-bottom:10px; margin-left:35px; width:965px;}
+th.om-left          {font:bold 12px Arial,Helvetica,Geneva,sans-serif; color:#146298; background:#EEF9FF; padding:5px 5px 5px 5px; text-align:center; border-top:2px solid #4289bb; border-right:1px solid #4289bb; border-bottom:1px solid     #4289bb; border-left:1px solid #FFFFFF;}
+th.om-center        {font:bold 12px Arial,Helvetica,Geneva,sans-serif; color:#146298; background:#EEF9FF; padding:5px 5px 5px 5px; text-align:center; border-top:2px solid #4289bb; border-right:1px solid #4289bb; border-bottom:1px solid     #4289bb;}
+th.om-right     {font:bold 12px Arial,Helvetica,Geneva,sans-serif; color:#146298; background:#EEF9FF; padding:5px 5px 5px 5px; text-align:center; border-top:2px solid #4289bb; border-right:1px solid #FFFFFF; border-bottom:1px solid #4289bb;}
+td.om-left          {font:12px Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #969696; border-bottom:1px solid #969696; border-left:1px solid #FFFFFF; }
+td.om-center        {font:12px Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #969696; border-bottom:1px solid #969696;}
+td.om-right     {font:12px Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #FFFFFF; border-bottom:1px solid #969696;}
+td.om-left-close    {font:12px Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #969696; border-bottom:2px solid #4289bb; border-left:1px solid #FFFFFF; }
+td.om-center-close  {font:12px Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #969696; border-bottom:2px solid #4289bb;}
+td.om-right-close   {font:12px Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #FFFFFF; border-bottom:2px solid #4289bb;}
+td.om-right-font            {font:12px 돋움체, Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #FFFFFF; border-bottom:1px solid #969696;}
+td.om-right-close-font      {font:12px 돋움체, Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #FFFFFF; border-bottom:2px solid #4289bb;}
+td.om-colspan       {font:12px Arial,Helvetica,Geneva,sans-serif;color:black; background:White; vertical-align:middle; padding:5px 5px 5px 5px; border-right:1px solid #FFFFFF; text-align:left;}
+table.nl1           {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; border-spacing:0px !important;margin-top:0px; margin-bottom:10px;}
+table.nl2           {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; border-spacing:0px !important;margin-top:0px; margin-bottom:20px;margin-left:25px;}
+table.nl3           {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; border-spacing:0px !important;margin-top:-5px; margin-bottom:10px;margin-left:25px;}
+table.nl4           {font: 12px Arial,Helvetica,Geneva,sans-serif; color:black; background:White; border-spacing:0px !important;margin-top:-5px; margin-bottom:10px;margin-left:35px;}
+td.nl-left          {font:12px Arial,Helvetica,Geneva,sans-serif;color:black;background:White;vertical-align:top;padding:0px 0px 5px 0px;border-top:1px solid #FFFFFF;border-right:1px solid #FFFFFF;border-bottom:1px solid #FFFFFF;border-left:1px solid #FFFFFF;}
+td.nl-center        {font:12px Arial,Helvetica,Geneva,sans-serif;color:black;background:White;vertical-align:top;padding:0px 0px 5px 0px;border-top:1px solid #FFFFFF;border-right:1px solid #FFFFFF;border-bottom:1px solid #FFFFFF;border-left:1px solid #FFFFFF;}
+td.nl-right         {font:12px Arial,Helvetica,Geneva,sans-serif;color:black;background:White;vertical-align:top;padding:0px 0px 5px 0px;border-top:1px solid #FFFFFF;border-right:1px solid #FFFFFF;border-bottom:1px solid #FFFFFF;border-left:   1px solid #FFFFFF;}
+.button             {
+	width:100px; height:22px; background-color: #FFF; border: 1px solid #217346; color:#217346; text-align: center;
+	text-decoration: none; display: block; font-size: 15px; margin: 4px; cursor: pointer; border-radius:7px;
+}
+.outline_type_1     {margin-left: 1450px; position:relative;}
+.outline_type_2     {margin-left: 1340px; float:left;}
+.button_type_1      {
+	width:100px; height:22px; background-color: #FFF; border: 1px solid #217346; color:#217346; text-align: center;
+	text-decoration: none; font-size: 15px; margin: 4px; cursor: pointer; border-radius:7px; display: block;
+}
+.button_type_2      {
+	width:100px; height:22px; background-color: #FFF; border: 1px solid #217346; color:#217346; text-align: center;
+	text-decoration: none; font-size: 15px; margin: 4px; cursor: pointer; border-radius:7px;
+}
+.button_type_1:hover       {color:#fff; box-shadow:200px 0px 0px 0px rgba(25,151,254,0.5) inset;}
+.button_type_2:hover       {color:#fff; box-shadow:200px 0px 0px 0px rgba(25,151,254,0.5) inset;}

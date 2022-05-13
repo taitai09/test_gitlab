@@ -1,0 +1,1376 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.12	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.SQLTuningTargetDao">
+	<select id="getProgram" parameterType="topsqlAutoChoice" resultType="topsqlAutoChoice">
+		/* SQLTuningTargetDao.getProgram */
+		SELECT PROJECT_ID, PROJECT_NM FROM PROJECT WHERE DEL_YN = 'N'
+	</select>
+	<sql id="autoSelectionListRefId">
+		/* SQLTuningTargetDao.autoSelectionListRefId */
+		SELECT A.AUTO_CHOICE_COND_NO, A.DBID, B.DB_NAME, A.PROGRAM_TYPE_CD, CD4.CD_NM AS PROGRAM_TYPE_CD_NM
+			, A.PERFR_AUTO_ASSIGN_YN, A.PERFR_ID, U1.USER_NM AS PERFR_NM
+			, A.GATHER_CYCLE_DIV_CD, CD1.CD_NM AS GATHER_CYCLE_DIV_NM, A.GATHER_RANGE_DIV_CD, CD2.CD_NM AS GATHER_RANGE_DIV_NM
+			, TO_CHAR(TO_DATE(A.CHOICE_START_DAY, 'YYYY-MM-DD'), 'YYYY-MM-DD') AS CHOICE_START_DAY, TO_CHAR(TO_DATE(A.CHOICE_END_DAY, 'YYYY-MM-DD'), 'YYYY-MM-DD') AS CHOICE_END_DAY, A.BEFORE_CHOICE_SQL_EXCEPT_YN, A.BEFORE_TUNING_SQL_EXCEPT_YN, A.ELAP_TIME
+			, A.BUFFER_CNT, A.EXEC_CNT, A.TOPN_CNT, A.ORDER_DIV_CD, CD3.CD_NM AS ORDER_DIV_NM
+			, A.MODULE1, A.MODULE2, A.PARSING_SCHEMA_NAME, SQL_TEXT, U2.USER_NM AS CHOICER_NM, TO_CHAR(A.CHOICE_DT,'YYYY-MM-DD HH24:MI:SS') AS CHOICE_DT
+			, NVL(A.APPL_FILTER_YN,'Y') AS APPL_FILTER_YN, NVL(A.USE_YN,'Y') AS USE_YN, NVL(A.DEL_YN,'N') AS DEL_YN
+			, C.PROJECT_NM AS PROJECT_NM
+			, C.TUNING_PRGRS_STEP_NM
+			-- hidden
+			, C.PROJECT_ID
+			, C.TUNING_PRGRS_STEP_SEQ
+		FROM TOPSQL_AUTO_CHOICE_COND A, DATABASE B, CD CD1, CD CD2, CD CD3, CD CD4, USERS U1, USERS U2 
+			, (SELECT A.PROJECT_ID
+					, A.PROJECT_NM
+					, B.TUNING_PRGRS_STEP_SEQ
+					, B.TUNING_PRGRS_STEP_NM
+				FROM PROJECT A
+					, PROJECT_TUNING_PRGRS_STEP B
+				WHERE A.PROJECT_ID = B.PROJECT_ID
+			) C
+		WHERE A.DBID = B.DBID 
+		<if test="dbid != null and dbid != ''">
+			AND A.DBID = #{dbid}
+		</if>
+		AND A.PERFR_ID = U1.USER_ID(+)
+		AND A.GATHER_CYCLE_DIV_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1001'
+		AND A.GATHER_RANGE_DIV_CD = CD2.CD(+)
+		AND CD2.GRP_CD_ID(+) = '1002'
+		AND A.ORDER_DIV_CD = CD3.CD(+)
+		AND CD3.GRP_CD_ID(+) = '1010'
+		AND A.PROGRAM_TYPE_CD = CD4.CD(+)
+		AND CD4.GRP_CD_ID(+) = '1005'		
+		AND A.CHOICER_ID = U2.USER_ID(+)
+		AND A.PROJECT_ID = C.PROJECT_ID(+)
+		AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+)
+		<if test="perfr_id != null and perfr_id != ''">
+			-- 튜닝담당자가 선택되면
+			AND A.PERFR_ID = #{perfr_id}
+		</if>
+		<if test="program_type_cd != null and program_type_cd != ''">
+			-- 프로그램유형이 선택되면
+			AND A.PROGRAM_TYPE_CD = #{program_type_cd}
+		</if>
+		<if test="(strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			AND A.CHOICE_DT BETWEEN TO_DATE(#{strStartDt} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		</if>
+		<if test="project_id != null and project_id != ''">
+			-- 프로젝트가 선택되면
+			AND A.PROJECT_ID = #{project_id}
+		</if>
+		ORDER BY A.AUTO_CHOICE_COND_NO DESC
+	</sql>
+	
+	<select id="autoSelectionList" parameterType="topsqlAutoChoice" resultType="topsqlAutoChoice">
+		/* SQLTuningTargetDao.autoSelectionList */
+		<include refid="autoSelectionListRefId"/>	
+	</select>
+	
+	<select id="autoSelectionList4Excel" parameterType="topsqlAutoChoice" resultType="java.util.LinkedHashMap">
+		/* SQLTuningTargetDao.autoSelectionList4Excel */
+		<include refid="autoSelectionListRefId"/>	
+	</select>
+			
+	<select id="getMaxAutoChoiceCondNo" parameterType="topsqlAutoChoice" resultType="string">
+		/* SQLTuningTargetDao.getMaxAutoChoiceCondNo */
+		SELECT NVL(MAX(AUTO_CHOICE_COND_NO) + 1, 1) AUTO_CHOICE_COND_NO
+		FROM TOPSQL_AUTO_CHOICE_COND
+	</select>
+	
+	<select id="selectAutoChoiceCond" parameterType="topsqlAutoChoice" resultType="topsqlAutoChoice">
+		/* SQLTuningTargetDao.selectAutoChoiceCond */
+		SELECT AUTO_CHOICE_COND_NO, DBID, PROGRAM_TYPE_CD, PERFR_AUTO_ASSIGN_YN, PERFR_ID, GATHER_CYCLE_DIV_CD, GATHER_RANGE_DIV_CD,
+			CHOICE_START_DAY, BEFORE_CHOICE_SQL_EXCEPT_YN, BEFORE_TUNING_SQL_EXCEPT_YN, ELAP_TIME, BUFFER_CNT, EXEC_CNT, TOPN_CNT, 
+			ORDER_DIV_CD, MODULE1, MODULE2, PARSING_SCHEMA_NAME, SQL_TEXT, CHOICER_ID, CHOICE_END_DAY, CHOICE_DT, APPL_FILTER_YN, USE_YN, DEL_YN,
+			PROJECT_ID, TUNING_PRGRS_STEP_SEQ
+		FROM TOPSQL_AUTO_CHOICE_COND
+		WHERE AUTO_CHOICE_COND_NO = #{auto_choice_cond_no} AND DBID = #{dbid} 
+	</select>
+	
+	<insert id="insertAutoChoiceCond" parameterType="topsqlAutoChoice">
+		<selectKey resultType="string" keyProperty="auto_choice_cond_no" order="BEFORE">
+			SELECT SQ_SPOP_AUTO_CHOICE_CNOD_NO.NEXTVAL FROM dual
+		</selectKey>
+		/* SQLTuningTargetDao.insertAutoChoiceCond */
+		INSERT INTO TOPSQL_AUTO_CHOICE_COND(
+			AUTO_CHOICE_COND_NO, DBID, PROGRAM_TYPE_CD, PERFR_AUTO_ASSIGN_YN, PERFR_ID, GATHER_CYCLE_DIV_CD, GATHER_RANGE_DIV_CD, CHOICE_START_DAY, 
+			BEFORE_CHOICE_SQL_EXCEPT_YN, BEFORE_TUNING_SQL_EXCEPT_YN, ELAP_TIME, BUFFER_CNT, EXEC_CNT, TOPN_CNT,
+			ORDER_DIV_CD, MODULE1, MODULE2, PARSING_SCHEMA_NAME, SQL_TEXT, CHOICER_ID, CHOICE_END_DAY, CHOICE_DT, APPL_FILTER_YN, USE_YN, DEL_YN,
+			PROJECT_ID, TUNING_PRGRS_STEP_SEQ
+		) VALUES (
+			#{auto_choice_cond_no}, #{dbid}, #{program_type_cd}, #{perfr_auto_assign_yn}, #{perfr_id}, #{gather_cycle_div_cd}, #{gather_range_div_cd}, REPLACE(#{choice_start_day},'-',''),
+			#{before_choice_sql_except_yn}, #{before_tuning_sql_except_yn}, #{elap_time}, #{buffer_cnt}, #{exec_cnt}, #{topn_cnt}, 
+			#{order_div_cd}, #{module1}, #{module2}, #{parsing_schema_name}, #{sql_text}, #{choicer_id}, REPLACE(#{choice_end_day},'-',''), SYSDATE, #{appl_filter_yn}, #{use_yn}, #{del_yn},
+			#{project_id}, #{tuning_prgrs_step_seq}
+		)
+	</insert>
+	
+	<update id="updateAutoChoiceCond" parameterType="topsqlAutoChoice">
+		/* SQLTuningTargetDao.updateAutoChoiceCond */
+		UPDATE TOPSQL_AUTO_CHOICE_COND
+		<set>
+			<if test="program_type_cd != null">PROGRAM_TYPE_CD = #{program_type_cd},</if>
+			<if test="perfr_auto_assign_yn != null">PERFR_AUTO_ASSIGN_YN = #{perfr_auto_assign_yn},</if>
+			<if test="perfr_id != null">PERFR_ID = #{perfr_id},</if>
+			<if test="gather_cycle_div_cd != null">GATHER_CYCLE_DIV_CD = #{gather_cycle_div_cd},</if>
+			<if test="gather_range_div_cd != null">GATHER_RANGE_DIV_CD = #{gather_range_div_cd},</if>
+			<if test="choice_start_day != null">CHOICE_START_DAY = REPLACE(#{choice_start_day},'-',''),</if>
+			<if test="choice_end_day != null">CHOICE_END_DAY = REPLACE(#{choice_end_day},'-',''),</if>
+			<if test="before_choice_sql_except_yn != null">BEFORE_CHOICE_SQL_EXCEPT_YN = #{before_choice_sql_except_yn},</if>
+			<if test="before_tuning_sql_except_yn != null">BEFORE_TUNING_SQL_EXCEPT_YN = #{before_tuning_sql_except_yn},</if>
+			<if test="elap_time != null">ELAP_TIME = #{elap_time},</if>
+			<if test="buffer_cnt != null">BUFFER_CNT = #{buffer_cnt},</if>
+			<if test="exec_cnt != null">EXEC_CNT = #{exec_cnt},</if>
+			<if test="topn_cnt != null">TOPN_CNT = #{topn_cnt},</if>
+			<if test="order_div_cd != null">ORDER_DIV_CD = #{order_div_cd},</if>
+			<if test="module1 != null">MODULE1 = #{module1},</if>
+			<if test="module2 != null">MODULE2 = #{module2},</if>
+			<if test="parsing_schema_name != null">PARSING_SCHEMA_NAME = #{parsing_schema_name},</if>
+			<if test="sql_text != null">SQL_TEXT = #{sql_text},</if>
+			<if test="choicer_id != null">CHOICER_ID = #{choicer_id},</if>			
+			<if test="choicer_id != null">CHOICE_DT = SYSDATE,</if>
+			<if test="appl_filter_yn != null">APPL_FILTER_YN = #{appl_filter_yn},</if>
+			<if test="use_yn != null">USE_YN = #{use_yn},</if>
+			<if test="del_yn != null">DEL_YN = #{del_yn},</if>
+			<if test="project_id != null">PROJECT_ID = #{project_id},</if>
+			<if test="tuning_prgrs_step_seq != null">TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq},</if>
+		</set>
+		<trim prefix="SET" suffixOverrides=","></trim>
+		WHERE AUTO_CHOICE_COND_NO = #{auto_choice_cond_no} AND DBID = #{dbid} 
+	</update>
+	
+	<update id="insertAutoChoiceCondLog" parameterType="topsqlAutoChoice">
+		/* SQLTuningTargetDao.insertAutoChoiceCondLog */
+		INSERT INTO TOPSQL_AUTO_CHOICE_COND_LOG(
+			AUTO_CHOICE_COND_NO, UPDATE_DT, DBID, PROGRAM_TYPE_CD, PERFR_AUTO_ASSIGN_YN, PERFR_ID, GATHER_CYCLE_DIV_CD, GATHER_RANGE_DIV_CD, CHOICE_START_DAY, 
+			BEFORE_CHOICE_SQL_EXCEPT_YN, BEFORE_TUNING_SQL_EXCEPT_YN, ELAP_TIME, BUFFER_CNT, EXEC_CNT, TOPN_CNT, 
+			ORDER_DIV_CD, MODULE1, MODULE2, PARSING_SCHEMA_NAME, SQL_TEXT, CHOICER_ID, CHOICE_END_DAY, CHOICE_DT, UPDATE_ID,
+			APPL_FILTER_YN, USE_YN, DEL_YN,
+			PROJECT_ID, TUNING_PRGRS_STEP_SEQ
+		)
+		SELECT AUTO_CHOICE_COND_NO, SYSDATE AS UPDATE_DT, DBID, PROGRAM_TYPE_CD, PERFR_AUTO_ASSIGN_YN, PERFR_ID, GATHER_CYCLE_DIV_CD, GATHER_RANGE_DIV_CD, CHOICE_START_DAY, 
+			BEFORE_CHOICE_SQL_EXCEPT_YN, BEFORE_TUNING_SQL_EXCEPT_YN, ELAP_TIME, BUFFER_CNT, EXEC_CNT, TOPN_CNT, 
+			ORDER_DIV_CD, MODULE1, MODULE2, PARSING_SCHEMA_NAME, SQL_TEXT, CHOICER_ID, CHOICE_END_DAY, CHOICE_DT, #{update_id} AS UPDATE_ID, 
+			APPL_FILTER_YN, USE_YN, DEL_YN,
+			PROJECT_ID, TUNING_PRGRS_STEP_SEQ
+		FROM TOPSQL_AUTO_CHOICE_COND
+		WHERE AUTO_CHOICE_COND_NO = #{auto_choice_cond_no} AND DBID = #{dbid} 
+	</update>
+	
+	<select id="autoSelectionHistoryList" parameterType="topsqlAutoChoice" resultType="topsqlAutoChoice">
+		/* SQLTuningTargetDao.autoSelectionHistoryList */
+		SELECT A.AUTO_CHOICE_COND_NO, A.DBID, B.DB_NAME, A.PROGRAM_TYPE_CD, CD4.CD_NM AS PROGRAM_TYPE_CD_NM,  
+			A.PERFR_AUTO_ASSIGN_YN, A.PERFR_ID, U1.USER_NM AS PERFR_NM,
+			A.GATHER_CYCLE_DIV_CD, CD1.CD_NM AS GATHER_CYCLE_DIV_NM, A.GATHER_RANGE_DIV_CD, CD2.CD_NM AS GATHER_RANGE_DIV_NM, 
+			A.CHOICE_START_DAY, A.CHOICE_END_DAY, A.BEFORE_CHOICE_SQL_EXCEPT_YN, A.BEFORE_TUNING_SQL_EXCEPT_YN, A.ELAP_TIME,
+			A.BUFFER_CNT, A.EXEC_CNT, A.TOPN_CNT, A.ORDER_DIV_CD, CD3.CD_NM AS ORDER_DIV_NM,
+			A.MODULE1, A.MODULE2, A.PARSING_SCHEMA_NAME, SQL_TEXT, U2.USER_NM AS CHOICER_NM, TO_CHAR(A.CHOICE_DT,'YYYY-MM-DD HH24:MI:SS') AS CHOICE_DT,
+			U3.USER_NM AS UPDATE_NM, TO_CHAR(A.UPDATE_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATE_DT,
+			NVL(A.APPL_FILTER_YN,'Y') AS APPL_FILTER_YN, NVL(A.USE_YN,'Y') AS USE_YN, NVL(A.DEL_YN,'N') AS DEL_YN
+			, C.PROJECT_NM AS PROJECT_NM
+			, C.TUNING_PRGRS_STEP_NM
+			-- hidden
+			, C.PROJECT_ID
+			, C.TUNING_PRGRS_STEP_SEQ
+		FROM TOPSQL_AUTO_CHOICE_COND_LOG A, DATABASE B, CD CD1, CD CD2, CD CD3, CD CD4, USERS U1, USERS U2, USERS U3
+			, (SELECT A.PROJECT_ID
+					, A.PROJECT_NM
+					, B.TUNING_PRGRS_STEP_SEQ
+					, B.TUNING_PRGRS_STEP_NM
+				FROM PROJECT A
+					, PROJECT_TUNING_PRGRS_STEP B
+				WHERE A.PROJECT_ID = B.PROJECT_ID
+			) C
+		WHERE A.DBID = B.DBID
+		AND A.PERFR_ID = U1.USER_ID(+)
+		AND A.GATHER_CYCLE_DIV_CD = CD1.CD(+)
+		AND CD1.GRP_CD_ID(+) = '1001'
+		AND A.GATHER_RANGE_DIV_CD = CD2.CD(+)
+		AND CD2.GRP_CD_ID(+) = '1002'
+		AND A.ORDER_DIV_CD = CD3.CD(+)
+		AND CD3.GRP_CD_ID(+) = '1010'
+		AND A.PROGRAM_TYPE_CD = CD4.CD(+)
+		AND CD4.GRP_CD_ID(+) = '1005'
+		AND A.CHOICER_ID = U2.USER_ID(+)
+		AND A.UPDATE_ID = U3.USER_ID(+)
+		AND A.AUTO_CHOICE_COND_NO = #{auto_choice_cond_no}
+		AND A.DBID = #{dbid}
+		AND A.PROJECT_ID = C.PROJECT_ID(+)
+		AND A.TUNING_PRGRS_STEP_SEQ = C.TUNING_PRGRS_STEP_SEQ(+)
+		ORDER BY A.UPDATE_DT DESC
+	</select>	
+	
+	<select id="getChoiceCondNo" parameterType="topsqlAutoChoice" resultType="topsqlAutoChoice">
+		/* SQLTuningTargetDao.getChoiceCondNo */
+		SELECT AUTO_CHOICE_COND_NO  -- 자동선정조건번호 
+		FROM TOPSQL_AUTO_CHOICE_COND
+		WHERE DBID = #{dbid}
+		ORDER BY AUTO_CHOICE_COND_NO DESC
+	</select>
+	
+	<sql id="autoSelectionStatusListRefId">
+		SELECT A.DBID, C.DB_NAME, B.AUTO_CHOICE_COND_NO, B.CHOICE_TMS, TO_CHAR(B.CHOICE_DT, 'YYYY-MM-DD') CHOICE_DT, B.CHOICE_CNT
+			, CD1.CD_NM AS GATHER_CYCLE_DIV_NM
+			, CD2.CD_NM AS GATHER_RANGE_DIV_NM
+			, E.BEFORE_CHOICE_SQL_EXCEPT_YN, E.BEFORE_TUNING_SQL_EXCEPT_YN, E.ELAP_TIME, E.BUFFER_CNT, E.EXEC_CNT, E.TOPN_CNT
+			, CD3.CD_NM AS ORDER_DIV_NM
+			, D.PROJECT_NM AS PROJECT_NM
+			, D.TUNING_PRGRS_STEP_NM
+			-- hidden
+			, D.PROJECT_ID
+			, D.TUNING_PRGRS_STEP_SEQ
+		FROM TOPSQL_AUTO_CHOICE_COND A, TOPSQL_AUTO_CHOICE_EXEC B, DATABASE C, CD CD1, CD CD2, CD CD3
+		, (SELECT A.PROJECT_ID
+				, A.PROJECT_NM
+				, B.TUNING_PRGRS_STEP_SEQ
+				, B.TUNING_PRGRS_STEP_NM
+			FROM PROJECT A
+				, PROJECT_TUNING_PRGRS_STEP B
+			WHERE A.PROJECT_ID = B.PROJECT_ID
+		) D
+		, TOPSQL_AUTO_CHOICE_COND_LOG E
+		WHERE A.DBID = #{dbid}
+		AND A.AUTO_CHOICE_COND_NO = B.AUTO_CHOICE_COND_NO
+		AND A.DBID = C.DBID
+		AND A.AUTO_CHOICE_COND_NO = E.AUTO_CHOICE_COND_NO
+		AND B.UPDATE_DT = E.UPDATE_DT
+		AND E.GATHER_CYCLE_DIV_CD = CD1.CD
+		AND CD1.GRP_CD_ID = '1001'
+		AND E.GATHER_RANGE_DIV_CD = CD2.CD
+		AND CD2.GRP_CD_ID = '1002'
+		AND E.ORDER_DIV_CD = CD3.CD
+		AND CD3.GRP_CD_ID = '1010'		
+		<if test="(strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			AND B.CHOICE_DT BETWEEN TO_DATE(#{strStartDt}, 'YYYY-MM-DD') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		</if>		
+		<if test="select_auto_choice_cond_no != null and select_auto_choice_cond_no != '' and select_auto_choice_cond_no != '전체'">
+			AND B.AUTO_CHOICE_COND_NO = #{select_auto_choice_cond_no}
+		</if>
+		AND B.PROJECT_ID = D.PROJECT_ID(+)
+		AND B.TUNING_PRGRS_STEP_SEQ = D.TUNING_PRGRS_STEP_SEQ(+)
+		<if test="perfr_id != null and perfr_id != ''">
+			-- 튜닝담당자가 선택되면
+			AND B.AUTO_CHOICE_COND_NO IN (SELECT AUTO_CHOICE_COND_NO 
+										FROM TUNING_TARGET_SQL 
+										WHERE PERFR_ID = #{perfr_id})
+		</if>
+		<if test="project_id != null and project_id != ''">
+			-- 프로젝트가 선택되면
+			AND B.PROJECT_ID = #{project_id}
+		</if>
+		
+		ORDER BY B.CHOICE_DT DESC
+	</sql>
+	
+	<select id="autoSelectionStatusList" parameterType="topsqlAutoChoice" resultType="topsqlAutoChoice">
+		/* SQLTuningTargetDao.autoSelectionStatusList */
+		<include refid="autoSelectionStatusListRefId"/>	
+	</select>
+	
+	<select id="autoSelectionStatusList4Excel" parameterType="topsqlAutoChoice" resultType="java.util.LinkedHashMap">
+		/* SQLTuningTargetDao.autoSelectionStatusList4Excel */
+		SELECT
+<!-- 			 DBID -->
+<!-- 			, -->
+			DB_NAME
+			,AUTO_CHOICE_COND_NO
+			,CHOICE_TMS
+			,CHOICE_DT
+			,CHOICE_CNT
+			,GATHER_CYCLE_DIV_NM
+			,GATHER_RANGE_DIV_NM
+			,BEFORE_CHOICE_SQL_EXCEPT_YN
+			,BEFORE_TUNING_SQL_EXCEPT_YN
+			,ELAP_TIME
+			,BUFFER_CNT
+			,EXEC_CNT
+			,TOPN_CNT
+			,ORDER_DIV_NM
+			,PROJECT_NM
+			,TUNING_PRGRS_STEP_NM
+		FROM(
+		<include refid="autoSelectionStatusListRefId"/>	
+		)
+	</select>
+	
+	<select id="autoSelectionStatusTuningNoList" parameterType="sqlTuning" resultType="tuningTargetSql">
+		/* SQLTuningTargetDao.autoSelectionStatusTuningNoList */
+		SELECT TUNING_NO, TUNING_STATUS_CD
+		FROM TUNING_TARGET_SQL
+		WHERE AUTO_CHOICE_COND_NO = #{auto_choice_cond_no}
+		AND CHOICE_TMS = #{choice_tms}
+		AND TUNING_STATUS_CD NOT IN('8')
+		ORDER BY TUNING_NO ASC
+	</select>
+	
+	<sql id="autoSelectionStatusDetailListRefId">
+		SELECT TUNING_NO
+			, B.USER_NM AS PERFR_NM
+			, A.TUNING_STATUS_CD
+			, CD1.CD_NM AS TUNING_STATUS_NM
+			, SQL_ID
+			, PLAN_HASH_VALUE
+			, PARSING_SCHEMA_NAME
+			, AVG_ELAPSED_TIME
+			, AVG_BUFFER_GETS
+			, EXECUTIONS
+			, AVG_DISK_READS
+			, AVG_ROW_PROCESSED
+			, MODULE
+			, NVL(RATIO_BUFFER_GET_TOTAL, 0) RATIO_BUFFER_GET_TOTAL
+			, NVL(RATIO_CPU_TOTAL, 0) RATIO_CPU_TOTAL
+			, NVL(RATIO_CPU_PER_EXECUTIONS, 0) RATIO_CPU_PER_EXECUTIONS
+			<choose>
+			<when test="strGubun eq 'EXCEL'">
+				, DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+			</when>
+			<otherwise>
+				, DBMS_LOB.SUBSTR(A.SQL_TEXT, 1000, 1) SQL_TEXT
+			</otherwise>
+			</choose>
+		FROM TUNING_TARGET_SQL A, USERS B, CD CD1
+		WHERE A.PERFR_ID = B.USER_ID(+)
+		AND A.TUNING_STATUS_CD = CD1.CD
+		AND CD1.GRP_CD_ID = '1004'
+		AND A.CHOICE_DIV_CD = '1'
+        AND A.AUTO_CHOICE_COND_NO = #{auto_choice_cond_no}
+		AND A.CHOICE_TMS = #{choice_tms}
+		ORDER BY TUNING_NO ASC
+	</sql>
+	
+	<select id="autoSelectionStatusSearchList4Excel" parameterType="topsqlAutoChoice" resultType="java.util.LinkedHashMap">
+		/* SQLTuningTargetDao.autoSelectionStatusSearchList4Excel */
+		SELECT
+<!-- 			 DBID -->
+<!-- 			, -->
+			DB_NAME
+			,AUTO_CHOICE_COND_NO
+			,CHOICE_TMS
+			,CHOICE_DT
+			,CHOICE_CNT
+			,GATHER_CYCLE_DIV_NM
+			,GATHER_RANGE_DIV_NM
+			,BEFORE_CHOICE_SQL_EXCEPT_YN
+			,BEFORE_TUNING_SQL_EXCEPT_YN
+			,ELAP_TIME
+			,BUFFER_CNT
+			,EXEC_CNT
+			,TOPN_CNT
+			,ORDER_DIV_NM
+			,PROJECT_NM
+			,TUNING_PRGRS_STEP_NM
+		FROM(
+		<include refid="autoSelectionStatusListRefId"/>	
+		)
+	</select>
+	
+	<select id="autoSelectionStatusDetailList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* SQLTuningTargetDao.autoSelectionStatusDetailList */
+		<include refid="autoSelectionStatusDetailListRefId"/>	
+	</select>
+	
+	<select id="autoSelectionStatusDetailList4Excel" parameterType="tuningTargetSql" resultType="java.util.LinkedHashMap">
+		/* SQLTuningTargetDao.autoSelectionStatusDetailList4Excel */
+		SELECT
+			 TUNING_NO
+			,PERFR_NM
+<!-- 			,TUNING_STATUS_CD -->
+			,TUNING_STATUS_NM
+			,SQL_ID
+			,PLAN_HASH_VALUE
+			,PARSING_SCHEMA_NAME
+			,AVG_ELAPSED_TIME
+			,AVG_BUFFER_GETS
+			,EXECUTIONS
+			,AVG_DISK_READS
+			,AVG_ROW_PROCESSED
+			,MODULE
+			,RATIO_BUFFER_GET_TOTAL
+			,RATIO_CPU_TOTAL
+			,RATIO_CPU_PER_EXECUTIONS
+			,SQL_TEXT  
+		FROM(
+		<include refid="autoSelectionStatusDetailListRefId"/>	
+		)		
+	</select>
+		
+	<select id="manualSelectionList_" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* SQLTuningTargetDao.manualSelectionList_ */
+		SELECT /*+ LEADING(A B) */ ROWNUM AS RNUM                                                                 
+			,A.DBID                 AS DBID                                                                                
+			,A.SQL_ID               AS SQL_ID                                                                              
+			,A.PLAN_HASH_VALUE      AS PLAN_HASH_VALUE                                                                     
+			,A.MODULE               AS MODULE                                                                              
+			,A.PARSING_SCHEMA_NAME  AS PARSING_SCHEMA_NAME                                                                 
+			,A.EXEC                 AS EXECUTIONS                                                                          
+			,A.AVG_BGET             AS AVG_BUFFER_GETS                                                                     
+			,A.MAX_BGET             AS MAX_BUFFER_GETS                                                                     
+			,A.BGET                 AS TOTAL_BUFFER_GETS                                                                   
+			,A.AVG_ELAP             AS AVG_ELAPSED_TIME                                                                    
+			,A.MAX_ELAP             AS MAX_ELAPSED_TIME                                                                    
+			,A.AVG_CPU              AS AVG_CPU_TIME                                                                        
+			,A.AVG_DRDS             AS AVG_DISK_READS                                                                      
+			,A.AVG_ROWS             AS AVG_ROWS_PROCESSED                                                                  
+			,NVL(ROUND(RATIO_TO_REPORT(A.AVG_BGET*A.EXEC) OVER(), 5)*100,0) AS RATIO_BGET_TOTAL                              
+			,NVL(ROUND(RATIO_TO_REPORT(A.AVG_CPU*A.EXEC) OVER(), 5)*100,0)  AS RATIO_CPU_TOTAL                               
+			,NVL(ROUND(RATIO_TO_REPORT(A.AVG_CPU) OVER(), 5)*100,0)         AS RATIO_CPU_PER_EXECUTION                       
+			,DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) SQL_TEXT                                                                  
+		FROM (
+			SELECT /*+ NO_MERGE LEADING(C B) USE_NL(B) INDEX(B WRH$_SQLSTAT_PK) */                                           
+				B.DBID, B.SQL_ID, B.PLAN_HASH_VALUE, B.MODULE                                                             
+				,ROUND(SUM(B.ELAPSED_TIME_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) /1000000,4) AVG_ELAP
+				,ROUND(MAX(B.ELAPSED_TIME_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) )/1000000,4) MAX_ELAP
+				,ROUND(SUM(B.CPU_TIME_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+				,TRUNC(SUM(B.BUFFER_GETS_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_BGET
+				,TRUNC(MAX(B.BUFFER_GETS_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))) MAX_BGET
+				,TRUNC(SUM(B.DISK_READS_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_DRDS
+				,TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_ROWS 
+				,SUM(B.BUFFER_GETS_DELTA) BGET    
+				,DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) EXEC                                                                              
+				,SUM(B.ELAPSED_TIME_DELTA) ELAP                                                                            
+				,SUM(B.PARSE_CALLS_DELTA) PARSE                                                                            
+				,SUM(B.FETCHES_DELTA) FETCH                                                                                
+				,MAX(C.BEGIN_INTERVAL_TIME) SNAP_TIME                                                                      
+				,MAX(B.PARSING_SCHEMA_NAME) PARSING_SCHEMA_NAME                                                            
+				,MAX(C.SNAP_ID) MAX_SNAP_ID                                                                                
+			FROM (
+				SELECT /*+ NO_MERGE */ SNAP_ID, DBID, INSTANCE_NUMBER, BEGIN_INTERVAL_TIME                               
+				FROM ODS_HIST_SNAPSHOT                                                                                 
+				WHERE DBID = #{dbid}                                                                                              
+				AND SNAP_ID BETWEEN #{start_snap_id} AND #{end_snap_id}       
+			) C, ODS_HIST_SQLSTAT B
+			WHERE B.DBID = #{dbid}
+			AND B.EXECUTIONS_DELTA > 0                                                                                    
+			<if test="parsing_schema_name != null and parsing_schema_name != ''">
+				AND B.PARSING_SCHEMA_NAME LIKE UPPER(#{parsing_schema_name}) || '%'
+			</if>                                      
+			<if test="module != null and module != ''">
+				AND UPPER(B.MODULE) LIKE UPPER(#{module}) || '%' ESCAPE '\'
+			</if>                         
+			AND C.SNAP_ID = B.SNAP_ID                                                                                     
+			AND C.DBID = B.DBID                                                                                           
+			AND C.INSTANCE_NUMBER = B.INSTANCE_NUMBER     
+            <!-- TOOL MODULE 제외 -->
+            AND UPPER(B.MODULE) NOT LIKE 'DBANY%'
+            AND UPPER(B.MODULE) NOT LIKE 'GOLDEN%'
+            AND UPPER(B.MODULE) NOT LIKE 'GOLDVIEW%'
+            AND UPPER(B.MODULE) NOT LIKE 'GOLDVW32%'
+            AND UPPER(B.MODULE) NOT LIKE 'LAB128%'
+            AND UPPER(B.MODULE) NOT LIKE 'OPENMADE%'
+            AND UPPER(B.MODULE) NOT LIKE 'ORANGE%'
+            AND UPPER(B.MODULE) NOT LIKE 'PL/SQL DEVELOPER%'
+            AND UPPER(B.MODULE) NOT LIKE 'PLSQLDEV%'
+            AND UPPER(B.MODULE) NOT LIKE 'SQL DEVELOPER%'
+            AND UPPER(B.MODULE) NOT LIKE 'SQL*PLUS%'
+            AND UPPER(B.MODULE) NOT LIKE 'SQLGATE%'
+            AND UPPER(B.MODULE) NOT LIKE 'SQLPLUS%'
+            AND UPPER(B.MODULE) NOT LIKE 'TKPROF%'
+            AND UPPER(B.MODULE) NOT LIKE 'TOAD%'         
+            <!-- APPLICATION FILTERING -->
+            <!-- 건강관리공단 적용 
+            AND UPPER(REGEXP_SUBSTR(MODULE,'[^@]+',1,1)) IN ( 
+             SELECT UPPER(B.TR_CD)
+               FROM WRKJOB_CD A,
+                    TR_CD B
+              WHERE A.WRKJOB_CD = B.WRKJOB_CD
+              AND A.DBID = #{dbid}
+            )
+            -->
+			GROUP BY B.DBID, B.SQL_ID, B.MODULE, B.PLAN_HASH_VALUE                                                        
+			HAVING ROUND(SUM(B.ELAPSED_TIME_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) /1000000,4) > ${elapsed_time}                  
+			AND TRUNC(SUM(B.BUFFER_GETS_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) > ${buffer_gets}                            
+			AND DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) >= ${executions}                                                             
+			ORDER BY (CASE                                                                                                
+						WHEN ${order_div_cd} = 1 THEN SUM(B.ELAPSED_TIME_DELTA)                             
+						WHEN ${order_div_cd} = 2 THEN SUM(B.CPU_TIME_DELTA)                             
+						WHEN ${order_div_cd} = 3 THEN SUM(B.BUFFER_GETS_DELTA)                             
+						WHEN ${order_div_cd} = 4 THEN SUM(B.DISK_READS_DELTA)                            
+						WHEN ${order_div_cd} = 5 THEN SUM(B.EXECUTIONS_DELTA)                           
+						ELSE SUM(B.ELAPSED_TIME_DELTA)                                                                   
+					END) DESC                                                                                          
+		) A, ODS_HIST_SQLTEXT B
+		WHERE A.SQL_ID = B.SQL_ID                                                                                            
+		AND A.DBID = B.DBID
+		<if test="sql_text != null and sql_text != ''">
+			AND UPPER(B.SQL_TEXT) LIKE '%' || UPPER(#{sql_text}) || '%'
+		</if>
+		AND NOT EXISTS (                                                                                                   
+			SELECT /*+ NO_UNNEST */ 1                                                                                                 
+			FROM TUNING_TARGET_SQL SA, SQL_TUNING SB
+			WHERE SA.TUNING_NO = SB.TUNING_NO
+			AND A.SQL_ID = SA.SQL_ID       
+			AND SB.EXCEPT_TARGET_YN = 'Y'
+		)
+		<if test="(before_choice_sql_except_yn != null and (before_choice_sql_except_yn eq 'Y'.toString()))">
+			AND NOT EXISTS (                                                                                                   
+				SELECT /*+ NO_UNNEST */ 1
+				FROM TUNING_TARGET_SQL SA                                                                                      
+				WHERE A.SQL_ID = SA.SQL_ID                                                                                     
+	     	)
+		</if>
+		AND ROWNUM <![CDATA[ <= ]]> ${topn_cnt}
+	</select>
+	
+	<sql id="manualSelectionListRefId">
+	/* SQLTuningTargetDao.manualSelectionListRefId */
+			
+			SELECT /*+ LEADING(A B) */
+				  COUNT(*) OVER() AS TOTAL_COUNT
+				, A.DBID                					 AS DBID                                                                                
+				, A.SQL_ID              					 AS SQL_ID                                                                              
+				, A.PLAN_HASH_VALUE     					 AS PLAN_HASH_VALUE                                                                     
+				, A.MODULE              					 AS MODULE                                                                              
+				, A.PARSING_SCHEMA_NAME 					 AS PARSING_SCHEMA_NAME                                                                 
+				, A.EXEC                					 AS EXECUTIONS                                                                          
+				, CASE WHEN TRIM(A.AVG_BGET) IS NULL THEN
+							NULL
+					   WHEN MOD(A.AVG_BGET,1) = 0 THEN
+							TO_CHAR(A.AVG_BGET)
+					   ELSE
+							TO_CHAR(A.AVG_BGET, 'FM999999999999999999999999999990.999999999999999999999999999999')
+				  END AS AVG_BUFFER_GETS  
+				, MAX_BGET									 AS MAX_BUFFER_GETS  
+				, A.BGET									 AS TOTAL_BUFFER_GETS
+				, CASE WHEN TRIM(A.AVG_ELAP) IS NULL THEN
+							NULL
+					   WHEN MOD(A.AVG_ELAP,1) = 0 THEN
+							TO_CHAR(A.AVG_ELAP)
+					   ELSE 
+							TO_CHAR(A.AVG_ELAP, 'FM999999999999999999999999999990.999999999999999999999999999999')
+				  END AS AVG_ELAPSED_TIME
+				, CASE WHEN TRIM(A.MAX_ELAP) IS NULL THEN
+							NULL
+					   WHEN MOD(A.MAX_ELAP,1) = 0 THEN
+							TO_CHAR(A.MAX_ELAP)
+					   ELSE
+							TO_CHAR(A.MAX_ELAP, 'FM999999999999999999999999999990.999999999999999999999999999999')
+				  END AS MAX_ELAPSED_TIME 
+				, CASE WHEN TRIM(A.AVG_CPU) IS NULL THEN
+							NULL
+					   WHEN MOD(A.AVG_CPU,1) = 0 THEN
+							TO_CHAR(A.AVG_CPU)
+					   ELSE
+							TO_CHAR(A.AVG_CPU, 'FM999999999999999999999999999990.999999999999999999999999999999')
+				  END AS AVG_CPU_TIME  
+				, A.AVG_DRDS								 AS AVG_DISK_READS
+				, A.AVG_ROWS								 AS AVG_ROWS_PROCESSED
+				, CASE WHEN TRIM(NVL(RATIO_BGET_TOTAL,0)) IS NULL THEN
+							NULL
+					   WHEN MOD(NVL(RATIO_BGET_TOTAL,0),1) = 0 THEN
+							TO_CHAR(NVL(RATIO_BGET_TOTAL,0))
+					   ELSE
+							TO_CHAR(NVL(RATIO_BGET_TOTAL,0), 'FM999999999999999999999999999990.999999999999999999999999999999')
+				  END AS RATIO_BGET_TOTAL
+				, CASE WHEN TRIM(NVL(RATIO_CPU_TOTAL,0)) IS NULL THEN
+							NULL
+					   WHEN MOD(NVL(RATIO_CPU_TOTAL,0),1) = 0 THEN
+							TO_CHAR(NVL(RATIO_CPU_TOTAL,0))
+					   ELSE
+							TO_CHAR(NVL(RATIO_CPU_TOTAL,0), 'FM999999999999999999999999999990.999999999999999999999999999999')
+				  END AS RATIO_CPU_TOTAL 
+				, CASE WHEN TRIM(NVL(RATIO_CPU_PER_EXECUTION,0)) IS NULL THEN
+							NULL
+					   WHEN MOD(NVL(RATIO_CPU_PER_EXECUTION,0),1) = 0 THEN
+							TO_CHAR(NVL(RATIO_CPU_PER_EXECUTION,0))
+					   ELSE
+							TO_CHAR(NVL(RATIO_CPU_PER_EXECUTION,0), 'FM999999999999999999999999999990.999999999999999999999999999999')
+				  END AS RATIO_CPU_PER_EXECUTION 
+				, DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) AS SQL_TEXT
+			 FROM (
+					SELECT /*+ NO_MERGE LEADING(C B) USE_NL(B) INDEX(B WRH$_SQLSTAT_PK) */
+						   B.DBID, B.SQL_ID, B.PLAN_HASH_VALUE, B.MODULE
+						 /* 
+						 --, ROUND(AVG(B.ELAPSED_TIME_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, NVL(B.EXECUTIONS_DELTA, 1)))/1000000,4) AVG_ELAP
+						 --, ROUND(MAX(B.ELAPSED_TIME_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, B.EXECUTIONS_DELTA) )/1000000,4) MAX_ELAP
+						 --, ROUND(AVG(B.CPU_TIME_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, NVL(B.EXECUTIONS_DELTA, 1)))/1000000,4) AVG_CPU
+						 --, TRUNC(AVG(B.BUFFER_GETS_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, NVL(B.EXECUTIONS_DELTA, 1)))) AVG_BGET
+						 --, TRUNC(MAX(B.BUFFER_GETS_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, B.EXECUTIONS_DELTA))) MAX_BGET
+						 --, TRUNC(AVG(B.DISK_READS_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, NVL(B.EXECUTIONS_DELTA, 1)))) AVG_DRDS
+						 --, TRUNC(AVG(B.ROWS_PROCESSED_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, NVL(B.EXECUTIONS_DELTA, 1)))) AVG_ROWS
+						 */
+						 , ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+						 , ROUND(MAX(B.ELAPSED_TIME_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4)          MAX_ELAP
+						 , ROUND(SUM(B.CPU_TIME_DELTA)      /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+						 , TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_BGET
+						 , TRUNC(MAX(B.BUFFER_GETS_DELTA    /DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, B.EXECUTIONS_DELTA))           ) MAX_BGET
+						 , TRUNC(SUM(B.DISK_READS_DELTA)    /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_DRDS
+						 , TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_ROWS
+						 , ROUND(RATIO_TO_REPORT(SUM(B.BUFFER_GETS_DELTA)) OVER(), 4)*100 AS RATIO_BGET_TOTAL
+						 , ROUND(RATIO_TO_REPORT(SUM(B.CPU_TIME_DELTA)) OVER(), 4)*100 AS RATIO_CPU_TOTAL
+						 , NULL AS RATIO_CPU_PER_EXECUTION
+						 , SUM(B.BUFFER_GETS_DELTA) BGET
+						 /* , SUM(B.EXECUTIONS_DELTA) EXEC */
+						 , DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) EXEC
+						 , SUM(B.ELAPSED_TIME_DELTA) ELAP
+						 , SUM(B.PARSE_CALLS_DELTA) PARSE
+						 , SUM(B.FETCHES_DELTA) FETCH
+						 , MAX(C.BEGIN_INTERVAL_TIME) SNAP_TIME
+						 , MAX(B.PARSING_SCHEMA_NAME) PARSING_SCHEMA_NAME
+						 , MAX(C.SNAP_ID) MAX_SNAP_ID
+					  FROM (
+							SELECT /*+ NO_MERGE */ SNAP_ID, DBID, INSTANCE_NUMBER, BEGIN_INTERVAL_TIME
+							  FROM ODS_HIST_SNAPSHOT
+							 WHERE DBID = #{dbid}
+							   AND SNAP_ID BETWEEN #{start_snap_id} AND #{end_snap_id}
+						 ) C
+						 , 
+						 <if test="filter_sql != null and filter_sql != ''">
+						(SELECT * FROM 
+						</if>
+						 ODS_HIST_SQLSTAT B
+						 <if test="filter_sql != null and filter_sql != ''">
+						
+						/* filter_sql 입력했을 때 */
+						WHERE 1=1
+						${filter_sql}
+						) B
+						</if>
+					 WHERE B.DBID = #{dbid}
+				
+				<if test="parsing_schema_name != null and parsing_schema_name != ''">
+					   AND UPPER(B.PARSING_SCHEMA_NAME) LIKE '%'||UPPER(#{parsing_schema_name}) || '%'
+				</if>
+			 	<!-- AND B.PARSING_SCHEMA_NAME  = UPPER(#{parsing_schema_name}) -->
+				<if test="module != null and module != ''">
+					   AND UPPER(B.MODULE) LIKE '%'||UPPER(#{module})||'%'
+				</if>
+				<!-- AND UPPER(B.MODULE) LIKE UPPER(#{module}) || '%' ESCAPE '\' -->
+				
+				<if test="array_parsing_schema_name != null and array_parsing_schema_name.size != 0">
+					   AND UPPER(B.PARSING_SCHEMA_NAME) NOT IN 
+					/* 일괄적으로 PARSING_SCHEMA_NAME을 입력했을때(제외) */
+					<foreach item="item" index="index" collection="array_parsing_schema_name" open="(" separator="," close=")">
+						   TRIM(UPPER(#{item}))
+					</foreach>
+				</if>
+				
+				<if test="array_module != null and array_module.size != 0">
+					/* 일괄적으로 MODULE을 입력했을때(제외) */
+					<foreach item="item" collection="array_module" >
+					   AND UPPER(B.MODULE) NOT LIKE '%'||TRIM(UPPER(#{item}))||'%'
+					</foreach>
+				</if>
+				
+					   AND C.SNAP_ID = B.SNAP_ID
+					   AND C.DBID = B.DBID
+					   AND C.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+					   <!-- TOOL MODULE 제외 -->
+					   AND UPPER(B.MODULE) NOT LIKE 'DBANY%'
+					   AND UPPER(B.MODULE) NOT LIKE 'GOLDEN%'
+					   AND UPPER(B.MODULE) NOT LIKE 'GOLDVIEW%'
+					   AND UPPER(B.MODULE) NOT LIKE 'GOLDVW32%'
+					   AND UPPER(B.MODULE) NOT LIKE 'LAB128%'
+					   AND UPPER(B.MODULE) NOT LIKE 'OPENMADE%'
+					   AND UPPER(B.MODULE) NOT LIKE 'ORANGE%'
+					   AND UPPER(B.MODULE) NOT LIKE 'PL/SQL DEVELOPER%'
+					   AND UPPER(B.MODULE) NOT LIKE 'PLSQLDEV%'
+					   AND UPPER(B.MODULE) NOT LIKE 'SQL DEVELOPER%'
+					   AND UPPER(B.MODULE) NOT LIKE 'SQL*PLUS%'
+					   AND UPPER(B.MODULE) NOT LIKE 'SQLGATE%'
+					   AND UPPER(B.MODULE) NOT LIKE 'SQLPLUS%'
+					   AND UPPER(B.MODULE) NOT LIKE 'TKPROF%'
+					   AND UPPER(B.MODULE) NOT LIKE 'TOAD%'
+					   <!-- APPLICATION FILTERING -->
+					   <!-- 건강관리공단 적용 
+					   AND UPPER(REGEXP_SUBSTR(MODULE,'[^@]+',1,1)) IN ( 
+					    SELECT UPPER(B.TR_CD)
+					      FROM WRKJOB_CD A,
+					           TR_CD B
+					     WHERE A.WRKJOB_CD = B.WRKJOB_CD
+					     AND A.DBID = #{dbid}
+					   )
+					   -->
+					 GROUP BY B.DBID, B.SQL_ID, B.MODULE, B.PLAN_HASH_VALUE
+					HAVING ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) >= ${elapsed_time}
+					   AND TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) >= ${buffer_gets}
+					   AND DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) >= ${executions}
+					 ORDER BY (CASE
+									WHEN ${order_div_cd} = 1 THEN SUM(B.ELAPSED_TIME_DELTA)
+									WHEN ${order_div_cd} = 2 THEN SUM(B.CPU_TIME_DELTA)
+									WHEN ${order_div_cd} = 3 THEN SUM(B.BUFFER_GETS_DELTA)
+									WHEN ${order_div_cd} = 4 THEN SUM(B.DISK_READS_DELTA)
+									WHEN ${order_div_cd} = 5 THEN SUM(B.EXECUTIONS_DELTA)
+									ELSE SUM(B.ELAPSED_TIME_DELTA)
+							   END) DESC
+				 ) A, ODS_HIST_SQLTEXT B
+			 WHERE A.SQL_ID = B.SQL_ID
+			   AND A.DBID = B.DBID
+			
+			<if test="array_sql_id != null and array_sql_id.size != 0">
+				/* 일괄적으로 SQL_ID를 입력했을때(제외) */
+				<foreach item="item" collection="array_sql_id" >
+			   AND B.SQL_ID NOT LIKE '%'||TRIM(#{item})||'%'
+				</foreach>
+			</if>
+			<if test="sql_text != null and sql_text != ''">
+			   AND UPPER(B.SQL_TEXT) LIKE '%' || UPPER(#{sql_text}) || '%'
+			</if>
+			   AND NOT EXISTS (
+					SELECT /*+ NO_UNNEST */ 1
+					  FROM TUNING_TARGET_SQL SA, SQL_TUNING SB
+					 WHERE SA.TUNING_NO = SB.TUNING_NO
+					   AND A.DBID = SA.DBID
+					   AND A.SQL_ID = SA.SQL_ID
+					   AND SB.EXCEPT_TARGET_YN = 'Y'
+					   AND SA.TUNING_STATUS_CD NOT IN ('4', '7', 'A')
+					)
+			<if test="(before_choice_sql_except_yn != null and (before_choice_sql_except_yn eq 'Y'.toString()))">
+			   AND NOT EXISTS (
+					SELECT /*+ NO_UNNEST */ 1
+					  FROM TUNING_TARGET_SQL SA
+					 WHERE A.DBID = SA.DBID
+					   AND A.SQL_ID = SA.SQL_ID
+					   AND SA.TUNING_STATUS_CD NOT IN ('4', '7', 'A')
+					)
+			</if>
+			   AND ROWNUM <![CDATA[ <= ]]> ${topn_cnt}
+	</sql>
+	
+	<sql id="manualSelectionListRefId_old">
+	/* SQLTuningTargetDao.manualSelectionListRefId_old */
+			SELECT /*+ LEADING(A B) */ ROWNUM AS RNUM 
+				, COUNT(*) OVER() AS TOTAL_COUNT
+				, A.DBID                					 AS DBID                                                                                
+				, A.SQL_ID              					 AS SQL_ID                                                                              
+				, A.PLAN_HASH_VALUE     					 AS PLAN_HASH_VALUE                                                                     
+				, A.MODULE              					 AS MODULE                                                                              
+				, A.PARSING_SCHEMA_NAME 					 AS PARSING_SCHEMA_NAME                                                                 
+				, A.EXEC                					 AS EXECUTIONS                                                                          
+                , CASE WHEN TRIM(A.AVG_BGET) IS NULL THEN
+                          NULL
+                      WHEN MOD(A.AVG_BGET,1) = 0 THEN
+		      	          TO_CHAR(A.AVG_BGET)
+		      	      ELSE 
+		      		      TO_CHAR(A.AVG_BGET, 'FM999999999999999999999999999990.999999999999999999999999999999')
+		          END AS AVG_BUFFER_GETS  
+                , MAX_BGET      							 AS MAX_BUFFER_GETS  
+                , A.BGET        							 AS TOTAL_BUFFER_GETS
+                , CASE WHEN TRIM(A.AVG_ELAP) IS NULL THEN
+                          NULL
+                      WHEN MOD(A.AVG_ELAP,1) = 0 THEN
+		      	          TO_CHAR(A.AVG_ELAP)
+		      	      ELSE 
+		      		      TO_CHAR(A.AVG_ELAP, 'FM999999999999999999999999999990.999999999999999999999999999999')
+		          END AS AVG_ELAPSED_TIME
+                , CASE WHEN TRIM(A.MAX_ELAP) IS NULL THEN
+                          NULL
+                      WHEN MOD(A.MAX_ELAP,1) = 0 THEN
+		      	          TO_CHAR(A.MAX_ELAP)
+		      	      ELSE 
+		      		      TO_CHAR(A.MAX_ELAP, 'FM999999999999999999999999999990.999999999999999999999999999999')
+		          END AS MAX_ELAPSED_TIME 
+                , CASE WHEN TRIM(A.AVG_CPU) IS NULL THEN
+                          NULL
+                      WHEN MOD(A.AVG_CPU,1) = 0 THEN
+		      	          TO_CHAR(A.AVG_CPU)
+		      	      ELSE 
+		      		      TO_CHAR(A.AVG_CPU, 'FM999999999999999999999999999990.999999999999999999999999999999')
+		          END AS AVG_CPU_TIME  
+				, A.AVG_DRDS     							 AS AVG_DISK_READS                                                                      
+				, A.AVG_ROWS    							 AS AVG_ROWS_PROCESSED                                                                  
+				, CASE WHEN TRIM(NVL(RATIO_BGET_TOTAL,0)) IS NULL THEN
+                          NULL
+                      WHEN MOD(NVL(RATIO_BGET_TOTAL,0),1) = 0 THEN
+		      	          TO_CHAR(NVL(RATIO_BGET_TOTAL,0))
+		      	      ELSE 
+		      		      TO_CHAR(NVL(RATIO_BGET_TOTAL,0), 'FM999999999999999999999999999990.999999999999999999999999999999')
+		          END AS RATIO_BGET_TOTAL
+                , CASE WHEN TRIM(NVL(RATIO_CPU_TOTAL,0)) IS NULL THEN
+                          NULL
+                      WHEN MOD(NVL(RATIO_CPU_TOTAL,0),1) = 0 THEN
+		      	          TO_CHAR(NVL(RATIO_CPU_TOTAL,0))
+		      	      ELSE 
+		      		      TO_CHAR(NVL(RATIO_CPU_TOTAL,0), 'FM999999999999999999999999999990.999999999999999999999999999999')
+		          END AS RATIO_CPU_TOTAL 
+                , CASE WHEN TRIM(NVL(RATIO_CPU_PER_EXECUTION,0)) IS NULL THEN
+                          NULL
+                      WHEN MOD(NVL(RATIO_CPU_PER_EXECUTION,0),1) = 0 THEN
+		      	          TO_CHAR(NVL(RATIO_CPU_PER_EXECUTION,0))
+		      	      ELSE 
+		      		      TO_CHAR(NVL(RATIO_CPU_PER_EXECUTION,0), 'FM999999999999999999999999999990.999999999999999999999999999999')
+		          END AS RATIO_CPU_PER_EXECUTION 
+				,DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) 		  AS SQL_TEXT                                                                 
+			FROM (
+				SELECT /*+ NO_MERGE LEADING(C B) USE_NL(B) INDEX(B WRH$_SQLSTAT_PK) */                                           
+					B.DBID, B.SQL_ID, B.PLAN_HASH_VALUE, B.MODULE                                                             
+					--,ROUND(AVG(B.ELAPSED_TIME_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+					--,ROUND(MAX(B.ELAPSED_TIME_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, B.EXECUTIONS_DELTA) )/1000000,2) MAX_ELAP
+					--,ROUND(AVG(B.CPU_TIME_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+					--,TRUNC(AVG(B.BUFFER_GETS_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))) AVG_BGET
+					--,TRUNC(MAX(B.BUFFER_GETS_DELTA/DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, B.EXECUTIONS_DELTA))) MAX_BGET
+					--,TRUNC(AVG(B.DISK_READS_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))) AVG_DRDS
+					--,TRUNC(AVG(B.ROWS_PROCESSED_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))) AVG_ROWS 
+					,ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+					,ROUND(MAX(B.ELAPSED_TIME_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4)          MAX_ELAP
+					,ROUND(SUM(B.CPU_TIME_DELTA)      /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+					,TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_BGET
+					,TRUNC(MAX(B.BUFFER_GETS_DELTA    /DECODE(NVL(B.EXECUTIONS_DELTA, 1), 0, 1, B.EXECUTIONS_DELTA))           ) MAX_BGET
+					,TRUNC(SUM(B.DISK_READS_DELTA)    /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_DRDS
+					,TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_ROWS
+					,ROUND(RATIO_TO_REPORT(SUM(B.BUFFER_GETS_DELTA)) OVER(), 4)*100 AS RATIO_BGET_TOTAL
+					,ROUND(RATIO_TO_REPORT(SUM(B.CPU_TIME_DELTA)) OVER(), 4)*100 AS RATIO_CPU_TOTAL
+					,NULL AS RATIO_CPU_PER_EXECUTION
+					,SUM(B.BUFFER_GETS_DELTA) BGET
+					--,SUM(B.EXECUTIONS_DELTA) EXEC
+					, DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) EXEC
+					,SUM(B.ELAPSED_TIME_DELTA) ELAP
+					,SUM(B.PARSE_CALLS_DELTA) PARSE
+					,SUM(B.FETCHES_DELTA) FETCH
+					,MAX(C.BEGIN_INTERVAL_TIME) SNAP_TIME
+					,MAX(B.PARSING_SCHEMA_NAME) PARSING_SCHEMA_NAME
+					,MAX(C.SNAP_ID) MAX_SNAP_ID
+				FROM (
+					SELECT /*+ NO_MERGE */ SNAP_ID, DBID, INSTANCE_NUMBER, BEGIN_INTERVAL_TIME
+					FROM ODS_HIST_SNAPSHOT
+					WHERE DBID = #{dbid}
+					AND SNAP_ID BETWEEN #{start_snap_id} AND #{end_snap_id}
+				) C, ODS_HIST_SQLSTAT B
+				WHERE B.DBID = #{dbid}
+				--AND B.EXECUTIONS_DELTA > 0
+				
+				<if test="parsing_schema_name != null and parsing_schema_name != ''">
+				 	AND UPPER(B.PARSING_SCHEMA_NAME) LIKE '%'||UPPER(#{parsing_schema_name}) || '%'
+				</if>                                      
+			 	<!-- AND B.PARSING_SCHEMA_NAME  = UPPER(#{parsing_schema_name}) -->
+				<if test="module != null and module != ''">
+					AND UPPER(B.MODULE) LIKE '%'||UPPER(#{module})||'%'
+				</if>
+				<!-- AND UPPER(B.MODULE) LIKE UPPER(#{module}) || '%' ESCAPE '\' -->
+				
+				<if test="array_parsing_schema_name != null and array_parsing_schema_name.size != 0">
+					AND UPPER(B.PARSING_SCHEMA_NAME) NOT IN 
+					--일괄적으로 PARSING_SCHEMA_NAME을 입력했을때(제외)
+					<foreach item="item" index="index" collection="array_parsing_schema_name" open="(" separator="," close=")">
+						TRIM(UPPER(#{item}))
+					</foreach>
+				</if>
+				
+				<if test="array_module != null and array_module.size != 0">
+					--일괄적으로 MODULE을 입력했을때(제외)
+					<foreach item="item" collection="array_module" >
+						AND UPPER(B.MODULE) NOT LIKE '%'||TRIM(UPPER(#{item}))||'%'
+					</foreach>
+				</if>
+				
+				AND C.SNAP_ID = B.SNAP_ID
+				AND C.DBID = B.DBID
+				AND C.INSTANCE_NUMBER = B.INSTANCE_NUMBER
+	            <!-- TOOL MODULE 제외 -->
+	            AND UPPER(B.MODULE) NOT LIKE 'DBANY%'
+	            AND UPPER(B.MODULE) NOT LIKE 'GOLDEN%'
+	            AND UPPER(B.MODULE) NOT LIKE 'GOLDVIEW%'
+	            AND UPPER(B.MODULE) NOT LIKE 'GOLDVW32%'
+	            AND UPPER(B.MODULE) NOT LIKE 'LAB128%'
+	            AND UPPER(B.MODULE) NOT LIKE 'OPENMADE%'
+	            AND UPPER(B.MODULE) NOT LIKE 'ORANGE%'
+	            AND UPPER(B.MODULE) NOT LIKE 'PL/SQL DEVELOPER%'
+	            AND UPPER(B.MODULE) NOT LIKE 'PLSQLDEV%'
+	            AND UPPER(B.MODULE) NOT LIKE 'SQL DEVELOPER%'
+	            AND UPPER(B.MODULE) NOT LIKE 'SQL*PLUS%'
+	            AND UPPER(B.MODULE) NOT LIKE 'SQLGATE%'
+	            AND UPPER(B.MODULE) NOT LIKE 'SQLPLUS%'
+	            AND UPPER(B.MODULE) NOT LIKE 'TKPROF%'
+	            AND UPPER(B.MODULE) NOT LIKE 'TOAD%'
+	            <!-- APPLICATION FILTERING -->
+	            <!-- 건강관리공단 적용 
+	            AND UPPER(REGEXP_SUBSTR(MODULE,'[^@]+',1,1)) IN ( 
+	             SELECT UPPER(B.TR_CD)
+	               FROM WRKJOB_CD A,
+	                    TR_CD B
+	              WHERE A.WRKJOB_CD = B.WRKJOB_CD
+	              AND A.DBID = #{dbid}
+	            )
+	            -->
+				GROUP BY B.DBID, B.SQL_ID, B.MODULE, B.PLAN_HASH_VALUE
+				HAVING ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) >= ${elapsed_time}
+				AND TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) >= ${buffer_gets}
+				AND DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) >= ${executions}
+				ORDER BY (CASE
+							WHEN ${order_div_cd} = 1 THEN SUM(B.ELAPSED_TIME_DELTA)
+							WHEN ${order_div_cd} = 2 THEN SUM(B.CPU_TIME_DELTA)
+							WHEN ${order_div_cd} = 3 THEN SUM(B.BUFFER_GETS_DELTA)
+							WHEN ${order_div_cd} = 4 THEN SUM(B.DISK_READS_DELTA)
+							WHEN ${order_div_cd} = 5 THEN SUM(B.EXECUTIONS_DELTA)
+							ELSE SUM(B.ELAPSED_TIME_DELTA)
+						END) DESC
+			) A, ODS_HIST_SQLTEXT B
+			WHERE A.SQL_ID = B.SQL_ID
+			AND A.DBID = B.DBID
+			
+			<if test="array_sql_id != null and array_sql_id.size != 0">
+				--일괄적으로 SQL_ID를 입력했을때(제외)
+				<foreach item="item" collection="array_sql_id" >
+					AND B.SQL_ID NOT LIKE '%'||TRIM(#{item})||'%'
+				</foreach>
+			</if>    
+			<if test="sql_text != null and sql_text != ''">
+				AND UPPER(B.SQL_TEXT) LIKE '%' || UPPER(#{sql_text}) || '%'
+			</if>
+			AND NOT EXISTS (
+				SELECT /*+ NO_UNNEST */ 1
+				FROM TUNING_TARGET_SQL SA, SQL_TUNING SB
+				WHERE SA.TUNING_NO = SB.TUNING_NO
+				AND A.DBID = SA.DBID
+				AND A.SQL_ID = SA.SQL_ID       
+				AND SB.EXCEPT_TARGET_YN = 'Y'
+				AND SA.TUNING_STATUS_CD NOT IN ('4', '7', 'A')
+			)
+			<if test="(before_choice_sql_except_yn != null and (before_choice_sql_except_yn eq 'Y'.toString()))">
+				AND NOT EXISTS (
+					SELECT /*+ NO_UNNEST */ 1
+					FROM TUNING_TARGET_SQL SA
+					WHERE A.SQL_ID = SA.SQL_ID
+					AND A.DBID = SA.DBID
+					AND SA.TUNING_STATUS_CD NOT IN ('4', '7', 'A')
+		     	)
+			</if>
+			AND ROWNUM <![CDATA[ <= ]]> ${topn_cnt}
+	</sql>
+	
+	<select id="manualSelectionList" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* SQLTuningTargetDao.manualSelectionList */
+			SELECT *
+			FROM (
+				SELECT ROWNUM RNUM, A.*
+				FROM (
+					<include refid="manualSelectionListRefId"/>
+				) A
+				WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+			) A
+			WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)		
+	</select>
+	
+<!-- 	<select id="manualSelectionList4Excel" parameterType="topsqlAutoChoice" resultType="java.util.LinkedHashMap"> -->
+	<select id="manualSelectionList4Excel" parameterType="odsHistSqlstat" resultType="java.util.LinkedHashMap">
+		/* SQLTuningTargetDao.manualSelectionList4Excel */
+		SELECT
+			ROWNUM RNUM 
+			,DBID               
+			,SQL_ID             
+			,PLAN_HASH_VALUE    
+			,MODULE             
+			,PARSING_SCHEMA_NAME
+			,EXECUTIONS         
+			,AVG_BUFFER_GETS    
+			,MAX_BUFFER_GETS    
+			,TOTAL_BUFFER_GETS  
+			,AVG_ELAPSED_TIME   
+			,MAX_ELAPSED_TIME   
+			,AVG_CPU_TIME       
+			,AVG_DISK_READS     
+			,AVG_ROWS_PROCESSED 
+			,RATIO_BGET_TOTAL
+			,RATIO_CPU_TOTAL
+			,RATIO_CPU_PER_EXECUTION
+			,SQL_TEXT
+		FROM
+		(
+		
+		<include refid="manualSelectionListRefId"/>	
+		)
+	</select>
+		
+	<select id="manualSelectionStatusListByExcelDown" parameterType="topsqlHandopChoice" resultType="java.util.LinkedHashMap">
+		/* SQLTuningTargetDao.manualSelectionStatusListByExcelDown */
+		<include refid="manualSelectionStatusListRefId"/>
+	</select>
+	
+	<select id="manualSelectionStatusList" parameterType="topsqlHandopChoice" resultType="topsqlHandopChoice">
+		/* SQLTuningTargetDao.manualSelectionStatusList */
+				<include refid="manualSelectionStatusListRefId"/>
+	</select>
+	
+	<sql id="manualSelectionStatusListRefId" >
+		/* SQLTuningTargetDao.manualSelectionStatusListRefId */
+			SELECT A.DBID
+	        , B.DB_NAME
+	        , A.CHOICE_TMS
+	        , CHOICER_ID
+	        , C.USER_NM AS CHOICER_NM
+	        , TO_CHAR(A.CHOICE_DT, 'YYYY-MM-DD') CHOICE_DT
+	        , A.CHOICE_CNT
+	        , START_SNAP_ID
+	        , END_SNAP_ID
+	        , A.BEFORE_CHOICE_SQL_EXCEPT_YN
+	        , A.BEFORE_TUNING_SQL_EXCEPT_YN
+	        , CASE WHEN TRIM(A.ELAP_TIME) IS NULL THEN
+                          NULL
+                      WHEN MOD(A.ELAP_TIME,1) = 0 THEN
+		      	          TO_CHAR(A.ELAP_TIME)
+		      	      ELSE 
+		      		      TO_CHAR(A.ELAP_TIME, 'FM999999999999999999999999999990.999999999999999999999999999999')
+		          END AS ELAP_TIME
+	        , A.BUFFER_CNT
+	        , A.EXEC_CNT
+	        , A.TOPN_CNT
+	        , CD1.CD_NM AS ORDER_DIV_NM
+	        , MODULE1
+	        , PARSING_SCHEMA_NAME
+	        , SQL_TEXT
+	        , EXCPT_MODULE_LIST
+	        , EXCPT_PARSING_SCHEMA_NAME_LIST
+	        , EXCPT_SQL_ID_LIST
+            , EXTRA_FILTER_PREDICATION
+	        
+              , D.PROJECT_NM AS PROJECT_NM
+              , D.TUNING_PRGRS_STEP_NM
+              , D.PROJECT_ID
+              , D.TUNING_PRGRS_STEP_SEQ 
+              
+			FROM TOPSQL_HANDOP_CHOICE_EXEC A, DATABASE B, USERS C, CD CD1
+	              , (SELECT A.PROJECT_ID
+                      , A.PROJECT_NM
+                      , B.TUNING_PRGRS_STEP_SEQ
+                      , B.TUNING_PRGRS_STEP_NM
+                   FROM PROJECT A
+                      , PROJECT_TUNING_PRGRS_STEP B
+                  WHERE A.PROJECT_ID = B.PROJECT_ID
+                ) D   
+		WHERE A.DBID = #{dbid}
+		AND A.DBID = B.DBID
+		AND A.CHOICER_ID = C.USER_ID
+		AND A.ORDER_DIV_CD = CD1.CD
+		AND CD1.GRP_CD_ID = '1010'
+		<if test="(strStartDt != null and strStartDt != '') and (strEndDt != null and strEndDt != '')">
+			AND A.CHOICE_DT BETWEEN TO_DATE(#{strStartDt}, 'YYYY-MM-DD') AND TO_DATE(#{strEndDt} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+		</if>
+            AND A.PROJECT_ID = D.PROJECT_ID(+)
+            AND A.TUNING_PRGRS_STEP_SEQ = D.TUNING_PRGRS_STEP_SEQ(+) 
+		<if test="project_id != null and project_id != ''">
+            -- 프로젝트가 선택되면
+            AND A.PROJECT_ID = #{project_id}
+		</if>
+		ORDER BY A.CHOICE_DT DESC
+	</sql>
+	
+	<select id="manualSelectionStatusDetailList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* SQLTuningTargetDao.manualSelectionStatusDetailList */
+		SELECT 
+		TUNING_NO
+		, B.USER_NM AS PERFR_NM
+		, A.TUNING_STATUS_CD
+		, CD1.CD_NM AS TUNING_STATUS_NM
+		, SQL_ID
+		, PLAN_HASH_VALUE
+		, MODULE
+		, PARSING_SCHEMA_NAME
+		, EXECUTIONS
+		, AVG_BUFFER_GETS
+    	, CASE WHEN TRIM(AVG_ELAPSED_TIME) IS NULL THEN
+                       NULL
+                   WHEN MOD(AVG_ELAPSED_TIME,1) = 0 THEN
+     	          TO_CHAR(AVG_ELAPSED_TIME)
+     	      ELSE 
+     		      TO_CHAR(AVG_ELAPSED_TIME, 'FM999999999999999999999999999990.999999999999999999999999999999')
+           END AS AVG_ELAPSED_TIME
+		, AVG_DISK_READS
+		, AVG_ROW_PROCESSED
+		, RATIO_BUFFER_GET_TOTAL
+		, RATIO_CPU_TOTAL
+        , CASE WHEN RATIO_CPU_PER_EXECUTIONS IS NULL THEN '0' END AS RATIO_CPU_PER_EXECUTIONS
+		--, RATIO_CPU_PER_EXECUTIONS
+		, DBMS_LOB.SUBSTR(SQL_TEXT, 1000, 1) SQL_TEXT
+		FROM TUNING_TARGET_SQL A, USERS B, CD CD1
+		WHERE A.PERFR_ID = B.USER_ID
+		AND A.TUNING_STATUS_CD = CD1.CD
+		AND CD1.GRP_CD_ID = '1004'
+		AND A.CHOICE_DIV_CD = '2'
+		AND A.DBID = #{dbid}
+		AND A.CHOICE_TMS = #{choice_tms}
+		ORDER BY TUNING_NO ASC
+	</select>
+	
+	<select id="manualSelectionHistoryList" parameterType="odsHistSnapshot" resultType="odsHistSnapshot">
+		/* SQLTuningTargetDao.manualSelectionHistoryList */
+		SELECT DISTINCT A.CHOICE_TMS, TO_CHAR(A.CHOICE_DT,'YYYY-MM-DD HH24:MI:SS') AS CHOICE_DT,
+			A.START_SNAP_ID, TO_CHAR(S1.BEGIN_INTERVAL_TIME,'YYYY-MM-DD HH24:MI:SS') AS BEGIN_INTERVAL_TIME,
+			A.END_SNAP_ID, TO_CHAR(S2.END_INTERVAL_TIME,'YYYY-MM-DD HH24:MI:SS') AS END_INTERVAL_TIME 
+		FROM TOPSQL_HANDOP_CHOICE_EXEC A, ODS_HIST_SNAPSHOT S1, ODS_HIST_SNAPSHOT S2
+		WHERE A.DBID = #{dbid}
+		AND A.DBID = S1.DBID
+		AND A.START_SNAP_ID = S1.SNAP_ID
+		AND A.DBID = S2.DBID
+		AND A.END_SNAP_ID = S2.SNAP_ID
+		ORDER BY CHOICE_TMS DESC
+	</select>	
+	
+	<update id="updateTuningTargetSql" parameterType="tuningTargetSql">
+		/* SQLTuningTargetDao.updateTuningTargetSql */
+		UPDATE TUNING_TARGET_SQL SET
+			PERFR_ID = #{perfr_id}
+		WHERE TUNING_NO = #{tuning_no} 	
+	</update>
+	
+	<insert id="insertTuningTargetSql_20180709" parameterType="tuningTargetSql">
+		/* SQLTuningTargetDao.insertTuningTargetSql_20180709 */
+		INSERT INTO TUNING_TARGET_SQL(
+			TUNING_NO, DBID, CHOICE_TMS, GATHER_DAY, SQL_ID, CHOICE_DIV_CD, TUNING_STATUS_CD, 
+			PERFR_ID, TUNING_REQUESTER_ID, TUNING_REQUESTER_WRKJOB_CD, TUNING_REQUESTER_TEL_NUM, TUNING_REQUEST_DT, 
+			PLAN_HASH_VALUE, MODULE, PARSING_SCHEMA_NAME, EXECUTIONS, AVG_BUFFER_GETS, 
+			MAX_BUFFER_GETS, TOTAL_BUFFER_GETS, AVG_ELAPSED_TIME, MAX_ELAPSED_TIME, AVG_CPU_TIME, AVG_DISK_READS, 
+			AVG_ROW_PROCESSED, RATIO_BUFFER_GET_TOTAL, RATIO_CPU_TOTAL, RATIO_CPU_PER_EXECUTIONS, SQL_TEXT
+		)VALUES(
+			#{tuning_no}, #{dbid}, #{choice_tms}, TO_CHAR(SYSDATE, 'YYYYMMDD'), #{sql_id}, '2', '3',
+			#{perfr_id}, #{tuning_requester_id}, #{tuning_requester_wrkjob_cd}, #{tuning_requester_tel_num}, SYSDATE,
+			#{plan_hash_value}, #{module}, #{parsing_schema_name}, #{executions}, #{avg_buffer_gets},
+			#{max_buffer_gets}, #{total_buffer_gets}, #{avg_elapsed_time}, #{max_elapsed_time}, #{avg_cpu_time}, #{avg_disk_reads},
+			#{avg_row_processed}, #{ratio_buffer_get_total}, #{ratio_cpu_total}, #{ratio_cpu_per_executions}, #{sql_text}			
+		)
+	</insert>
+	
+	<insert id="insertTuningTargetSql" parameterType="tuningTargetSql">
+		/* SQLTuningTargetDao.insertTuningTargetSql */
+		INSERT INTO TUNING_TARGET_SQL(
+			TUNING_NO, DBID, CHOICE_TMS, GATHER_DAY, SQL_ID, CHOICE_DIV_CD, TUNING_STATUS_CD, 
+			PERFR_ID, TUNING_REQUESTER_ID, TUNING_REQUESTER_WRKJOB_CD, TUNING_REQUESTER_TEL_NUM, TUNING_REQUEST_DT, 
+			PLAN_HASH_VALUE, MODULE, PARSING_SCHEMA_NAME, EXECUTIONS, AVG_BUFFER_GETS, 
+			MAX_BUFFER_GETS, TOTAL_BUFFER_GETS, AVG_ELAPSED_TIME, MAX_ELAPSED_TIME, AVG_CPU_TIME, AVG_DISK_READS, 
+			AVG_ROW_PROCESSED, RATIO_BUFFER_GET_TOTAL, RATIO_CPU_TOTAL, RATIO_CPU_PER_EXECUTIONS, SQL_TEXT
+		)VALUES(
+			#{tuning_no}, #{dbid}, #{choice_tms}, TO_CHAR(SYSDATE, 'YYYYMMDD'), #{sql_id}, '2', '3',
+			#{perfr_id}, #{tuning_requester_id}, #{tuning_requester_wrkjob_cd}, #{tuning_requester_tel_num}, SYSDATE,
+			#{plan_hash_value}, #{module}, #{parsing_schema_name}, #{executions}, #{avg_buffer_gets},
+			#{max_buffer_gets}, #{total_buffer_gets}, #{avg_elapsed_time}, #{max_elapsed_time}, #{avg_cpu_time}, #{avg_disk_reads},
+			#{avg_row_processed}, #{ratio_buffer_get_total}, #{ratio_cpu_total}, 
+			<choose>
+				<when test="ratio_cpu_per_executions != null and ratio_cpu_per_executions != ''">
+					#{ratio_cpu_per_executions}
+				</when>
+				<otherwise>
+					null
+				</otherwise>
+			</choose>
+			, (SELECT SQL_TEXT FROM ODS_HIST_SQLTEXT WHERE DBID = #{dbid} AND SQL_ID = #{sql_id} )			
+		)
+	</insert>
+	
+	<insert id="insertTuningTargetSqlByProject" parameterType="tuningTargetSql">
+		/* SQLTuningTargetDao.insertTuningTargetSqlByProject */
+		INSERT INTO TUNING_TARGET_SQL(
+			TUNING_NO, DBID, CHOICE_TMS, GATHER_DAY, SQL_ID, CHOICE_DIV_CD, TUNING_STATUS_CD, 
+			PERFR_ID, TUNING_REQUESTER_ID, TUNING_REQUESTER_WRKJOB_CD, TUNING_REQUESTER_TEL_NUM, TUNING_REQUEST_DT, 
+			PLAN_HASH_VALUE, MODULE, PARSING_SCHEMA_NAME, EXECUTIONS, AVG_BUFFER_GETS, 
+			MAX_BUFFER_GETS, TOTAL_BUFFER_GETS, AVG_ELAPSED_TIME, MAX_ELAPSED_TIME, AVG_CPU_TIME, AVG_DISK_READS, 
+			AVG_ROW_PROCESSED,RATIO_BUFFER_GET_TOTAL,RATIO_CPU_TOTAL, RATIO_CPU_PER_EXECUTIONS, SQL_TEXT, PROJECT_ID, TUNING_PRGRS_STEP_SEQ
+		)VALUES(
+			#{tuning_no}, #{dbid}, #{choice_tms}, TO_CHAR(SYSDATE, 'YYYYMMDD'), #{sql_id}, '2', '3',
+			#{perfr_id}, #{tuning_requester_id}, #{tuning_requester_wrkjob_cd}, #{tuning_requester_tel_num}, SYSDATE,
+			#{plan_hash_value}, #{module}, #{parsing_schema_name}, #{executions}, #{avg_buffer_gets},
+			#{max_buffer_gets}, #{total_buffer_gets}, #{avg_elapsed_time}, #{max_elapsed_time}, #{avg_cpu_time}, #{avg_disk_reads},
+			#{avg_row_processed} 
+			<choose>
+				<when test="ratio_buffer_get_total != null and ratio_buffer_get_total != ''">
+					,#{ratio_buffer_get_total} 
+				</when>
+				<otherwise>
+					,null			
+				</otherwise>
+			</choose>
+			<choose>
+				<when test="ratio_cpu_total != null and ratio_cpu_total != ''">
+					,#{ratio_cpu_total}
+				</when>
+				<otherwise>
+					,null			
+				</otherwise>
+			</choose>
+			<choose>
+				<when test="ratio_cpu_per_executions != null and ratio_cpu_per_executions != ''">
+					,#{ratio_cpu_per_executions}
+				</when>
+				<otherwise>
+					,null
+				</otherwise>
+			</choose>
+			, (SELECT SQL_TEXT FROM ODS_HIST_SQLTEXT WHERE DBID = #{dbid} AND SQL_ID = #{sql_id} ),
+			#{project_id},
+			#{tuning_prgrs_step_seq}			
+		)
+	</insert>
+		
+	<select id="perfrIdAssignCountList" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* SQLTuningTargetDao.perfrIdAssignCountList */
+		SELECT PERFR_ID, COUNT(*) AS PERFR_ID_CNT FROM TUNING_TARGET_SQL
+		WHERE CHOICE_DIV_CD = #{choice_div_cd}
+		AND TUNING_NO IN (${tuning_no_array})
+		GROUP BY PERFR_ID
+	</select>
+	
+	<select id="selectTuningTargetSql" parameterType="tuningTargetSql" resultType="tuningTargetSql">
+		/* SQLTuningTargetDao.selectTuningTargetSql */
+		SELECT /*+ LEADING(A B) */
+			A.DBID                 AS DBID
+			,A.SQL_ID               AS SQL_ID
+			,A.PLAN_HASH_VALUE      AS PLAN_HASH_VALUE
+			,A.MODULE               AS MODULE
+			,A.PARSING_SCHEMA_NAME  AS PARSING_SCHEMA_NAME
+			,A.EXEC                 AS EXECUTIONS
+			,A.AVG_BGET             AS AVG_BUFFER_GETS
+			,A.MAX_BGET             AS MAX_BUFFER_GETS
+			,A.BGET                 AS TOTAL_BUFFER_GETS
+			,A.AVG_ELAP             AS AVG_ELAPSED_TIME
+			,A.MAX_ELAP             AS MAX_ELAPSED_TIME
+			,A.AVG_CPU              AS AVG_CPU_TIME
+			,A.AVG_DRDS             AS AVG_DISK_READS
+			,A.AVG_ROWS             AS AVG_ROW_PROCESSED
+			,RATIO_BUFFER_GET_TOTAL
+			,RATIO_CPU_TOTAL
+			,RATIO_CPU_PER_EXECUTIONS
+			,B.SQL_TEXT
+		FROM (                                                                                                               
+			SELECT /*+ NO_MERGE LEADING(C B) USE_NL(B) INDEX(B WRH$_SQLSTAT_PK) */                                           
+				B.DBID, B.SQL_ID, MAX(B.PLAN_HASH_VALUE) PLAN_HASH_VALUE, MAX(B.MODULE)  MODULE
+				,ROUND(SUM(B.ELAPSED_TIME_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA)) /1000000,4) AVG_ELAP
+				,ROUND(MAX(B.ELAPSED_TIME_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) )/1000000,4) MAX_ELAP
+				,ROUND(SUM(B.CPU_TIME_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+				,TRUNC(SUM(B.BUFFER_GETS_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_BGET
+				,TRUNC(MAX(B.BUFFER_GETS_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))) MAX_BGET
+				,TRUNC(SUM(B.DISK_READS_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_DRDS
+				,TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))) AVG_ROWS
+				,ROUND(RATIO_TO_REPORT(SUM(B.BUFFER_GETS_DELTA)) OVER(), 4)*100 AS RATIO_BUFFER_GET_TOTAL                              
+            	,ROUND(RATIO_TO_REPORT(SUM(B.CPU_TIME_DELTA)) OVER(), 4)*100 AS RATIO_CPU_TOTAL                               
+                ,NULL AS RATIO_CPU_PER_EXECUTIONS   
+				,SUM(B.BUFFER_GETS_DELTA) BGET    
+				,SUM(B.EXECUTIONS_DELTA) EXEC                                                                              
+				,SUM(B.ELAPSED_TIME_DELTA) ELAP                                                                            
+				,SUM(B.PARSE_CALLS_DELTA) PARSE                                                                            
+				,SUM(B.FETCHES_DELTA) FETCH                                                                                
+				,MAX(C.BEGIN_INTERVAL_TIME) SNAP_TIME                                                                      
+				,MAX(B.PARSING_SCHEMA_NAME) PARSING_SCHEMA_NAME                                                            
+				,MAX(C.SNAP_ID) MAX_SNAP_ID                                                                                
+			FROM (
+				SELECT /*+ NO_MERGE */ SNAP_ID, DBID, INSTANCE_NUMBER, BEGIN_INTERVAL_TIME                               
+				FROM ODS_HIST_SNAPSHOT                                                                                 
+				WHERE DBID = #{dbid}                                                                                              
+				AND SNAP_ID BETWEEN #{start_snap_id} AND #{end_snap_id}       
+			) C, ODS_HIST_SQLSTAT B
+			WHERE B.DBID = #{dbid}
+			AND B.SQL_ID = #{sql_id}
+			AND B.EXECUTIONS_DELTA > 0                               
+			AND C.SNAP_ID = B.SNAP_ID                                                                                     
+			AND C.DBID = B.DBID                                                                                           
+			AND C.INSTANCE_NUMBER = B.INSTANCE_NUMBER                                                                     
+			GROUP BY B.DBID, B.SQL_ID                                                                                                                                          
+			) A, ODS_HIST_SQLTEXT B                                                                                             
+		WHERE A.SQL_ID = B.SQL_ID
+  		AND A.DBID = B.DBID	
+	</select>		
+	
+	<select id="getMaxChoiceTms" parameterType="tuningTargetSql" resultType="string">
+		/* SQLTuningTargetDao.getMaxChoiceTms */
+		SELECT NVL(MAX(CHOICE_TMS) + 1, 1) CHOICE_TMS 
+		FROM TOPSQL_HANDOP_CHOICE_EXEC
+		WHERE DBID = #{dbid}	
+	</select>
+	
+	<insert id="insertTopsqlHandopChoiceExec" parameterType="topsqlHandopChoice">
+		/* SQLTuningTargetDao.insertTopsqlHandopChoiceExec */
+		INSERT INTO TOPSQL_HANDOP_CHOICE_EXEC(
+			DBID, CHOICE_TMS, CHOICER_ID, CHOICE_CNT, CHOICE_DT, 
+			START_SNAP_ID, END_SNAP_ID, PERFR_AUTO_ASSIGN_YN, PERFR_ID, 
+			BEFORE_CHOICE_SQL_EXCEPT_YN, ELAP_TIME, BUFFER_CNT, EXEC_CNT, 
+			TOPN_CNT, ORDER_DIV_CD, MODULE1, PARSING_SCHEMA_NAME, SQL_TEXT,EXCPT_MODULE_LIST, EXCPT_PARSING_SCHEMA_NAME_LIST, EXCPT_SQL_ID_LIST, EXTRA_FILTER_PREDICATION
+			<if test="(project_id != null and project_id != '') and (tuning_prgrs_step_seq != null and tuning_prgrs_step_seq !='')">
+			-- 프로젝트가 있는경우
+			, PROJECT_ID, TUNING_PRGRS_STEP_SEQ			
+			</if>
+			 )
+		VALUES(
+			#{dbid}, #{choice_tms}, #{choicer_id}, #{choice_cnt}, SYSDATE,
+			#{start_snap_id}, #{end_snap_id}, #{perfr_auto_assign_yn}, #{perfr_id},
+			#{before_choice_sql_except_yn}, #{elap_time}, #{buffer_cnt}, #{executions},
+			#{topn_cnt}, #{order_div_cd}, #{module}, #{parsing_schema_name}, #{sql_text}, #{excpt_module_list},#{excpt_parsing_schema_name_list},#{excpt_sql_id_list}, #{extra_filter_predication}
+			<if test="(project_id != null and project_id != '') and (tuning_prgrs_step_seq != null and tuning_prgrs_step_seq !='')">
+			-- 프로젝트가 있는경우
+			, #{project_id}, #{tuning_prgrs_step_seq}			
+			</if>
+		)
+	</insert>	
+	
+	<update id="updateTuningTargetSqlStatus" parameterType="sqlTuning">
+		/* SQLTuningTargetDao.updateTuningTargetSqlStatus */
+		UPDATE TUNING_TARGET_SQL SET
+			TUNING_STATUS_CD = '8'
+		WHERE TUNING_NO = #{tuning_no} 	
+	</update>
+	
+	<update id="mergeSqlTuning" parameterType="sqlTuning">
+		/* SQLTuningTargetDao.mergeSqlTuning */
+		MERGE INTO SQL_TUNING 
+			USING DUAL ON (TUNING_NO = #{tuning_no})
+		WHEN MATCHED THEN
+			UPDATE SET 
+				TUNING_END_WHY_CD = #{tuning_end_why_cd},
+				TUNING_END_WHY = #{tuning_end_why},
+				TUNING_ENDER_ID = #{tuning_ender_id},
+				TUNING_END_DT = SYSDATE, 
+				ALL_TUNING_END_YN = 'Y'
+		WHEN NOT MATCHED THEN
+			INSERT (TUNING_NO, TUNING_END_WHY_CD, TUNING_END_WHY, TUNING_ENDER_ID, TUNING_END_DT, ALL_TUNING_END_YN)
+			VALUES (#{tuning_no}, #{tuning_end_why_cd}, #{tuning_end_why}, #{tuning_ender_id}, SYSDATE, 'Y')
+	</update>
+	
+	<insert id="insertSqlTuningStatusHistory" parameterType="sqlTuning">
+		/* SQLTuningTargetDao.insertSqlTuningStatusHistory */
+		INSERT INTO SQL_TUNING_STATUS_HISTORY (TUNING_NO, TUNING_STATUS_CHANGE_DT, TUNING_STATUS_CD, TUNING_STATUS_CHANGE_WHY, TUNING_STATUS_CHANGER_ID )
+		VALUES (
+			#{tuning_no},
+			SYSDATE, 
+			'8',
+			'일괄튜닝종료',
+			#{tuning_ender_id}
+		)
+	</insert>
+	
+	<update id="updateTuningTargetSqlStatusBundle" parameterType="sqlTuning">
+		/* SQLTuningTargetDao.updateTuningTargetSqlStatusBundle */
+		UPDATE TUNING_TARGET_SQL SET
+			TUNING_STATUS_CD = '8'
+		WHERE AUTO_CHOICE_COND_NO = #{auto_choice_cond_no}
+		AND CHOICE_TMS = #{choice_tms}
+		<if test="(tuning_no != null and tuning_no != '')">
+			AND TUNING_NO = #{tuning_no}
+		</if>
+	</update>
+	
+	<update id="mergeSqlTuningBundle" parameterType="sqlTuning">
+		/* SQLTuningTargetDao.mergeSqlTuningBundle */
+		MERGE INTO SQL_TUNING A
+			USING (SELECT TUNING_NO
+					FROM TUNING_TARGET_SQL
+					WHERE AUTO_CHOICE_COND_NO = #{auto_choice_cond_no}
+					AND CHOICE_TMS = #{choice_tms}
+					<if test="(tuning_no != null and tuning_no != '')">
+						AND TUNING_NO = #{tuning_no}
+					</if>
+				) B
+		ON (A.TUNING_NO = B.TUNING_NO)
+		WHEN MATCHED THEN
+			UPDATE SET 
+				TUNING_END_WHY_CD = #{tuning_end_why_cd},
+				TUNING_END_WHY = #{tuning_end_why},
+				TUNING_ENDER_ID = #{tuning_ender_id},
+				TUNING_END_DT = SYSDATE, 
+				ALL_TUNING_END_YN = 'Y'
+		WHEN NOT MATCHED THEN
+			INSERT (TUNING_NO, TUNING_END_WHY_CD, TUNING_END_WHY, TUNING_ENDER_ID, TUNING_END_DT, ALL_TUNING_END_YN)
+			VALUES (B.TUNING_NO, #{tuning_end_why_cd}, #{tuning_end_why}, #{tuning_ender_id}, SYSDATE, 'Y')
+	</update>
+	
+	<update id="insertSqlTuningStatusBundleHistory" parameterType="sqlTuning">
+		/* SQLTuningTargetDao.insertSqlTuningStatusBundleHistory */
+		INSERT INTO SQL_TUNING_STATUS_HISTORY (TUNING_NO, TUNING_STATUS_CHANGE_DT, TUNING_STATUS_CD, TUNING_STATUS_CHANGE_WHY, TUNING_STATUS_CHANGER_ID )
+		SELECT TUNING_NO, SYSDATE, '8', '일괄튜닝종료', #{tuning_ender_id}
+		FROM TUNING_TARGET_SQL 
+		WHERE AUTO_CHOICE_COND_NO = #{auto_choice_cond_no}
+		AND CHOICE_TMS = #{choice_tms}
+		<if test="(tuning_no != null and tuning_no != '')">
+			AND TUNING_NO = #{tuning_no}
+		</if>
+	</update>
+	
+</mapper>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.spop.dao.ProjectTuningPrgrsStepDao">
+	
+	<sql id="getProjectTuningPrgrsStepListRefId">
+		/* ProjectTuningPrgrsStepDao.getProjectTuningPrgrsStepListRefId */
+		SELECT A.PROJECT_ID AS PROJECT_ID                                    -- 프로젝트ID
+		     , B.PROJECT_NM AS PROJECT_NM                                    -- 프로젝트
+		     , A.TUNING_PRGRS_STEP_SEQ AS TUNING_PRGRS_STEP_SEQ              -- 튜닝진행단계일련번호
+		     , A.TUNING_PRGRS_STEP_NM AS TUNING_PRGRS_STEP_NM                -- 튜닝진행단계명
+		     , A.TUNING_PRGRS_STEP_DESC AS TUNING_PRGRS_STEP_DESC            -- 튜닝진행단계설명
+		     , A.DEL_YN AS DEL_YN                                            -- 삭제여부
+		  FROM PROJECT_TUNING_PRGRS_STEP A    -- 프로젝트튜닝진행단계(TABLE)
+		     , PROJECT B 
+		 WHERE A.PROJECT_ID = B.PROJECT_ID
+			AND A.PROJECT_ID = #{project_id}                                 -- 프로젝트ID
+		ORDER BY B.PROJECT_NM,  A.TUNING_PRGRS_STEP_SEQ
+	</sql>
+
+	<select id="getProjectTuningPrgrsStepList" parameterType="projectTuningPrgrsStep" resultType="projectTuningPrgrsStep">
+		/* ProjectTuningPrgrsStepDao.getProjectTuningPrgrsStepList */
+		<include refid="getProjectTuningPrgrsStepListRefId"/>
+	</select>
+
+	<select id="excelDownload" parameterType="projectWrkjob" resultType="java.util.LinkedHashMap">
+		/* ProjectTuningPrgrsStepDao.excelDownload */
+		<include refid="getProjectTuningPrgrsStepListRefId"/>
+	</select>
+	
+	<update id="saveProjectTuningPrgrsStep" parameterType="projectTuningPrgrsStep">
+		/* ProjectTuningPrgrsStepDao.saveProjectTuningPrgrsStep */
+		MERGE INTO PROJECT_TUNING_PRGRS_STEP A
+		USING DUAL
+		ON ( 
+			A.PROJECT_ID = #{project_id}                              -- 프로젝트ID
+			AND TUNING_PRGRS_STEP_NM = #{tuning_prgrs_step_nm}          -- 튜닝진행단계명
+		)
+		WHEN MATCHED THEN
+			UPDATE SET 
+				TUNING_PRGRS_STEP_DESC = #{tuning_prgrs_step_desc}                      -- 튜닝진행단계설명
+				, DEL_YN = #{del_yn}                                                      -- 품질점검지표여부
+		WHEN NOT MATCHED THEN
+			INSERT 
+				( PROJECT_ID                                                              -- 프로젝트ID
+				, TUNING_PRGRS_STEP_SEQ                                                   -- 튜닝진행단계일련번호
+				, TUNING_PRGRS_STEP_NM                                                    -- 튜닝진행단계명
+				, TUNING_PRGRS_STEP_DESC                                                  -- 튜닝진행단계설명
+				, DEL_YN                                                                  -- 삭제여부
+			) VALUES (  
+				#{project_id}                                                             -- 프로젝트ID
+				, (SELECT NVL(MAX(TUNING_PRGRS_STEP_SEQ) + 1, 1) FROM PROJECT_TUNING_PRGRS_STEP) -- 튜닝진행단계일련번호
+				, #{tuning_prgrs_step_nm}                                                 -- 튜닝진행단계명
+				, #{tuning_prgrs_step_desc}                                               -- 튜닝진행단계설명
+				, #{del_yn}                                                               -- 삭제여부
+			)
+	</update>
+	
+	<insert id="insertProjectTuningPrgrsStep" parameterType="projectTuningPrgrsStep">
+		/* ProjectTuningPrgrsStepDao.insertProjectTuningPrgrsStep */
+		INSERT INTO PROJECT_TUNING_PRGRS_STEP
+			( PROJECT_ID                                                              -- 프로젝트ID
+			, TUNING_PRGRS_STEP_SEQ                                                   -- 튜닝진행단계일련번호
+			, TUNING_PRGRS_STEP_NM                                                    -- 튜닝진행단계명
+			, TUNING_PRGRS_STEP_DESC                                                  -- 튜닝진행단계설명
+			, DEL_YN                                                                  -- 삭제여부
+		) VALUES (  
+			#{project_id}                                                             -- 프로젝트ID
+			, (SELECT NVL(MAX(TUNING_PRGRS_STEP_SEQ) + 1, 1) FROM PROJECT_TUNING_PRGRS_STEP WHERE PROJECT_ID = #{project_id}) -- 튜닝진행단계일련번호
+			, #{tuning_prgrs_step_nm}                                                 -- 튜닝진행단계명
+			, #{tuning_prgrs_step_desc}                                               -- 튜닝진행단계설명
+			, #{del_yn}                                                               -- 삭제여부
+		)
+	</insert>
+	
+	<update id="updateProjectTuningPrgrsStep" parameterType="projectTuningPrgrsStep">
+		/* ProjectTuningPrgrsStepDao.updateProjectTuningPrgrsStep */
+		UPDATE PROJECT_TUNING_PRGRS_STEP SET
+			TUNING_PRGRS_STEP_NM = #{tuning_prgrs_step_nm}              -- 튜닝진행단계명
+			, TUNING_PRGRS_STEP_DESC = #{tuning_prgrs_step_desc}        -- 튜닝진행단계설명
+			, DEL_YN = #{del_yn}                                        -- 품질점검지표여부
+		WHERE PROJECT_ID = #{project_id}                                -- 프로젝트ID
+			AND TUNING_PRGRS_STEP_SEQ = #{tuning_prgrs_step_seq}
+	</update>
+	
+</mapper>

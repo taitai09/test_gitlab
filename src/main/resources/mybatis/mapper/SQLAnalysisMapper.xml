@@ -1,0 +1,697 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.13	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.SQLAnalysisDao">	
+	<select id="appPerformanceList" parameterType="apmApplSql" resultType="apmApplSql">
+		/* SQLAnalysisDao.appPerformanceList */
+		SELECT B.APPL_NAME, C.DBIO, A.EXEC_CNT, A.ELAPSED_TIME, B.APPL_HASH, A.WRKJOB_CD, C.SQL_HASH, C.SQL_TEXT
+		FROM APM_APPL_SQL A, APM_APPL B, APM_SQL C
+		WHERE A.WRKJOB_CD = B.WRKJOB_CD
+		AND A.APPL_HASH = B.APPL_HASH
+		AND A.WRKJOB_CD = C.WRKJOB_CD
+		AND A.SQL_HASH = C.SQL_HASH
+		AND B.WRKJOB_CD = #{wrkjob_cd}
+    	AND A.WRKJOB_CD IN ( SELECT WRKJOB_CD
+                                     FROM WRKJOB_CD
+                                    START WITH WRKJOB_CD = #{wrkjob_cd}
+                                  CONNECT BY PRIOR WRKJOB_CD = UPPER_WRKJOB_CD)		
+		<choose>
+			<when test="(searchKey != null and (searchKey eq '01'.toString()))">
+				<choose>
+					<when test="call_from_parent != null and call_from_parent != ''">
+						AND B.APPL_NAME = #{searchValue}
+					</when>
+					<otherwise>
+						AND UPPER(B.APPL_NAME) LIKE UPPER('%' || #{searchValue} || '%')
+					</otherwise>
+				</choose>
+			</when>
+			<when test="(searchKey != null and (searchKey eq '02'.toString()))">
+				AND UPPER(C.DBIO) LIKE UPPER('%' || #{searchValue} || '%')
+			</when>	
+		</choose>
+		ORDER BY A.ELAPSED_TIME DESC
+	</select>
+	
+	<select id="getSqlText1" parameterType="apmApplSql" resultType="apmApplSql">
+		/* SQLAnalysisDao.getSqlText1 */
+		SELECT A.SQL_TEXT
+		FROM APM_SQL A
+		WHERE 1=1
+		AND A.SQL_HASH = #{sql_hash}
+		AND A.WRKJOB_CD = #{wrkjob_cd}
+	</select>
+	
+	<select id="getSqlText2" parameterType="odsHistSqlText" resultType="odsHistSqlText">
+		/* SQLAnalysisDao.getSqlText2 */
+		SELECT A.SQL_TEXT
+		FROM APM_SQL A
+		WHERE 1=1
+		AND A.SQL_HASH = #{sql_hash}
+		AND A.WRKJOB_CD = #{wrkjob_cd}
+	</select>
+		
+	<select id="appDailyList" parameterType="odsApmSAppl" resultType="odsApmSAppl">
+		/* SQLAnalysisDao.appDailyList */
+		SELECT LOG_DT, SUM(CNT) AS EXECUTIONS, SUM(FAIL_CNT) AS FAIL_CNT, 
+			ROUND(SUM(ELAPSED_SUM)/DECODE(SUM(CNT), 0, 1, SUM(CNT)) / 1000, 4) AVG_ELAPSED_TIME, 
+			ROUND(MIN(ELAPSED_MIN)/1000, 4) AS MIN_ELAPSED_TIME,
+			ROUND(MAX(ELAPSED_MAX)/1000, 4) AS MAX_ELAPSED_TIME
+		FROM ODS_APM_S_APPL A
+		WHERE WRKJOB_CD = #{wrkjob_cd}
+		AND APPL_HASH = #{appl_hash}
+		AND LOG_DT >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		GROUP BY LOG_DT
+		ORDER BY LOG_DT	
+	</select>
+	
+	<select id="appTimeList" parameterType="odsApmSAppl" resultType="odsApmSAppl">
+		/* SQLAnalysisDao.appTimeList */
+		SELECT (LOG_DT || LOG_HH || LOG_MM) AS LOG_DT, SUM(CNT) AS EXECUTIONS, SUM(FAIL_CNT) AS FAIL_CNT, 
+			ROUND(SUM(ELAPSED_SUM)/DECODE(SUM(CNT), 0, 1, SUM(CNT)) / 1000, 4) AVG_ELAPSED_TIME, 
+			ROUND(MIN(ELAPSED_MIN)/1000, 4) AS MIN_ELAPSED_TIME,
+			ROUND(MAX(ELAPSED_MAX)/1000, 4) AS MAX_ELAPSED_TIME
+		FROM ODS_APM_APPL_10M A
+		WHERE WRKJOB_CD = #{wrkjob_cd}
+		AND APPL_HASH = #{appl_hash}
+		AND LOG_DT >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		GROUP BY (LOG_DT || LOG_HH || LOG_MM)
+		ORDER BY LOG_DT
+	</select>
+	
+	<select id="dbioDailyList" parameterType="odsApmSSqls" resultType="odsApmSSqls">
+		/* SQLAnalysisDao.dbioDailyList */
+		SELECT LOG_DT, SUM(CNT) AS EXECUTIONS, 
+			ROUND(SUM(ELAPSED_SUM)/DECODE(SUM(CNT), 0, 1, SUM(CNT)) / 1000, 4) AVG_ELAPSED_TIME, 
+			ROUND(MIN(ELAPSED_MIN)/1000, 4) AS MIN_ELAPSED_TIME,
+			ROUND(MAX(ELAPSED_MAX)/1000, 4) AS MAX_ELAPSED_TIME
+		FROM ODS_APM_S_SQLS A
+		WHERE WRKJOB_CD = #{wrkjob_cd}
+		AND SQL_HASH = #{sql_hash}
+		AND LOG_DT >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		GROUP BY LOG_DT
+		ORDER BY LOG_DT
+	</select>
+	
+	<select id="dbioTimeList" parameterType="odsApmSSqls" resultType="odsApmSSqls">
+		/* SQLAnalysisDao.dbioTimeList */
+		SELECT (LOG_DT || LOG_HH || LOG_MM) AS LOG_DT, SUM(CNT) AS EXECUTIONS, 
+			ROUND(SUM(ELAPSED_SUM)/DECODE(SUM(CNT), 0, 1, SUM(CNT)) / 1000, 4) AVG_ELAPSED_TIME, 
+			ROUND(MIN(ELAPSED_MIN)/1000, 4) AS MIN_ELAPSED_TIME,
+			ROUND(MAX(ELAPSED_MAX)/1000, 4) AS MAX_ELAPSED_TIME
+		FROM ODS_APM_SQLS_10M A
+		WHERE WRKJOB_CD = #{wrkjob_cd}
+		AND SQL_HASH = #{sql_hash}
+		AND LOG_DT >= TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD')
+		GROUP BY (LOG_DT || LOG_HH || LOG_MM)
+		ORDER BY LOG_DT
+	</select>	
+	
+	<select id="dbioHistoryList" parameterType="odsHistSqlstat" resultType="odsHistSqlstat">
+		/* SQLAnalysisDao.dbioHistoryList */
+		SELECT /*+ LEADING(A B C) USE_NL(B C) */
+		    C.BEGIN_INTERVAL_TIME AS SNAP_TIME,
+			B.SNAP_ID,
+			B.INSTANCE_NUMBER,
+			B.SQL_ID,
+			B.PLAN_HASH_VALUE,
+			B.MODULE,
+			B.PARSING_SCHEMA_NAME ,
+			ROUND(B.ELAPSED_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4) ELAPSED_TIME ,
+			ROUND(B.CPU_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4) CPU_TIME ,
+			TRUNC(B.BUFFER_GETS_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) BUFFER_GETS ,
+			TRUNC(B.DISK_READS_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) DISK_READS ,
+			TRUNC(B.ROWS_PROCESSED_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) ) ROW_PROCESSED ,
+			ROUND(B.CLWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4) CLWAIT_TIME ,
+			ROUND(B.IOWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4) IOWAIT_TIME ,
+			ROUND(B.APWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4) APWAIT_TIME ,
+			ROUND(B.CCWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4) CCWAIT_TIME ,
+       		ROUND(ROUND(B.CPU_TIME_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4)/ ROUND(B.ELAPSED_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4) *100, 3) CPU_RATE ,
+			ROUND(ROUND(B.CLWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4)/ ROUND(B.ELAPSED_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4) *100, 3) CLWAIT_RATE ,
+			ROUND(ROUND(B.IOWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4)/ ROUND(B.ELAPSED_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4) *100, 3) IOWAIT_RATE ,
+			ROUND(ROUND(B.APWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4)/ ROUND(B.ELAPSED_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4) *100, 3) APWAIT_RATE ,
+			ROUND(ROUND(B.CCWAIT_DELTA / DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA) / 1000000, 4)/ ROUND(B.ELAPSED_TIME_DELTA /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA)/1000000, 4) *100, 3) CCWAIT_RATE ,
+			B.EXECUTIONS_DELTA EXECUTIONS ,
+			B.PARSE_CALLS_DELTA PARSE_CALLS ,
+			B.FETCHES_DELTA FETCHES ,
+			B.OPTIMIZER_ENV_HASH_VALUE
+  		FROM DBIO_SQL_MAP A, ODS_HIST_SQLSTAT B, ODS_HIST_SNAPSHOT C 
+		WHERE A.WRKJOB_CD = #{wrkjob_cd}
+		AND A.SQL_HASH = #{sql_hash}
+		AND A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+		AND B.DBID = C.DBID
+		AND B.SNAP_ID = C.SNAP_ID
+		AND B.INSTANCE_NUMBER = C.INSTANCE_NUMBER
+		AND B.CPU_TIME_DELTA > 0
+		/*AND C.BEGIN_INTERVAL_TIME >= ADD_MONTHS(SYSDATE, -1)*/
+		AND C.BEGIN_INTERVAL_TIME >= SYSDATE - 7
+		AND B.BEGIN_INTERVAL_TIME >= SYSDATE - 7
+		ORDER BY SNAP_ID, INSTANCE_NUMBER
+	</select>
+	
+	<select id="allSessionList" parameterType="activeSessionHistory" resultType="activeSessionHistory">
+		/* SQLAnalysisDao.allSessionList */
+		SELECT ROWNUM AS RNUM, X.* FROM
+		(
+			SELECT /*+ INDEX(ODS_GV$_ATS_HISTORY PK_ODS_GV$_ATS_HISTORY) */ 
+				INST_ID,
+				SAMPLE_ID,
+				PARTITION_KEY,
+				TO_CHAR(SAMPLE_TIME, 'YYYY-MM-DD HH24:MI:SS') AS SAMPLE_TIME,
+				IS_AWR_SAMPLE,
+				SESSION_ID,
+				SESSION_SERIAL# AS SERIAL,
+				SESSION_TYPE,
+				FLAGS,
+				USER_ID,
+				SQL_ID,
+				IS_SQLID_CURRENT,
+				SQL_CHILD_NUMBER,
+				SQL_OPCODE,
+				FORCE_MATCHING_SIGNATURE,
+				TOP_LEVEL_SQL_ID,
+				TOP_LEVEL_SQL_OPCODE,
+				SQL_OPNAME,
+				SQL_PLAN_HASH_VALUE,
+				SQL_PLAN_LINE_ID,
+				SQL_PLAN_OPERATION,
+				SQL_PLAN_OPTIONS,
+				SQL_EXEC_ID,
+				SQL_EXEC_START,
+				PLSQL_ENTRY_OBJECT_ID,
+				PLSQL_ENTRY_SUBPROGRAM_ID,
+				PLSQL_OBJECT_ID,
+				PLSQL_SUBPROGRAM_ID,
+				QC_INSTANCE_ID,
+				QC_SESSION_ID,
+				QC_SESSION_SERIAL# AS QC_SESSION_SERIAL,
+				EVENT,
+				EVENT_ID,
+				EVENT# AS EVENT_SHARP,
+				SEQ# AS SEQ_SHARP,
+				P1TEXT,
+				P1,
+				P2TEXT,
+				P2,
+				P3TEXT,
+				P3,
+				WAIT_CLASS,
+				WAIT_CLASS_ID,
+				WAIT_TIME,
+				SESSION_STATE,
+				TIME_WAITED,
+				BLOCKING_SESSION_STATUS,
+				BLOCKING_SESSION,
+				BLOCKING_SESSION_SERIAL# AS BLOCKING_SESSION_SERIAL,
+				BLOCKING_INST_ID,
+				BLOCKING_HANGCHAIN_INFO,
+				CURRENT_OBJ# AS CURRENT_OBJ,
+				CURRENT_FILE# AS CURRENT_FILE,
+				CURRENT_BLOCK# AS CURRENT_BLOCK,
+				CURRENT_ROW# AS CURRENT_ROW,
+				TOP_LEVEL_CALL# AS TOP_LEVEL_CALL,
+				TOP_LEVEL_CALL_NAME,
+				CONSUMER_GROUP_ID,
+				XID,
+				REMOTE_INSTANCE# AS REMOTE_INSTANCE,
+				TIME_MODEL,
+				IN_CONNECTION_MGMT,
+				IN_PARSE,
+				IN_HARD_PARSE,
+				IN_SQL_EXECUTION,
+				IN_PLSQL_EXECUTION,
+				IN_PLSQL_RPC,
+				IN_PLSQL_COMPILATION,
+				IN_JAVA_EXECUTION,
+				IN_BIND,
+				IN_CURSOR_CLOSE,
+				IN_SEQUENCE_LOAD,
+				CAPTURE_OVERHEAD,
+				REPLAY_OVERHEAD,
+				IS_CAPTURED,
+				IS_REPLAYED,
+				SERVICE_HASH,
+				PROGRAM,
+				MODULE,
+				ACTION,
+				CLIENT_ID,
+				MACHINE,
+				PORT,
+				ECID,
+				TM_DELTA_TIME,
+				TM_DELTA_CPU_TIME,
+				TM_DELTA_DB_TIME,
+				DELTA_TIME,
+				DELTA_READ_IO_REQUESTS,
+				DELTA_WRITE_IO_REQUESTS,
+				DELTA_READ_IO_BYTES,
+				DELTA_WRITE_IO_BYTES,
+				DELTA_INTERCONNECT_IO_BYTES,
+				PGA_ALLOCATED,
+				TEMP_SPACE_ALLOCATED
+			FROM ODS_GV$_ATS_HISTORY
+			WHERE DBID = #{dbid}				
+			AND INST_ID = #{inst_id}
+			AND PARTITION_KEY BETWEEN #{partition_start_key} AND #{partition_end_key}
+			AND SAMPLE_TIME BETWEEN TO_DATE(#{sample_start_time}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{sample_end_time}, 'YYYY-MM-DD HH24:MI:SS')
+			AND (  (#{strGubun} = 'NEXT' AND SAMPLE_ID = #{sample_id} AND SESSION_ID = #{session_id} AND PARTITION_KEY > #{partition_key})
+				OR (#{strGubun} = 'NEXT' AND SAMPLE_ID = #{sample_id} AND SESSION_ID > #{session_id})
+				OR (#{strGubun} = 'NEXT' AND SAMPLE_ID > #{sample_id})
+				OR (#{strGubun} = 'FIRST'))
+			<if test="(sid != null and sid != '')">
+				AND SESSION_ID = #{sid}
+			</if>
+			<if test="(serial != null and serial != '')">
+				AND SESSION_SERIAL# = #{serial}
+			</if>
+			<if test="(module != null and module != '')">
+				AND MODULE LIKE #{module} || '%'
+			</if>
+			<if test="(event != null and event != '')">		
+				AND UPPER(EVENT) LIKE UPPER(#{event}) || '%'
+			</if>
+			<if test="(sql_id != null and sql_id != '')">
+				AND SQL_ID = #{sql_id}
+			</if>
+		) X
+		<if test="currentPage != null and currentPage > 0">			
+			WHERE ROWNUM <![CDATA[ <= ]]> ${pagePerCount}
+		</if>
+	</select>
+	
+	<select id="waitClassLegendList" parameterType="activeSessionHistory" resultType="activeSessionHistory">
+		/* SQLAnalysisDao.waitClassLegendList */
+		SELECT /*+ MATERIALIZE */
+			DISTINCT WAIT_CLASS, WAIT_CLASS#
+		FROM ODS_GV$_EVENT_NAME
+		WHERE WAIT_CLASS != 'Idle'
+		ORDER BY WAIT_CLASS# DESC
+	</select>
+	
+	<select id="waitClassDataList" parameterType="activeSessionHistory" resultType="activeSessionHistory">
+		/* SQLAnalysisDao.waitClassDataList */
+		WITH WAIT_CLS AS
+		(
+			SELECT /*+ MATERIALIZE */
+				DISTINCT WAIT_CLASS, WAIT_CLASS_ID, WAIT_CLASS#
+			FROM ODS_GV$_EVENT_NAME
+			WHERE WAIT_CLASS != 'Idle'
+		)
+		,WAIT_VALUE AS
+		(
+			SELECT /*+ MATERIALIZE */
+				*
+			FROM ODS_GV$_ATS_HISTORY ASH 
+			WHERE ASH.PARTITION_KEY BETWEEN #{partition_start_key} AND #{partition_end_key}
+			AND ASH.DBID = #{dbid}
+			AND ASH.INST_ID = #{inst_id}
+			AND ASH.WAIT_CLASS IS NOT NULL
+			AND ASH.WAIT_CLASS != 'Idle'
+			AND ASH.SAMPLE_TIME BETWEEN TO_DATE(#{sample_start_time}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{sample_end_time}, 'YYYY-MM-DD HH24:MI:SS')
+		    <if test="(sid != null and sid != '')">
+				AND ASH.SESSION_ID = #{sid}
+			</if>
+			<if test="(serial != null and serial != '')">
+				AND ASH.SESSION_SERIAL# = #{serial}
+			</if>
+			<if test="(module != null and module != '')">
+				AND ASH.MODULE LIKE #{module} || '%'
+			</if>
+			<if test="(event != null and event != '')">		
+				AND ASH.EVENT LIKE #{event} || '%'
+			</if>
+			<if test="(sql_id != null and sql_id != '')">
+				AND ASH.SQL_ID = #{sql_id}
+			</if>
+		)
+		SELECT TO_CHAR(ASH.SAMPLE_TIME, 'YYYY-MM-DD HH24:MI:SS') AS SAMPLE_TIME, 
+			EN.WAIT_CLASS, 
+			COUNT(ASH.WAIT_CLASS) AS WAIT_CLASS_CNT
+		FROM WAIT_CLS EN LEFT OUTER JOIN WAIT_VALUE ASH 
+		PARTITION BY(ASH.SAMPLE_TIME) ON (ASH.WAIT_CLASS_ID = EN.WAIT_CLASS_ID)
+		GROUP BY TO_CHAR(ASH.SAMPLE_TIME, 'YYYY-MM-DD HH24:MI:SS'), EN.WAIT_CLASS, EN.WAIT_CLASS#
+		ORDER BY SAMPLE_TIME, EN.WAIT_CLASS# DESC
+	</select>
+	
+	<select id="topWaitEventLegendList" parameterType="activeSessionHistory" resultType="activeSessionHistory">
+		/* SQLAnalysisDao.topWaitEventLegendList */
+		SELECT 
+			 /*+ MATERIALIZE */
+			EVENT, EVENT_ID
+		FROM (
+			SELECT ASH.EVENT, 
+				ASH.EVENT_ID,
+				COUNT(*) CNT,
+				SUM(COUNT(*)) OVER() TOTAL_CNT,
+				ROUND(COUNT(*)*100/(SUM(COUNT(*)) OVER()), 2) AS ACTIVITY
+			FROM ODS_GV$_ATS_HISTORY ASH
+			WHERE ASH.PARTITION_KEY BETWEEN #{partition_start_key} AND #{partition_end_key}
+			AND ASH.DBID = #{dbid}
+			AND ASH.INST_ID = #{inst_id}
+			AND ASH.EVENT IS NOT NULL
+			AND ASH.WAIT_CLASS != 'Idle'        
+			AND ASH.SAMPLE_TIME BETWEEN TO_DATE(#{sample_start_time}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{sample_end_time}, 'YYYY-MM-DD HH24:MI:SS')
+			<if test="(sid != null and sid != '')">
+				AND ASH.SESSION_ID = #{sid}
+			</if>
+			<if test="(serial != null and serial != '')">
+				AND ASH.SESSION_SERIAL# = #{serial}
+			</if>
+			<if test="(module != null and module != '')">
+				AND ASH.MODULE LIKE #{module} || '%'
+			</if>
+			<if test="(event != null and event != '')">		
+				AND ASH.EVENT LIKE #{event} || '%'
+			</if>
+			<if test="(sql_id != null and sql_id != '')">
+				AND ASH.SQL_ID = #{sql_id}
+			</if>
+			GROUP BY ASH.EVENT, ASH.EVENT_ID
+			ORDER BY ACTIVITY DESC
+		)
+		WHERE ROWNUM <![CDATA[ <= ]]> 10
+	</select>
+	
+	<select id="topWaitEventDataList" parameterType="activeSessionHistory" resultType="activeSessionHistory">
+		/* SQLAnalysisDao.topWaitEventDataList */
+		WITH TOPEVENT AS
+		(
+			SELECT
+				/*+ MATERIALIZE */ 
+				EVENT, EVENT_ID, ACTIVITY, CNT, TOTAL_CNT
+			FROM (
+				SELECT ASH.EVENT, 
+					ASH.EVENT_ID,
+					COUNT(*) CNT,
+					SUM(COUNT(*)) OVER() TOTAL_CNT,
+					ROUND(COUNT(*)*100/(SUM(COUNT(*)) OVER()), 2) ACTIVITY
+				FROM  ODS_GV$_ATS_HISTORY ASH
+				WHERE ASH.PARTITION_KEY BETWEEN #{partition_start_key} AND #{partition_end_key}
+				AND ASH.DBID = #{dbid}
+				AND ASH.INST_ID = #{inst_id}
+				AND ASH.EVENT IS NOT NULL
+				AND ASH.WAIT_CLASS != 'Idle'
+				AND ASH.SAMPLE_TIME BETWEEN TO_DATE(#{sample_start_time}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{sample_end_time}, 'YYYY-MM-DD HH24:MI:SS')
+				<if test="(sid != null and sid != '')">
+				AND ASH.SESSION_ID = #{sid}
+				</if>
+				<if test="(serial != null and serial != '')">
+					AND ASH.SESSION_SERIAL# = #{serial}
+				</if>
+				<if test="(module != null and module != '')">
+					AND ASH.MODULE LIKE #{module} || '%'
+				</if>
+				<if test="(event != null and event != '')">		
+					AND ASH.EVENT LIKE #{event} || '%'
+				</if>
+				<if test="(sql_id != null and sql_id != '')">
+					AND ASH.SQL_ID = #{sql_id}
+				</if>
+				GROUP BY ASH.EVENT, ASH.EVENT_ID
+				ORDER BY ACTIVITY DESC
+			)
+			WHERE ROWNUM <![CDATA[ <= ]]> 10       
+		)
+		,TOPVALUE AS
+		(
+			SELECT /*+ MATERIALIZE */
+				SAMPLE_TIME, EVENT, EVENT_ID
+			FROM  ODS_GV$_ATS_HISTORY ASH 
+			WHERE ASH.PARTITION_KEY BETWEEN #{partition_start_key} AND #{partition_end_key}
+			AND ASH.DBID = #{dbid}
+			AND ASH.INST_ID = #{inst_id}
+			AND ASH.EVENT IS NOT NULL
+			AND ASH.WAIT_CLASS != 'Idle'
+			AND ASH.SAMPLE_TIME BETWEEN TO_DATE(#{sample_start_time}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{sample_end_time}, 'YYYY-MM-DD HH24:MI:SS')
+			<if test="(sid != null and sid != '')">
+				AND ASH.SESSION_ID = #{sid}
+			</if>
+			<if test="(serial != null and serial != '')">
+				AND ASH.SESSION_SERIAL# = #{serial}
+			</if>
+			<if test="(module != null and module != '')">
+				AND ASH.MODULE LIKE #{module} || '%'
+			</if>
+			<if test="(event != null and event != '')">		
+				AND ASH.EVENT LIKE #{event} || '%'
+			</if>
+			<if test="(sql_id != null and sql_id != '')">
+				AND ASH.SQL_ID = #{sql_id}
+			</if>
+		)
+		SELECT /*+ USE_MERGE(ASH) */
+			TO_CHAR(ASH.SAMPLE_TIME, 'YYYY-MM-DD HH24:MI:SS') AS SAMPLE_TIME, 
+			EN.EVENT,
+			COUNT(ASH.EVENT) EVENT_CNT
+		FROM TOPEVENT EN LEFT OUTER JOIN TOPVALUE ASH PARTITION BY(ASH.SAMPLE_TIME) ON (ASH.EVENT_ID = EN.EVENT_ID)
+		GROUP BY TO_CHAR(ASH.SAMPLE_TIME, 'YYYY-MM-DD HH24:MI:SS'), EN.EVENT
+		ORDER BY SAMPLE_TIME, EN.EVENT		
+	</select>	
+	
+	<select id="topSqlList" parameterType="activeSessionHistory" resultType="activeSessionHistory">
+		/* SQLAnalysisDao.topSqlList */
+		SELECT /*+ LEADING(A) USE_NL(B) */
+			A.SQL_ID, A.SQL_PLAN_HASH_VALUE AS PLAN_HASH_VALUE, ACTIVITY, SUBSTR(B.SQL_TEXT, 1, 100) SQL_TEXT
+		FROM (
+		    SELECT A.DBID, A.SQL_ID, A.SQL_PLAN_HASH_VALUE, COUNT(*) CNT, SUM(COUNT(*)) OVER() TOTAL_CNT,
+           		ROUND(COUNT(*)*100/(SUM(COUNT(*)) OVER()), 2) AS ACTIVITY
+    		FROM ODS_GV$_ATS_HISTORY A 
+		    WHERE A.PARTITION_KEY BETWEEN #{partition_start_key} AND #{partition_end_key}
+		    AND A.DBID = #{dbid}
+		    AND A.INST_ID = #{inst_id}
+		    AND A.SAMPLE_TIME BETWEEN TO_DATE(#{sample_start_time}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{sample_end_time}, 'YYYY-MM-DD HH24:MI:SS')
+		    AND A.SQL_ID IS NOT NULL
+		    <if test="(sid != null and sid != '')">
+				AND A.SESSION_ID = #{sid}
+			</if>
+			<if test="(serial != null and serial != '')">
+				AND A.SESSION_SERIAL# = #{serial}
+			</if>
+			<if test="(module != null and module != '')">
+				AND A.MODULE LIKE #{module} || '%'
+			</if>
+			<if test="(event != null and event != '')">		
+				AND A.EVENT LIKE #{event} || '%'
+			</if>
+			<if test="(sql_id != null and sql_id != '')">
+				AND A.SQL_ID = #{sql_id}
+			</if>
+		    GROUP BY A.DBID, A.SQL_ID, A.SQL_PLAN_HASH_VALUE
+		    ORDER BY ACTIVITY DESC
+		) A, ODS_HIST_SQLTEXT B
+		WHERE A.DBID = B.DBID(+)
+		AND A.SQL_ID = B.SQL_ID
+		AND ROWNUM <![CDATA[ <= ]]> 20
+	</select>
+	
+	<select id="topSessionList" parameterType="activeSessionHistory" resultType="activeSessionHistory">
+		/* SQLAnalysisDao.topSessionList */
+		SELECT /*+ LEADING(A) USE_NL(B) */
+		       A.SESSION_ID, A.PROGRAM, A.MODULE, B.USERNAME, ACTIVITY
+		FROM (
+		    SELECT A.DBID, A.SESSION_ID, A.PROGRAM, A.MODULE, A.USER_ID, COUNT(*) CNT, SUM(COUNT(*)) OVER() TOTAL_CNT,
+				ROUND(COUNT(*)*100/(SUM(COUNT(*)) OVER()), 2) AS ACTIVITY
+		    FROM ODS_GV$_ATS_HISTORY A 
+		    WHERE A.PARTITION_KEY BETWEEN #{partition_start_key} AND #{partition_end_key}
+		    AND A.DBID = #{dbid}	
+		    AND A.INST_ID = #{inst_id}
+		    AND A.SAMPLE_TIME BETWEEN TO_DATE(#{sample_start_time}, 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE(#{sample_end_time}, 'YYYY-MM-DD HH24:MI:SS')
+		    <if test="(sid != null and sid != '')">
+				AND A.SESSION_ID = #{sid}
+			</if>
+			<if test="(serial != null and serial != '')">
+				AND A.SESSION_SERIAL# = #{serial}
+			</if>
+			<if test="(module != null and module != '')">
+				AND A.MODULE LIKE #{module} || '%'
+			</if>
+			<if test="(event != null and event != '')">		
+				AND A.EVENT LIKE #{event} || '%'
+			</if>
+			<if test="(sql_id != null and sql_id != '')">
+				AND A.SQL_ID = #{sql_id}
+			</if>
+		    GROUP BY A.DBID, A.SESSION_ID, A.PROGRAM, A.MODULE, A.USER_ID
+		    ORDER BY ACTIVITY DESC
+		) A, ODS_USERS B
+		WHERE A.DBID = B.DBID 
+		AND A.USER_ID = B.USER_ID
+		AND B.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_USERS WHERE DBID = #{dbid} )
+		AND ROWNUM <![CDATA[ <= ]]> 20
+		ORDER BY ACTIVITY DESC	
+	</select>
+	
+	<sql id="tableUseSqlListRef">
+		WITH SQLS AS (
+			SELECT DISTINCT DBID, SQL_ID
+			FROM (
+				/* TABLE */
+				SELECT DISTINCT DBID, SQL_ID
+		        FROM ODS_HIST_SQL_PLAN
+		        WHERE DBID = #{dbid}
+		        AND OBJECT_TYPE LIKE 'TABLE%'
+		        AND OBJECT_OWNER = #{owner}
+		        AND OBJECT_NAME = UPPER(#{table_name}) 
+		        UNION ALL
+		        /* INDEX */
+		        SELECT DISTINCT DBID, SQL_ID
+		        FROM ODS_HIST_SQL_PLAN
+		        WHERE DBID = #{dbid}
+		        AND OBJECT_TYPE LIKE 'INDEX%'
+		        AND (DBID, OBJECT_OWNER, OBJECT_NAME) IN
+				(
+		        	SELECT DBID, OWNER, INDEX_NAME
+		            FROM ODS_INDEXES
+		            WHERE DBID = #{dbid}
+		            AND TABLE_OWNER = #{owner}
+		            AND TABLE_NAME = UPPER(#{table_name}) 
+		            AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_INDEXES WHERE DBID = #{dbid})
+				)
+		    )
+		)
+		SELECT A.SQL_ID 
+		       ,A.PLAN_HASH_VALUE 
+		       ,A.AVG_ELAP 
+		       ,A.AVG_CPU 
+		       ,A.AVG_BGET 
+		       ,A.EXECUTIONS 
+		       ,A.AVG_DRDS 
+		       ,A.AVG_ROWS 
+		       ,A.MODULE 
+		       ,A.ACTION 
+		       ,DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) SQL_TEXT 		
+		FROM (
+			SELECT A.DBID
+				, A.SQL_ID
+				, B.PLAN_HASH_VALUE
+				, B.MODULE
+				, B.ACTION
+				--, ROUND(AVG(B.ELAPSED_TIME_DELTA  /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+				--, ROUND(AVG(B.CPU_TIME_DELTA      /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+				--, TRUNC(AVG(B.BUFFER_GETS_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_BGET
+				--, TRUNC(AVG(B.DISK_READS_DELTA    /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_DRDS
+				--, TRUNC(AVG(B.ROWS_PROCESSED_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_ROWS
+				--, SUM(DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))                                         EXECUTIONS
+				, ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+				, ROUND(SUM(B.CPU_TIME_DELTA)      /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+				, TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_BGET
+				, TRUNC(SUM(B.DISK_READS_DELTA)    /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_DRDS
+				, TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_ROWS
+				, DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))                                         EXECUTIONS
+			FROM  SQLS A, ODS_HIST_SQLSTAT B
+			WHERE A.SQL_ID = B.SQL_ID
+			AND A.DBID = B.DBID
+			GROUP BY A.DBID, A.SQL_ID, B.PLAN_HASH_VALUE, B.MODULE, B.ACTION
+		) A, ODS_HIST_SQLTEXT B
+		WHERE A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+			<if test="module != null and module != ''">
+				AND UPPER(A.MODULE) LIKE '%' || UPPER(#{module}) || '%'
+			</if>
+			<if test="action != null and action != ''">
+				AND UPPER(A.ACTION) LIKE '%' || UPPER(#{action}) || '%'
+			</if>
+	</sql>
+	
+	<select id="tableUseSqlList" parameterType="tableUseSql" resultType="tableUseSql">
+		/* SQLAnalysisDao.tableUseSqlList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, A.*
+			FROM (
+				<include refid="tableUseSqlListRef"/>
+			) A
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="tableUseSqlList4Excel" parameterType="tableUseSql" resultType="java.util.LinkedHashMap">
+		/* SQLAnalysisDao.tableUseSqlList4Excel */
+		<include refid="tableUseSqlListRef"/>
+	</select>
+	
+	<sql id="indexUseSqlListRef">
+		WITH SQLS AS (
+			SELECT DISTINCT DBID, SQL_ID
+			FROM ODS_HIST_SQL_PLAN
+			WHERE DBID = #{dbid}
+			AND OBJECT_TYPE LIKE 'INDEX%'
+			AND OBJECT_OWNER = #{owner}
+			AND OBJECT_NAME = UPPER(#{index_name}) 
+		)
+		SELECT A.SQL_ID 
+		       ,A.PLAN_HASH_VALUE 
+		       ,A.AVG_ELAP 
+		       ,A.AVG_CPU 
+		       ,A.AVG_BGET 
+		       ,A.EXECUTIONS 
+		       ,A.AVG_DRDS 
+		       ,A.AVG_ROWS 
+		       ,A.MODULE 
+		       ,A.ACTION 
+			,DBMS_LOB.SUBSTR(B.SQL_TEXT, 1000, 1) SQL_TEXT
+		FROM (
+			SELECT A.DBID
+				, A.SQL_ID
+				, B.PLAN_HASH_VALUE
+				, B.MODULE
+				, B.ACTION
+				--, ROUND(AVG(B.ELAPSED_TIME_DELTA  /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+				--, ROUND(AVG(B.CPU_TIME_DELTA      /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+				--, TRUNC(AVG(B.BUFFER_GETS_DELTA   /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_BGET
+				--, TRUNC(AVG(B.DISK_READS_DELTA    /DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_DRDS
+				--, TRUNC(AVG(B.ROWS_PROCESSED_DELTA/DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))          ) AVG_ROWS
+				--, SUM(DECODE(B.EXECUTIONS_DELTA, 0, 1, B.EXECUTIONS_DELTA))                                         EXECUTIONS
+				, ROUND(SUM(B.ELAPSED_TIME_DELTA)  /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_ELAP
+				, ROUND(SUM(B.CPU_TIME_DELTA)      /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))/1000000,4) AVG_CPU
+				, TRUNC(SUM(B.BUFFER_GETS_DELTA)   /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_BGET
+				, TRUNC(SUM(B.DISK_READS_DELTA)    /DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_DRDS
+				, TRUNC(SUM(B.ROWS_PROCESSED_DELTA)/DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))          ) AVG_ROWS
+				, DECODE(SUM(B.EXECUTIONS_DELTA), 0, 1, SUM(B.EXECUTIONS_DELTA))                                         EXECUTIONS				
+			FROM  SQLS A, ODS_HIST_SQLSTAT B
+			WHERE A.SQL_ID = B.SQL_ID
+			AND A.DBID = B.DBID
+		GROUP BY A.DBID, A.SQL_ID, B.PLAN_HASH_VALUE, B.MODULE, B.ACTION
+		) A, ODS_HIST_SQLTEXT B
+		WHERE A.DBID = B.DBID
+		AND A.SQL_ID = B.SQL_ID
+			<if test="module != null and module != ''">
+				AND UPPER(A.MODULE) LIKE '%' || UPPER(#{module}) || '%'
+			</if>
+			<if test="action != null and action != ''">
+				AND UPPER(A.ACTION) LIKE '%' || UPPER(#{action}) || '%'
+			</if>
+	</sql>
+	
+	<select id="indexUseSqlList" parameterType="tableUseSql" resultType="tableUseSql">
+		/* SQLAnalysisDao.indexUseSqlList */
+		SELECT *
+		FROM (
+			SELECT ROWNUM RNUM, A.*
+			FROM (
+				<include refid="indexUseSqlListRef"/>
+			) A
+			WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+
+	<select id="indexUseSqlList4Excel" parameterType="tableUseSql" resultType="java.util.LinkedHashMap">
+		/* SQLAnalysisDao.indexUseSqlList */
+		<include refid="indexUseSqlListRef"/>
+	</select>
+
+	<select id="getPlanHashValue" parameterType="odsHistSqlText" resultType="String">
+		/* SQLAnalysisDao.getPlanHashValue */
+	SELECT PLAN_HASH_VALUE FROM TOPSQL 
+		  WHERE DBID = #{dbid} 
+			AND GATHER_DAY = #{gather_day} 
+			AND SQL_ID = #{sql_id}
+			AND TOPSQL_TYPE_CD = '1'
+	</select>
+		
+</mapper>

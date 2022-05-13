@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>8. 성능 점검</h1>
+
+	<h2>8.4. SQL 성능 자동 점검</h2>
+
+	<h3>8.4.2. 성능 자동 점검 대상 관리</h3>
+
+	<div>
+		<p>SQL 자동 성능 점검을 수행할 대상을 관리(추가, 수정, 삭제)한다. 성능 점검 대상 범위는 특정 OWNER, 특정 테이블들, 특정 MODULE들을 등록할 수 있으며 성능 점검 시 등록된 대상 범위에 대해서만 성능 점검을 수행한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/8-4-2-1.jpg"></p>
+	</div>
+	<div>
+		<p>관리 항목의 의미는 아래와 같다.</p>
+		<div class="list-a">
+			<ul>
+				<li>- 프로젝트명 : [필수] 선정 대상은 상단 프로젝트에서 선택된 프로젝트명을 보여준다.</li>
+				<li>- DB : [필수] 관리가 가능한 DB 목록을 보여준다.</li>
+				<li>- 성능점검대상범위 : [필수] 대상 범위를 지정한다. OWNER를 선택하면 OWNER 항목만 선택 가능, 테이블명 선택하면 OWNER와 테이블명 항목이 입력 가능, MODULE을 선택하면 MODULE 항목만 입력 가능</li>
+				<li>- OWNER : [선택] DB 항목 선택에 따라서 관리할 OWNER 목록을 보여준다.</li>
+				<li>- 테이블명 : [선택] 관리할 테이블명을 입력한다.</li>
+				<li>- MODULE : [선택] 관리할 MODULE 정보를 입력한다.</li>
+			</ul>
+		</div>
+	</div>
+	<div>
+		<h4>테이블 일괄 등록/삭제</h4>
+		<p>다수의 테이블을 등록/삭제할 경우 편의성을 위해 일괄 등록/삭제 기능을 제공한다. SQL 성능 자동 점검 대상 관리 화면에서 [테이블 일괄 등록/삭제] 버튼을 클릭하면 다음과 같은 팝업 화면을 보여준다.</p>
+		<p>선택된 DB 정보와 OWNER 정보에 따른 테이블 목록과 대상 테이블 목록을 보여준다. 테이블 목록과 대상 테이블 목록은 다중 선택이 가능하며, 등록/삭제 버튼을 통해서 테이블 목록에서 대상 테이블 목록 또는 대상 테이블 목록에서 테이블 목록으로 이동한다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/8-4-2-2.jpg"></p>
+
+		<h4>선택한 OWNER가 이미 성능점검대상 범위에 등록된 경우</h4>
+		<p class="imagebox-c"><img src="/resources/images/menual/bgimg/8-4-2-3.jpg"></p>
+		<p>이미 성능점검대상 범위인 OWNER로 지정된 경우에서 테이블 일괄 등록/삭제 기능에서 관련 OWNER를 선택하면 다음과 같은 에러 메시지를 보여준다.</p>
+			
+	</div>
+
+</div>
+</body>
+</html>

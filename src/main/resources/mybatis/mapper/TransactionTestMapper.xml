@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+
+-->
+<mapper namespace="omc.spop.dao.TransactionTestDao">
+
+	<select id="getNextMenuId" resultType="string">
+		/* CommonDao.getNextMenuId */
+		SELECT NVL(MAX(MENU_ID),0)+1 FROM MENU	
+	</select>
+	
+	<insert id="insertMenu">
+		/* CommonDao.insertMenu */
+		INSERT INTO MENU(MENU_ID, MENU_NM, USE_YN)
+		VALUES((SELECT MAX(MENU_ID)+1 FROM MENU),'MENU TEST','Y')
+	</insert>
+		
+	<insert id="insertMyMenu">
+		/* CommonDao.insertMyMenu */
+		INSERT INTO MY_MENU(USER_ID,MENU_ID)
+		VALUES('dbmanager',null)
+	</insert>
+	
+</mapper>

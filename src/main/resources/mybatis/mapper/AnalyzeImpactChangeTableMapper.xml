@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2021.02.23	황예지	최초작성
+-->
+
+<mapper namespace="AnalyzeImpactChangeTableMapper">
+
+	<!-- SQL-7: SQL_AUTO_PERF_CHK Update -->
+	<update id="updateSqlAutoPerformance" parameterType="sqlAutoPerformanceCompare">
+		/* AnalyzeImpactChangeTableDao.updateSqlAutoPerformance */
+		UPDATE SQL_AUTO_PERF_CHK
+		   SET ORIGINAL_DBID = #{original_dbid}
+		     , PERF_CHECK_TARGET_DBID = #{perf_check_target_dbid}
+		     , TOPN_CNT = #{topn_cnt}
+		     , PERF_CHECK_RANGE_BEGIN_DT = TO_DATE(#{perf_check_range_begin_dt},'YYYY-MM-DD')
+		     , PERF_CHECK_RANGE_END_DT = TO_DATE(#{perf_check_range_end_dt},'YYYY-MM-DD')
+		     , PERF_CHECK_EXECUTER_ID = #{perf_check_executer_id}
+		     , PERF_CHECK_EXEC_BEGIN_DT = SYSDATE
+		     , PERF_CHECK_EXEC_END_DT = null
+		     , PERF_CHECK_FORCE_CLOSE_YN = null
+		     , LITERAL_EXCEPT_YN = #{literal_except_yn}
+		     , OWNER_LIST = #{owner_list}
+		     , MODULE_LIST = #{module_list}
+		     , TABLE_NAME_LIST = #{table_name_list}
+		     , ALL_SQL_YN = #{all_sql_yn}
+		     , SQL_TIME_LIMT_CD = #{sql_time_limt_cd}
+		     , SQL_TIME_DIRECT_PREF_VALUE = #{sql_time_direct_pref_value}
+		     <if test="perf_check_sql_source_type_cd != null and perf_check_sql_source_type_cd != ''">
+		     , PERF_CHECK_SQL_SOURCE_TYPE_CD = #{perf_check_sql_source_type_cd}
+		     </if>
+		     , MAX_FETCH_CNT = #{max_fetch_cnt}
+		<!-- WHERE 1=0 -->
+		<!-- AND PROJECT_ID = #{project_id} -->
+		 WHERE PROJECT_ID = #{project_id}
+		   AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+	</update>
+	
+	<!-- SQL-9: SQL_AUTO_PERF_CHK_TARGET INSERT -->
+	<!-- SQL-9-2: 전체 SQL > SQL_AUTO_PERF_CHK_TARGET INSERT (VSQL) -->
+	<update id="insertSqlAutoPerformanceTarget" parameterType="sqlAutomaticPerformanceCheck">
+		/* AnalyzeImpactChangeTableDao.insertSqlAutoPerformanceTarget */
+		/* SQL자동성능점검대상내역 INSERT */
+		INSERT INTO SQL_AUTO_PERF_CHK_TARGET                    --SQL자동성능점검대상내역(TABLE)
+		     (
+		       PROJECT_ID                     -- 프로젝트ID
+		     , SQL_AUTO_PERF_CHECK_ID         -- SQL점검팩ID
+		     , SQL_ID                         -- SQL_ID
+		     , BEFORE_PLAN_HASH_VALUE         -- 이전실행계획해시값
+		     , BEFORE_EXECUTIONS              -- 이전실행수
+		     , BEFORE_ROWS_PROCESSED          -- 이전처리레코드수
+		     , BEFORE_ELAPSED_TIME            -- 이전수행시간
+		     , BEFORE_BUFFER_GETS             -- 이전버퍼획득수
+		     , BEFORE_DISK_READS              -- 이전디스크읽기수
+		     , BEFORE_FULLSCAN_YN             -- 이전FULLSCAN여부
+		     , BEFORE_PARTITION_ALL_ACCESS_YN -- 이전전체파티션엑세스여부
+		     )
+		  WITH SQL_LIST AS
+		     (
+		       SELECT /*+ MATERIALIZE */
+		              A.DBID
+		            , A.SQL_ID
+		            , A.PLAN_HASH_VALUE
+		            , SUM(B.EXECUTIONS) EXECUTIONS
+		            , SUM(B.ROWS_PROCESSED) ROWS_PROCESSED
+		            , SUM(B.ELAPSED_TIME) ELAPSED_TIME
+		            , SUM(B.BUFFER_GETS) BUFFER_GETS
+		            , SUM(B.DISK_READS) DISK_READS
+		            , ROW_NUMBER() OVER(ORDER BY SUM(B.BUFFER_GETS) DESC) RANK
+		         FROM (
+		                SELECT DBID
+		                     , SQL_ID
+		                     , PLAN_HASH_VALUE
+		                     , SQL_FULLTEXT
+		                     , SNAP_TIME
+		                     , ROW_NUMBER() OVER(PARTITION BY SQL_ID ORDER BY SNAP_TIME DESC, PLAN_HASH_VALUE) RNUM
+		                  FROM VSQL_TEXT A
+		                 WHERE DBID = #{original_dbid}                --원천DB(ASIS)
+		                   AND SNAP_TIME BETWEEN TO_TIMESTAMP( #{perf_check_range_begin_dt} || '00:00:00.000000', 'YYYY-MM-DD HH24:MI:SS.FF6')
+		                   AND TO_TIMESTAMP( #{perf_check_range_end_dt} || '23:59:59.999999', 'YYYY-MM-DD HH24:MI:SS.FF6')
+		                   
+		                   -- BIND 가 CAPTURED 된 SQL 만 실행대상으로 선정(JMG : 20210305)
+		                   AND A.COMMAND_TYPE IN (1, 2, 3, 6, 7, 189)
+                           AND ((
+                                    A.COMMAND_TYPE = 3
+                                AND EXISTS (SELECT 1 FROM VSQL_BIND_CAPTURE C WHERE C.DBID = A.DBID AND C.SQL_ID = A.SQL_ID)
+                                AND 0 = (SELECT COUNT(*) FROM VSQL_BIND_CAPTURE C
+                                            WHERE C.DBID = A.DBID AND C.SQL_ID = A.SQL_ID
+                                            AND C.WAS_CAPTURED = 'YES'
+                                            AND C.VALUE_STRING IS NULL)
+                               )
+                               OR
+                               (
+                                    A.COMMAND_TYPE != 3
+                               ))
+		              ) A
+		     , (
+		       SELECT DBID
+		            , SQL_ID
+		            , PLAN_HASH_VALUE
+		            , EXECUTIONS
+		            , ROWS_PROCESSED
+		            , ELAPSED_TIME
+		            , BUFFER_GETS
+		            , DISK_READS
+		            , INST_ID
+		            , FORCE_MATCHING_SIGNATURE
+		            , COUNT(*) OVER (PARTITION BY FORCE_MATCHING_SIGNATURE ) FORCE_MATCHING_SIGNATURE_CNT
+		            , ROW_NUMBER() OVER (PARTITION BY FORCE_MATCHING_SIGNATURE ORDER BY BUFFER_GETS DESC) LITERAL_SEQ
+		         FROM VSQL_STATS A
+		        WHERE DBID = #{original_dbid} --원천DB(ASIS)
+		         AND EXISTS (SELECT /*+ NL_SJ */ 1 
+							 FROM VSQL_PLAN P
+							WHERE P.DBID = A.DBID
+							  AND P.PLAN_HASH_VALUE = A.PLAN_HASH_VALUE)
+		     ) B
+		 WHERE A.DBID = B.DBID
+		   AND A.SQL_ID = B.SQL_ID
+		   AND A.PLAN_HASH_VALUE = B.PLAN_HASH_VALUE
+		   AND A.RNUM = 1
+		
+		<if test="literal_except_yn != null and literal_except_yn != '' and literal_except_yn != 'N'.toString()">
+		   /* 리터럴 SQL 제외 인 경우 조건 추가 */
+		   AND ( FORCE_MATCHING_SIGNATURE = 0 OR (
+		                                           FORCE_MATCHING_SIGNATURE != 0 
+		                                           AND FORCE_MATCHING_SIGNATURE_CNT <![CDATA[<]]> 5
+		                                         ) OR (
+		                                           FORCE_MATCHING_SIGNATURE != 0 
+		                                           AND FORCE_MATCHING_SIGNATURE_CNT <![CDATA[>=]]> 5 
+		                                           AND LITERAL_SEQ = 1)
+			   )
+		</if>
+		 GROUP BY A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+		) 
+		 /* 모듈조건 건수 */ 
+		, PROJECT_SQL_IDFY_COND_CNT AS
+		(
+		 SELECT SUM(CASE WHEN NVL(LENGTH(TRIM(OWNER_LIST)), 0) <![CDATA[>]]> 0 THEN 1 ELSE 0 END) OWNER_CNT
+		      , SUM(CASE WHEN NVL(LENGTH(TRIM(TABLE_NAME_LIST)), 0) <![CDATA[>]]> 0 THEN 1 ELSE 0 END) TABLE_CNT
+		      , SUM(CASE WHEN NVL(LENGTH(TRIM(MODULE_LIST)), 0) <![CDATA[>]]> 0 THEN 1 ELSE 0 END) MODULE_CNT
+		   FROM SQL_AUTO_PERF_CHK
+		  WHERE PROJECT_ID = #{project_id}
+		    AND SQL_AUTO_PERF_CHECK_ID = #{sql_auto_perf_check_id}
+		)
+		/* 테이블 조건 필터링후 SQL LIST */ 
+		, TABLE_FILTER_SQL_LIST AS
+		(
+			SELECT DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+			  FROM SQL_LIST A
+				 , VSQL_PLAN B
+				 , (
+					SELECT A.OWNER AS OBJECT_OWNER, A.TABLE_NAME AS OBJECT_NAME
+					  FROM ODS_TABLES A
+					 WHERE A.DBID = #{original_dbid}
+<!-- 					   AND A.TABLE_NAME IN ( #{table_name_list} )   입력받은 테이블 목록 -->
+					   AND UPPER( A.TABLE_NAME ) IN 
+					<choose>
+						<when test="strTableNameList.size() != 0">
+							<foreach collection="strTableNameList" item="tableName" open="(" separator="," close=")" >
+								UPPER( REPLACE( TRIM( #{tableName} ), CHR(09),'' ) )
+							</foreach>
+						</when>
+						<otherwise>
+							( UPPER( REPLACE( TRIM( #{table_name_list} ), CHR(09),'' ) ) )									 -- table_name_list
+						</otherwise>
+					</choose>
+					   AND A.BASE_DAY = (
+										 SELECT MAX(BASE_DAY) BASE_DAY
+										   FROM ODS_TABLES
+										  WHERE DBID = #{original_dbid}
+										)
+					 UNION ALL
+					SELECT A.OWNER AS OBJECT_OWNER, A.INDEX_NAME AS OBJECT_NAME
+					  FROM ODS_INDEXES A
+					 WHERE A.DBID = #{original_dbid}
+<!-- 					   AND A.TABLE_NAME IN ( #{table_name_list} )   입력받은 테이블 목록 -->
+					   AND UPPER( A.TABLE_NAME ) IN 
+					<choose>
+						<when test="strTableNameList.size() != 0">
+							<foreach collection="strTableNameList" item="tableName" open="(" separator="," close=")" >
+								UPPER( REPLACE( TRIM( #{tableName} ), CHR(09),'' ) )
+							</foreach>
+						</when>
+						<otherwise>
+							( UPPER( REPLACE( TRIM( #{table_name_list} ), CHR(09),'' ) ) )									 -- table_name_list
+						</otherwise>
+					</choose>
+					   AND A.BASE_DAY = (
+										 SELECT MAX(BASE_DAY) BASE_DAY
+										   FROM ODS_INDEXES
+										  WHERE DBID = #{original_dbid}
+										)
+				  ) C
+			 WHERE A.DBID = B.DBID
+			   AND A.PLAN_HASH_VALUE = B.PLAN_HASH_VALUE
+			   AND B.OBJECT_OWNER = C.OBJECT_OWNER
+			   AND B.OBJECT_NAME = C.OBJECT_NAME
+			   AND (B.OBJECT_TYPE LIKE 'TABLE%' OR B.OBJECT_TYPE LIKE 'INDEX%')
+			   AND (SELECT TABLE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) <![CDATA[>]]> 0
+			 UNION ALL
+			SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+			  FROM SQL_LIST A
+			 WHERE (SELECT TABLE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+		)
+		/* OWNER 조건 필터링후 SQL LIST */  --> keum
+		, OWNER_FILTER_SQL_LIST AS
+		(
+			SELECT /*+ LEADING(A, B, C) */
+				   DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE, C.OBJECT_OWNER
+			  FROM TABLE_FILTER_SQL_LIST A
+				 , VSQL_PLAN C
+			 WHERE A.DBID = C.DBID
+			   AND A.PLAN_HASH_VALUE = C.PLAN_HASH_VALUE
+<!-- 			   AND C.OBJECT_OWNER IN UPPER(TRIM( #{owner_list} ))				 owner list -->
+			   AND UPPER(C.OBJECT_OWNER) IN 
+			<choose>
+				<when test="strOwnerList.size() != 0">
+					<foreach collection="strOwnerList" item="owner" open="(" separator="," close=")" >
+					UPPER( REPLACE( TRIM( #{owner} ), CHR(09),'' ) )
+					</foreach>
+				</when>
+				<otherwise>
+					( UPPER( REPLACE( TRIM(  #{owner_list} ), CHR(09),'' ) ) )									 -- owner list
+				</otherwise>
+			</choose>
+			   AND (SELECT OWNER_CNT FROM PROJECT_SQL_IDFY_COND_CNT) <![CDATA[>]]> 0
+			 UNION ALL
+			SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE,  NULL OBJECT_OWNER
+			  FROM TABLE_FILTER_SQL_LIST A
+			 WHERE (SELECT OWNER_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+		)
+		/* 모듈 조건 필터링후 SQL LIST */
+		, MODULE_FILTER_SQL_LIST AS
+		(
+			SELECT /* LEADING(D A B C) USE_NL(B C) */
+				   DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+			  FROM OWNER_FILTER_SQL_LIST A
+				 , VSQL_MODULE B
+			 WHERE A.DBID = B.DBID
+			   AND A.SQL_ID = B.SQL_ID
+<!-- 			   AND UPPER(TRIM(B.MODULE)) LIKE '%'||UPPER(TRIM( #{module_list} ))||'%'   keum: 입력된 모듈 갯수 만큼 LIKE문을 만들어야 함 -->
+			   AND  
+			<choose>
+				<when test="strModuleList.size() != 0">
+					<foreach collection="strModuleList" item="module" open="(" separator=" OR " close=")">
+						UPPER(TRIM( B.MODULE )) LIKE '%' || UPPER( REPLACE( TRIM( #{module} ), CHR(09),'' ) ) || '%'
+					</foreach>
+				</when>
+				<otherwise>
+					UPPER(TRIM( B.MODULE )) LIKE '%' || UPPER( REPLACE( TRIM( #{module_list} ), CHR(09),'' ) ) || '%'									 -- module_list
+				</otherwise>
+			</choose>
+			   AND (SELECT MODULE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) <![CDATA[>]]> 0
+			 UNION ALL
+			SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+			  FROM OWNER_FILTER_SQL_LIST A
+			 WHERE (SELECT MODULE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+		)
+		SELECT *
+		  FROM (
+				SELECT /*+ LEADING(A B C) USE_NL(B) USE_HASH(C) */
+					   #{project_id} project_id
+					 , #{sql_auto_perf_check_id} sql_auto_perf_check_id
+					 , B.SQL_ID 
+					 , B.PLAN_HASH_VALUE
+					 , B.EXECUTIONS
+					 , B.ROWS_PROCESSED
+					 , B.ELAPSED_TIME
+					 , B.BUFFER_GETS
+					 , B.DISK_READS
+					 , (CASE WHEN C.FULLSCAN_CNT <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END) FULLSCAN_YN
+					 , (CASE WHEN C.PARTITION_ALL_ACCESS_CNT <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END) PARTITION_ALL_ACCESS_YN
+				  FROM MODULE_FILTER_SQL_LIST A
+					 , SQL_LIST B
+					 , (
+						SELECT DBID 
+							 , PLAN_HASH_VALUE
+							 , SUM(CASE WHEN OPERATION || ' ' || OPTIONS IN ('TABLE ACCESS FULL', 'INDEX FAST FULL SCAN', 'INDEX FULL SCAN', 'BITMAP INDEX FAST FULL SCAN', 'TABLE ACCESS STORAGE FULL', 'INDEX STORAGE FAST FULL SCAN', 'BITMAP INDEX STORAGE FAST FULL SCAN') THEN 1 ELSE 0 END)  FULLSCAN_CNT
+							 , SUM(CASE WHEN OPERATION || ' ' || OPTIONS IN ('PARTITION RANGE ALL', 'PARTITION LIST ALL', 'PARTITION HASH ALL') THEN 1 ELSE 0 END) PARTITION_ALL_ACCESS_CNT
+						  FROM VSQL_PLAN 
+						 WHERE (DBID, PLAN_HASH_VALUE) IN (SELECT DBID, PLAN_HASH_VALUE FROM MODULE_FILTER_SQL_LIST)
+						   AND OPERATION || ' ' || OPTIONS IN ('TABLE ACCESS FULL', 'INDEX FAST FULL SCAN', 'INDEX FULL SCAN', 'BITMAP INDEX FAST FULL SCAN', 'TABLE ACCESS STORAGE FULL', 'INDEX STORAGE FAST FULL SCAN', 'BITMAP INDEX STORAGE FAST FULL SCAN', 'PARTITION RANGE ALL', 'PARTITION LIST ALL', 'PARTITION HASH ALL')
+						 GROUP BY DBID, PLAN_HASH_VALUE
+					) C
+				WHERE A.SQL_ID = B.SQL_ID
+				  AND B.DBID = C.DBID(+)
+				  AND B.PLAN_HASH_VALUE = C.PLAN_HASH_VALUE(+)
+				ORDER BY B.RANK
+			  )
+		<if test="topn_cnt != null and topn_cnt != ''">
+		 WHERE ROWNUM <![CDATA[<=]]> #{topn_cnt}
+		</if>
+	</update>
+	
+</mapper>

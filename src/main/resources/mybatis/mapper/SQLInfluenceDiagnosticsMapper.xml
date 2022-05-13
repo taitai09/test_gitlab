@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.03.08	이원식	OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.SQLInfluenceDiagnosticsDao">	
+	<select id="topSQLDiagnosticsList" parameterType="beforePerfExpect" resultType="beforePerfExpect">
+		/* SQLInfluenceDiagnosticsDao.topSQLDiagnosticsList */
+		SELECT BEFORE_PERF_EXPECT_NO, 
+			A.DBID,
+			B.DB_NAME, 
+			EXPECT_WORK_EXEC_DAY,
+			EXPECT_WORK_EXEC_TIME,
+            CASE WHEN LENGTH(EXPECT_WORK_EXEC_DAY) = 8 THEN
+			CASE WHEN A.IMMEDIATELY_YN = 'Y' 
+			THEN
+				SUBSTR(EXPECT_WORK_EXEC_DAY,1,4) || '-' || SUBSTR(EXPECT_WORK_EXEC_DAY,5,2) || '-' || SUBSTR(EXPECT_WORK_EXEC_DAY,7,2) || ' ' ||
+				SUBSTR(EXPECT_WORK_EXEC_TIME,1,2) || ':' || SUBSTR(EXPECT_WORK_EXEC_TIME,3,2) || ':' || SUBSTR(EXPECT_WORK_EXEC_TIME,5,2) || ' (즉시실행)' 
+			ELSE
+				SUBSTR(EXPECT_WORK_EXEC_DAY,1,4) || '-' || SUBSTR(EXPECT_WORK_EXEC_DAY,5,2) || '-' || SUBSTR(EXPECT_WORK_EXEC_DAY,7,2) || ' ' ||
+				SUBSTR(EXPECT_WORK_EXEC_TIME,1,2) || ':' || SUBSTR(EXPECT_WORK_EXEC_TIME,3,2) || ':' || SUBSTR(EXPECT_WORK_EXEC_TIME,5,2)
+			END
+            ELSE '' END
+			AS EXPECT_WORK_DT, 
+			TOP_RANK_MEASURE_TYPE_CD,
+			C.CD_NM AS TOP_RANK_MEASURE_TYPE_NM, 
+			TOPN_CNT, 
+			TO_CHAR(D.BEGIN_INTERVAL_TIME, 'YYYY-MM-DD HH24:MI:SS') || '(' || BEGIN_SNAP_ID || ')' BEGIN_SNAP_ID, 
+			TO_CHAR(E.BEGIN_INTERVAL_TIME, 'YYYY-MM-DD HH24:MI:SS') || '(' || END_SNAP_ID || ')' END_SNAP_ID, 
+			TO_CHAR(WORK_START_DT,'YYYY-MM-DD HH24:MI:SS') AS WORK_START_DT, 
+			TO_CHAR(WORK_END_DT,'YYYY-MM-DD HH24:MI:SS') AS WORK_END_DT, 
+			PLAN_CHANGE_CNT, 
+			PERF_REGRESS_CNT 
+		FROM BEFORE_PERF_EXPECT A, DATABASE B, CD C, ODS_HIST_SNAPSHOT D, ODS_HIST_SNAPSHOT E
+		WHERE A.DBID = B.DBID
+		AND A.DBID = #{dbid}		
+		AND A.TOP_RANK_MEASURE_TYPE_CD = C.CD
+		AND C.GRP_CD_ID = '1024'
+        AND A.DBID = D.DBID
+        AND A.BEGIN_SNAP_ID = D.SNAP_ID
+        AND D.INSTANCE_NUMBER = 1
+        AND A.DBID = E.DBID
+        AND A.END_SNAP_ID = E.SNAP_ID
+        AND E.INSTANCE_NUMBER = 1
+		ORDER BY A.BEFORE_PERF_EXPECT_NO DESC
+	</select>
+	
+	<select id="getTOPSQLDiagnostics" parameterType="beforePerfExpect" resultType="beforePerfExpect">
+		/* SQLInfluenceDiagnosticsDao.getTOPSQLDiagnostics */
+		SELECT DBID, BEFORE_PERF_EXPECT_NO, BEGIN_SNAP_ID, END_SNAP_ID, IMMEDIATELY_YN,
+		    SUBSTR(EXPECT_WORK_EXEC_DAY,1,4) || '-' || SUBSTR(EXPECT_WORK_EXEC_DAY,5,2) || '-' || SUBSTR(EXPECT_WORK_EXEC_DAY,7,2) AS EXPECT_WORK_EXEC_DAY,
+		    SUBSTR(EXPECT_WORK_EXEC_TIME,1,2) || ':' || SUBSTR(EXPECT_WORK_EXEC_TIME,3,2) AS EXPECT_WORK_EXEC_TIME,
+		    TOP_RANK_MEASURE_TYPE_CD, TOPN_CNT,
+		    CASE WHEN SYSDATE <![CDATA[ < ]]> TO_DATE(EXPECT_WORK_EXEC_DAY || EXPECT_WORK_EXEC_TIME,'YYYY-MM-DD HH24:MI:SS') AND IMMEDIATELY_YN = 'N'
+		    THEN 'Y' ELSE 'N' END AS EDIT_YN
+		FROM BEFORE_PERF_EXPECT
+		WHERE BEFORE_PERF_EXPECT_NO = #{before_perf_expect_no}
+	</select>	
+	
+	<select id="getMaxBeforePerfExpectNo" parameterType="beforePerfExpect" resultType="string">
+		/* SQLInfluenceDiagnosticsDao.getMaxBeforePerfExpectNo */
+		SELECT NVL(MAX(BEFORE_PERF_EXPECT_NO), 1) AS BEFORE_PERF_EXPECT_NO
+		FROM BEFORE_PERF_EXPECT	
+	</select>
+	
+	<insert id="insertTOPSQLDiagnostics" parameterType="beforePerfExpect">
+		/* SQLInfluenceDiagnosticsDao.insertTOPSQLDiagnostics */
+		INSERT
+		INTO   BEFORE_PERF_EXPECT
+		       (
+		              BEFORE_PERF_EXPECT_NO,
+		              DBID,
+		              EXPECT_WORK_EXEC_DAY,
+		              EXPECT_WORK_EXEC_TIME,
+		              TOP_RANK_MEASURE_TYPE_CD,
+		              TOPN_CNT,
+		              BEGIN_SNAP_ID,
+		              END_SNAP_ID,
+		              IMMEDIATELY_YN
+		       )
+		       VALUES
+		       (
+		              SQ_SPOP_BEFORE_PERF_EXPECT_NO.NEXTVAL ,
+		              #{dbid} ,
+		              #{expect_work_exec_day} ,
+		              #{expect_work_exec_time} ,
+		              #{top_rank_measure_type_cd} ,
+		              ${topn_cnt} ,
+		              ${begin_snap_id} ,
+		              ${end_snap_id} ,
+		              #{immediately_yn}
+		       )		
+	</insert>
+	
+	<update id="updateTOPSQLDiagnostics" parameterType="beforePerfExpect">
+		/* SQLInfluenceDiagnosticsDao.updateTOPSQLDiagnostics */
+		UPDATE BEFORE_PERF_EXPECT
+		SET BEGIN_SNAP_ID = #{begin_snap_id},
+			END_SNAP_ID = #{end_snap_id},
+			IMMEDIATELY_YN = #{immediately_yn},
+			EXPECT_WORK_EXEC_DAY = #{expect_work_exec_day},
+			EXPECT_WORK_EXEC_TIME = #{expect_work_exec_time},
+			TOP_RANK_MEASURE_TYPE_CD = #{top_rank_measure_type_cd},
+			TOPN_CNT = #{topn_cnt}
+		WHERE BEFORE_PERF_EXPECT_NO = #{before_perf_expect_no}
+	</update>	
+	
+	<delete id="deleteTOPSQLDiagnostics" parameterType="beforePerfExpect">
+		/* SQLInfluenceDiagnosticsDao.deleteTOPSQLDiagnostics */
+		DELETE FROM BEFORE_PERF_EXPECT WHERE BEFORE_PERF_EXPECT_NO = #{before_perf_expect_no}
+	</delete>		
+	
+	<select id="topSQLDiagnosticsDetailList" parameterType="beforePerfExpectSqlStat" resultType="beforePerfExpectSqlStat">
+		/* SQLInfluenceDiagnosticsDao.topSQLDiagnosticsDetailList */
+		SELECT SQL_ID, DBIO, PLAN_CHANGE_YN,
+			PERF_IMPACT_TYPE_CD, C.CD_NM AS PERF_IMPACT_TYPE_NM,
+			BEFORE_PLAN_HASH_VALUE, BEFORE_EXECUTIONS, BEFORE_ELAPSED_TIME, BEFORE_BUFFER_GETS, 
+			AFTER_PLAN_HASH_VALUE, AFTER_EXECUTIONS, AFTER_ELAPSED_TIME, AFTER_BUFFER_GETS, 
+			ELAPSED_TIME_INCREASE_RATIO, BUFFER_INCREASE_RATIO, SQL_PROFILE_YN, SQL_PROFILE_NM
+		FROM BEFORE_PERF_EXPECT_SQL_STAT A, CD C
+		WHERE A.BEFORE_PERF_EXPECT_NO = #{before_perf_expect_no}		
+		AND A.PERF_IMPACT_TYPE_CD = C.CD
+		AND C.GRP_CD_ID = '1025'
+		<if test="dbio != null and dbio != ''">
+			AND A.DBIO LIKE #{dbio} || '%'
+		</if>
+		<if test="perf_impact_type_cd != null and perf_impact_type_cd != ''">
+			AND A.PERF_IMPACT_TYPE_CD = #{perf_impact_type_cd}
+		</if>
+		<if test="plan_change_yn != null and (plan_change_yn eq 'Y'.toString())">
+			AND A.PLAN_CHANGE_YN = 'Y'
+		</if>
+	</select>
+
+	<update id="updateSQLProfile_TOPSQL" parameterType="beforePerfExpectSqlStat">
+		/* SQLInfluenceDiagnosticsDao.updateSQLProfile_TOPSQL */
+		UPDATE BEFORE_PERF_EXPECT_SQL_STAT
+		SET SQL_PROFILE_YN = 'Y',
+			SQL_PROFILE_NM = #{sql_profile_nm}
+		WHERE BEFORE_PERF_EXPECT_NO = #{before_perf_expect_no}
+		AND SQL_ID = #{sql_id}		
+		AND BEFORE_PLAN_HASH_VALUE = #{before_plan_hash_value}
+	</update>
+	
+	<select id="objectImpactDiagnosticsList" parameterType="sqlPerfImpluenceAnalysis" resultType="sqlPerfImpluenceAnalysis">
+		/* SQLInfluenceDiagnosticsDao.objectImpactDiagnosticsList */
+		SELECT A.SQL_PERF_IMPL_ANAL_NO,
+			A.DBID,
+			B.DB_NAME,
+			E.TABLE_CNT,
+			A.ANAL_WORK_EXEC_DAY,
+			A.ANAL_WORK_EXEC_TIME,
+            CASE WHEN LENGTH(ANAL_WORK_EXEC_DAY) = 8 THEN
+			CASE WHEN A.IMMEDIATELY_YN = 'Y' 
+			THEN
+			 	SUBSTR(ANAL_WORK_EXEC_DAY,1,4) || '-' || SUBSTR(ANAL_WORK_EXEC_DAY,5,2) || '-' || SUBSTR(ANAL_WORK_EXEC_DAY,7,2) || ' ' ||
+				SUBSTR(ANAL_WORK_EXEC_TIME,1,2) || ':' || SUBSTR(ANAL_WORK_EXEC_TIME,3,2) || ':' || SUBSTR(ANAL_WORK_EXEC_TIME,5,2) || ' (즉시실행)' 
+			ELSE
+				SUBSTR(ANAL_WORK_EXEC_DAY,1,4) || '-' || SUBSTR(ANAL_WORK_EXEC_DAY,5,2) || '-' || SUBSTR(ANAL_WORK_EXEC_DAY,7,2) || ' ' ||
+				SUBSTR(ANAL_WORK_EXEC_TIME,1,2) || ':' || SUBSTR(ANAL_WORK_EXEC_TIME,3,2) || ':' || SUBSTR(ANAL_WORK_EXEC_TIME,5,2)
+			END 
+            ELSE '' END
+			AS ANAL_WORK_EXEC_DT,
+			TO_CHAR(C.BEGIN_INTERVAL_TIME, 'YYYY-MM-DD HH24:MI:SS') || ' (' || A.BEGIN_SNAP_ID || ')' BEGIN_SNAP_TIME,
+			TO_CHAR(D.END_INTERVAL_TIME, 'YYYY-MM-DD HH24:MI:SS') || ' (' || A.END_SNAP_ID || ')' END_SNAP_TIME,
+			TO_CHAR(A.WORK_START_DT, 'YYYY-MM-DD HH24:MI:SS') AS WORK_START_DT,
+			TO_CHAR(A.WORK_END_DT, 'YYYY-MM-DD HH24:MI:SS') AS WORK_END_DT
+		FROM SQL_PERF_IMPLUENCE_ANALYSIS A
+		    ,DATABASE B
+		    ,ODS_HIST_SNAPSHOT C
+		    ,ODS_HIST_SNAPSHOT D
+		    ,(SELECT /*+ NO_MERGE PUSH_PRED */
+		             SQL_PERF_IMPL_ANAL_NO, COUNT(*) TABLE_CNT
+		        FROM SQL_PERF_IMPL_ANAL_TABLE
+		       GROUP BY SQL_PERF_IMPL_ANAL_NO) E
+		WHERE A.DBID = B.DBID
+		AND A.DBID = C.DBID
+		AND A.BEGIN_SNAP_ID = C.SNAP_ID
+		AND A.DBID = D.DBID
+		AND A.END_SNAP_ID = D.SNAP_ID
+		AND A.SQL_PERF_IMPL_ANAL_NO = E.SQL_PERF_IMPL_ANAL_NO
+		AND A.DBID = #{dbid}
+		AND C.INSTANCE_NUMBER = 1
+		AND D.INSTANCE_NUMBER = 1
+		ORDER BY A.SQL_PERF_IMPL_ANAL_NO DESC
+	</select>	
+	
+	<select id="getObjectImpactDiagnostics" parameterType="sqlPerfImpluenceAnalysis" resultType="sqlPerfImpluenceAnalysis">
+		/* SQLInfluenceDiagnosticsDao.getObjectImpactDiagnostics */
+		SELECT DBID, BEGIN_SNAP_ID, END_SNAP_ID, IMMEDIATELY_YN,
+			SUBSTR(ANAL_WORK_EXEC_DAY,1,4) || '-' || SUBSTR(ANAL_WORK_EXEC_DAY,5,2) || '-' || SUBSTR(ANAL_WORK_EXEC_DAY,7,2) AS ANAL_WORK_EXEC_DAY,
+			SUBSTR(ANAL_WORK_EXEC_TIME,1,2) || ':' || SUBSTR(ANAL_WORK_EXEC_TIME,3,2) AS ANAL_WORK_EXEC_TIME,
+			CASE WHEN SYSDATE <![CDATA[ < ]]> TO_DATE(ANAL_WORK_EXEC_DAY || ANAL_WORK_EXEC_TIME,'YYYY-MM-DD HH24:MI:SS') AND IMMEDIATELY_YN = 'N'
+			THEN 'Y' ELSE 'N' END AS EDIT_YN
+		FROM SQL_PERF_IMPLUENCE_ANALYSIS
+		WHERE SQL_PERF_IMPL_ANAL_NO = #{sql_perf_impl_anal_no}
+	</select>
+	
+	<select id="getTargetTableList" parameterType="sqlPerfImplAnalTable" resultType="sqlPerfImplAnalTable">
+		/* SQLInfluenceDiagnosticsDao.getTargetTableList */
+		SELECT TABLE_OWNER, TABLE_NAME 
+		FROM SQL_PERF_IMPL_ANAL_TABLE 
+		WHERE SQL_PERF_IMPL_ANAL_NO = #{sql_perf_impl_anal_no}
+		ORDER BY TABLE_NAME
+	</select>
+	
+	<select id="getTableOwner" parameterType="odsUsers" resultType="odsUsers">
+		/* SQLInfluenceDiagnosticsDao.getTableOwner */
+		SELECT USERNAME AS USER_ID, USERNAME 
+		FROM ODS_USERS
+		WHERE DBID = #{dbid}
+		AND BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_USERS WHERE DBID = #{dbid})
+		AND USERNAME NOT IN (SELECT USERNAME FROM UI_EXCEPT_DB_USER)
+		ORDER BY USERNAME
+	</select>
+	
+	<select id="getSelectTableList" parameterType="sqlPerfImplAnalTable" resultType="sqlPerfImplAnalTable">
+		/* SQLInfluenceDiagnosticsDao.getSelectTableList */
+		<choose>
+			<when test="sql_perf_impl_anal_no != null and sql_perf_impl_anal_no != ''">
+				SELECT A.TABLE_NAME
+				FROM ODS_TABLES A, SQL_PERF_IMPL_ANAL_TABLE B
+				WHERE A.OWNER = B.TABLE_OWNER(+)
+				AND A.TABLE_NAME = B.TABLE_NAME(+)
+				AND A.DBID = #{dbid}
+				AND A.OWNER = #{table_owner}
+				AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLES WHERE DBID = #{dbid})
+				AND SQL_PERF_IMPL_ANAL_NO(+) = #{sql_perf_impl_anal_no}
+				AND B.TABLE_NAME IS NULL
+				ORDER BY TABLE_NAME
+			</when>
+			<otherwise>
+				SELECT A.TABLE_NAME
+				FROM ODS_TABLES A
+				WHERE A.DBID = #{dbid}
+				AND A.OWNER = #{table_owner}
+				AND A.BASE_DAY = (SELECT MAX(BASE_DAY) FROM ODS_TABLES WHERE DBID = #{dbid})
+				ORDER BY TABLE_NAME
+			</otherwise>
+		</choose>
+	</select>	
+	
+	<select id="getSqlPerfImplAnalNo" parameterType="sqlPerfImpluenceAnalysis" resultType="string">
+		/* SQLInfluenceDiagnosticsDao.getSqlPerfImplAnalNo */
+		SELECT NVL(MAX(SQL_PERF_IMPL_ANAL_NO), 1) AS SQL_PERF_IMPL_ANAL_NO
+		FROM SQL_PERF_IMPLUENCE_ANALYSIS	
+	</select>
+	
+	<insert id="insertObjectImpactDiagnostics" parameterType="sqlPerfImpluenceAnalysis">
+		/* SQLInfluenceDiagnosticsDao.insertObjectImpactDiagnostics */
+		INSERT INTO SQL_PERF_IMPLUENCE_ANALYSIS(SQL_PERF_IMPL_ANAL_NO, DBID, BEGIN_SNAP_ID, END_SNAP_ID, IMMEDIATELY_YN, ANAL_WORK_EXEC_DAY, ANAL_WORK_EXEC_TIME, WORK_START_DT, WORK_END_DT)
+		VALUES (SQ_SPOP_SQL_PERF_IMPL_ANAL_NO.NEXTVAL, #{dbid}, #{begin_snap_id}, #{end_snap_id}, #{immediately_yn}, #{anal_work_exec_day}, #{anal_work_exec_time}, NULL, NULL)
+	</insert>
+	
+	<update id="updateObjectImpactDiagnostics" parameterType="sqlPerfImpluenceAnalysis">
+		/* SQLInfluenceDiagnosticsDao.updateObjectImpactDiagnostics */
+		UPDATE SQL_PERF_IMPLUENCE_ANALYSIS
+		SET BEGIN_SNAP_ID = #{begin_snap_id},
+			END_SNAP_ID = #{end_snap_id},
+			IMMEDIATELY_YN = #{immediately_yn},
+			ANAL_WORK_EXEC_DAY = #{anal_work_exec_day},
+			ANAL_WORK_EXEC_TIME = #{anal_work_exec_time}
+		WHERE SQL_PERF_IMPL_ANAL_NO = #{sql_perf_impl_anal_no}
+	</update>	
+	
+	<delete id="deleteObjectImpactDiagnostics" parameterType="sqlPerfImpluenceAnalysis">
+		/* SQLInfluenceDiagnosticsDao.deleteObjectImpactDiagnostics */
+		DELETE FROM SQL_PERF_IMPLUENCE_ANALYSIS WHERE SQL_PERF_IMPL_ANAL_NO = #{sql_perf_impl_anal_no}
+	</delete>
+	
+	<delete id="deleteObjectImpactDiagnosticsTable" parameterType="sqlPerfImpluenceAnalysis">
+		/* SQLInfluenceDiagnosticsDao.deleteObjectImpactDiagnosticsTable */
+		DELETE FROM SQL_PERF_IMPL_ANAL_TABLE WHERE SQL_PERF_IMPL_ANAL_NO = #{sql_perf_impl_anal_no}		
+	</delete>
+	
+	<insert id="insertObjectImpactDiagnosticsTable" parameterType="sqlPerfImplAnalTable">
+		/* SQLInfluenceDiagnosticsDao.insertObjectImpactDiagnosticsTable */
+		INSERT INTO SQL_PERF_IMPL_ANAL_TABLE(SQL_PERF_IMPL_ANAL_NO, TABLE_OWNER, TABLE_NAME, PLAN_CHANGE_CNT, PERF_REGRESS_CNT)
+		<choose>
+			<when test="sql_perf_impl_anal_no != null and sql_perf_impl_anal_no != ''">
+				VALUES(#{sql_perf_impl_anal_no}, #{table_owner}, #{table_name}, NULL, NULL)
+			</when>
+			<otherwise>
+				VALUES(SQ_SPOP_SQL_PERF_IMPL_ANAL_NO.CURRVAL, #{table_owner}, #{table_name}, NULL, NULL)
+			</otherwise>
+		</choose>		
+	</insert>
+	
+	<select id="objectImpactDiagnosticsTableList" parameterType="sqlPerfImplAnalTable" resultType="sqlPerfImplAnalTable">
+		/* SQLInfluenceDiagnosticsDao.objectImpactDiagnosticsTableList */
+		SELECT ROWNUM RNUM,
+			A.TABLE_OWNER,
+			A.TABLE_NAME,
+			NVL(A.PLAN_CHANGE_CNT,0) AS PLAN_CHANGE_CNT,
+			NVL(A.PERF_REGRESS_CNT,0) AS PERF_REGRESS_CNT,
+			NVL(B.SQL_CNT,0) AS SQL_CNT
+		FROM SQL_PERF_IMPL_ANAL_TABLE A
+			,(SELECT /*+ NO_MERGE PUSH_PRED */ 
+				SQL_PERF_IMPL_ANAL_NO, TABLE_OWNER, TABLE_NAME,
+				COUNT(*) SQL_CNT
+				FROM SQL_PERF_IMPL_ANAL_SQL
+				GROUP BY SQL_PERF_IMPL_ANAL_NO, TABLE_OWNER, TABLE_NAME) B
+		WHERE A.SQL_PERF_IMPL_ANAL_NO = B.SQL_PERF_IMPL_ANAL_NO(+)
+		AND A.TABLE_OWNER = B.TABLE_OWNER(+)
+		AND A.TABLE_NAME = B.TABLE_NAME(+)
+		AND A.SQL_PERF_IMPL_ANAL_NO = #{sql_perf_impl_anal_no}
+		<if test="table_name != null and table_name != ''">
+			AND A.TABLE_NAME LIKE #{table_name} || '%'
+		</if>
+		ORDER BY A.TABLE_OWNER, A.TABLE_NAME
+	</select>
+	
+	<select id="objectImpactDiagnosticsTableDetailList" parameterType="sqlPerfImplAnalSql" resultType="sqlPerfImplAnalSql">
+		/* SQLInfluenceDiagnosticsDao.objectImpactDiagnosticsTableDetailList */
+		SELECT SQL_ID, DBIO, PLAN_CHANGE_YN, C.CD_NM AS PERF_IMPACT_TYPE_NM, BEFORE_PLAN_HASH_VALUE, BEFORE_EXECUTIONS, 
+			BEFORE_ELAPSED_TIME, BEFORE_BUFFER_GETS, AFTER_PLAN_HASH_VALUE, AFTER_EXECUTIONS, AFTER_ELAPSED_TIME, AFTER_BUFFER_GETS,
+			BUFFER_INCREASE_RATIO, ELAPSED_TIME_INCREASE_RATIO, SQL_PROFILE_YN, SQL_PROFILE_NM
+		FROM SQL_PERF_IMPL_ANAL_SQL A, CD C
+		WHERE A.PERF_IMPACT_TYPE_CD = C.CD
+		AND C.GRP_CD_ID = '1025'
+		AND SQL_PERF_IMPL_ANAL_NO = #{sql_perf_impl_anal_no}
+		AND TABLE_OWNER = #{table_owner}
+		AND TABLE_NAME = #{list_table_name}
+		<if test="dbio != null and dbio != ''">
+			AND A.DBIO LIKE #{dbio} || '%'
+		</if>
+		<if test="perf_impact_type_cd != null and perf_impact_type_cd != ''">
+			AND A.PERF_IMPACT_TYPE_CD = #{perf_impact_type_cd}
+		</if>
+		<if test="plan_change_yn != null and (plan_change_yn eq 'Y'.toString())">
+			AND A.PLAN_CHANGE_YN = 'Y'
+		</if>
+	</select>
+	
+	<update id="updateSQLProfile_Object" parameterType="sqlPerfImplAnalSql">
+		/* SQLInfluenceDiagnosticsDao."updateSQLProfile_Object" */
+		UPDATE SQL_PERF_IMPL_ANAL_SQL
+		SET SQL_PROFILE_YN = 'Y',
+			SQL_PROFILE_NM = #{sql_profile_nm}
+		WHERE SQL_PERF_IMPL_ANAL_NO = #{sql_perf_impl_anal_no}
+		AND TABLE_OWNER = #{table_owner}
+		AND TABLE_NAME = #{list_table_name}
+		AND SQL_ID = #{sql_id}
+		AND BEFORE_PLAN_HASH_VALUE = #{before_plan_hash_value}
+	</update>	
+</mapper>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+
+<!-- JQuery -->
+<!--[if lt IE 9]>
+  <script src="/resources/js/html5shiv.min.js"></script>
+<![endif]-->
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/manual.css"/>
+
+<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<h1>13.	설정</h1>
+	<h2>13.5. 시스템 운영 현황</h2>
+	<h3>13.5.1.	Open-POP 점검</h3>
+
+	<div>
+		<p>Open-POP Agent 점검 및 스케줄러 작업 수행내역과 수행결과를 확인할 수 있는 화면이다.</p>
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[Agent 점검] 탭</p>
+		Open-POP DB, Open-POP Agent(Master, Collect, Gather), 관리대상 DB의 Instance 상태에 대한 점검을 수행한다.  
+	</div>
+
+	<div>
+		<h4>Agent 점검 수행</h4>
+		<p>화면 우측 [점검 수행] 버튼을 클릭한다. 점검 결과 Agent가 정상일 경우 녹색, 오류가 있을 경우 빨강색으로 조회된다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/13-5-1-1.jpg"></p>
+	</div>
+
+	<div>
+		<p class="boldtext">참고 사항</p>
+		<div class="list-a">
+			<ul>
+				<li>-  Agent 상태는 default.properties에 정의한다.(키워드는 일치해야 한다.)</li>
+				<li>-  openpop_arch_ver=2</li>
+				<li>-  agent_timeout=5</li>
+				<li>-  masterip=112.24.102.154(고객사별 설정)</li>
+				<li>-  masterport=1987(고객사별 설정)</li>
+				<li>-  gather_server_ip=181.119.103.34(openpop_arch_ver=2일 경우, 고객사별 설정)</li>
+				<li>-  gather_server_port=5001(openpop_arch_ver=2일 경우, 고객사별 설정)</li>
+			</ul>
+		</div>	
+	</div>
+
+	<div class="seperate-line"></div>
+	<div class="pointbox">
+		<p class="point-title">[Scheduler 점검] 탭</p>
+		스케줄러 작업 수행 내역과 수행결과를 확인할 수 있는 화면이다.
+	</div>
+
+	<div>
+		<h4>Scheduler 점검 수행</h4>
+		<p>Scheduler 점검 탭을 클릭하면 스케줄러 점검이 자동 수행된다. 점검 결과 정상일 경우 녹색, 오류가 있을 경우 빨강색, 미수행일 경우 회색으로 조회된다.</p>
+		<p class="imagebox-b"><img src="/resources/images/menual/bgimg/13-5-1-2.jpg"></p>
+	</div>
+</div>
+</body>
+</html>

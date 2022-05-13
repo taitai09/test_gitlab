@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+	2018.08.26	임호경	최초작성	
+-->
+<mapper namespace="omc.spop.dao.SystemMngDao">
+	
+	<select id="menuTree" parameterType="menu" resultType="menu">
+		/* SystemMngDao.menuTree */
+   SELECT
+			ROWNUM AS RNUM,
+			MENU_ID AS ID,
+			NVL(PARENT_MENU_ID,'-1') AS PARENT_ID,
+			MENU_NM AS TEXT,			
+		    MENU_ID,
+		    PARENT_MENU_ID,
+		    MENU_NM,
+		    MENU_DESC,
+		    MENU_URL_ADDR,
+		    MENU_IMAGE_NM,
+		    MENU_ORDERING,
+		    USE_YN
+		FROM
+		    MENU
+<!-- 		<trim prefix="WHERE" prefixOverrides="AND |OR">
+			<if test="searchValue != null and (searchKey eq '01'.toString())">
+				AND MENU_NM LIKE '%' || #{searchValue} || '%'
+			</if>
+			<if test="searchValue != null and (searchKey eq '02'.toString())">
+				AND MENU_DESC LIKE '%' || #{searchValue} || '%'
+			</if>
+			<if test="(searchKey eq '00'.toString())">
+				AND MENU_DESC LIKE '%' || #{searchValue} || '%' OR MENU_NM LIKE '%' || #{searchValue} || '%' 
+			</if>
+		</trim> -->
+	        START WITH PARENT_MENU_ID IS NULL
+			CONNECT BY PRIOR MENU_ID = PARENT_MENU_ID
+			ORDER SIBLINGS BY MENU_ID, MENU_ORDERING	    
+	</select>	
+	<select id="getMenuInfo" parameterType="menu" resultType="menu">
+   		SELECT * FROM MENU WHERE MENU_ID = #{menu_id}
+	</select>	
+	
+	
+	<select id="getMenuList" parameterType="menu" resultType="menu">
+		/* SystemMngDao.getMenuList */
+		SELECT
+			MENU_ID AS ID,
+            CASE WHEN LEVEL = 1 THEN '-1' ELSE NVL(PARENT_MENU_ID,'-1') END AS PARENT_ID,
+            MENU_NM AS TEXT
+		FROM
+		    MENU
+		<choose>
+			<when test="menu_id != null and menu_id != ''">
+				START WITH menu_id = #{menu_id}
+			</when>
+			<otherwise>
+				START WITH parent_menu_id IS NULL
+			</otherwise>
+		</choose>
+		CONNECT BY PRIOR MENU_ID = PARENT_MENU_ID
+		ORDER SIBLINGS BY MENU_ORDERING	     
+	</select>	
+    
+    
+    <insert id="insertMenuInfo" parameterType="menu">
+		/* SystemMngDao.insertMenuInfo */
+		INSERT INTO MENU (
+		    MENU_ID,
+   			<if test="parent_menu_id != null and parent_menu_id != ''">
+		    PARENT_MENU_ID,
+		    </if>
+		    MENU_NM,
+		    MENU_DESC,
+   			<if test="menu_url_addr != null and menu_url_addr != ''">
+		    MENU_URL_ADDR,
+		    </if>
+		    MENU_IMAGE_NM,
+		    MENU_ORDERING,
+		    USE_YN
+		) VALUES (
+		    (SELECT MAX(MENU_ID)+1 FROM MENU),
+ 			<if test="parent_menu_id != null and parent_menu_id != ''">
+		    #{parent_menu_id},
+		    </if>
+		    #{menu_nm},
+		    #{menu_desc},
+   			<if test="menu_url_addr != null and menu_url_addr != ''">
+		    #{menu_url_addr}, 
+		    </if>
+		    #{menu_image_nm},
+		    #{menu_ordering},
+		    #{use_yn}
+		)    
+    </insert> 
+    
+    <update id="updateMenuInfo" parameterType="menu">
+    	/* SystemMngDao.updateMenuInfo */
+		 UPDATE MENU 
+		 	SET
+			 PARENT_MENU_ID = #{parent_menu_id},
+			<if test="menu_nm != null and menu_nm != ''"> <!-- 수정됨 확인요망 18.09.05 -->
+			 MENU_NM = #{menu_nm},
+			</if>
+			<if test="menu_desc != null and menu_desc != ''">
+			 MENU_DESC = #{menu_desc},
+			</if>	     
+			<if test="use_yn != null and use_yn != ''">
+			 USE_YN = #{use_yn},
+			</if>	     
+			<if test="menu_url_addr != null and menu_url_addr != ''">
+			 MENU_URL_ADDR = #{menu_url_addr}, 
+			 </if>
+			<if test="menu_image_nm != null and menu_image_nm != ''">
+			MENU_IMAGE_NM = #{menu_image_nm},
+			</if>
+			 MENU_ORDERING = #{menu_ordering}
+		 WHERE MENU_ID = #{menu_id} 
+	</update>
+    
+    <delete id="deleteMenuInfo" parameterType="menu">
+    	/* SystemMngDao.deleteMenuInfo */
+		DELETE FROM MENU
+		 WHERE MENU_ID = #{menu_id} 
+    </delete>
+    
+    <insert id="insertMenuAuth" parameterType="menu">
+    	/* SystemMngDao.insertMenuAuth */
+  		<if test="auth_id != null and auth_id != '' and menu_id != null and menu_id != ''"> <!-- 메뉴테이블 업데이트 후 메뉴에 대한 권한 업데이트 -->
+ 	   		INSERT INTO MENU_AUTH VALUES (#{auth_id}, #{menu_id})
+ 	   	</if>
+ 		<if test="menu_id == null or menu_id == ''">  <!-- 메뉴 테이블에 insert 후 메뉴에 대한 권한 추가 -->
+ 	   		INSERT INTO MENU_AUTH VALUES (#{auth_id}, ((SELECT MAX(MENU_ID) FROM MENU)))
+ 	   	</if>
+    </insert>
+    
+    
+    <delete id="deleteMenuAuth" parameterType="menu">
+    	/* SystemMngDao.deleteMenuInfo */
+    	DELETE MENU_AUTH WHERE MENU_ID = #{menu_id}
+
+    </delete>
+   
+	<select id="getDatabase" parameterType="database" resultType="database">
+       	/* SystemMngDao.getDatabase */
+		SELECT DB.DB_NAME, DB.DBID
+		FROM DATABASE DB
+		WHERE DB.USE_YN = 'Y'
+		ORDER BY ORDERING
+    </select>
+     
+	<select id="getParentMenuIdList" parameterType="menu" resultType="String">
+        	/* SystemMngDao."getParentMenuIdList" */
+		SELECT MENU_ID FROM MENU WHERE PARENT_MENU_ID = #{menu_id}
+    </select>
+   <!--  <update id="mergeIntoMenuAuth" parameterType="menu">
+		MERGE INTO MENU_AUTH 
+			USING DUAL ON (MENU_ID = #{menu_id})
+		WHEN MATCHED THEN
+			UPDATE SET 
+				AUTH_ID = #{auth_id}
+				
+		WHEN NOT MATCHED THEN
+	    	INSERT (AUTH_ID, MENU_ID) VALUES(#{auth_id},#{menu_id})
+    </update> -->
+    
+    
+    <select id="getAuthNm" parameterType="menu" resultType="menu">
+        	/* SystemMngDao.getAuthNm */
+		SELECT A.AUTH_ID, A.AUTH_NM, A.USE_YN, A.AUTH_CD, B.MENU_ID 
+        FROM AUTH A left outer join MENU_AUTH B on A.AUTH_ID = B.AUTH_ID and menu_id = #{menu_id}
+        ORDER BY AUTH_ID
+     </select>
+    
+    <select id="menuIsEmpty" parameterType="menu" resultType="int">
+            	/* SystemMngDao.menuIsEmpty */
+ 	  	 SELECT COUNT(menu_id) FROM MENU WHERE PARENT_MENU_ID = #{menu_id}
+    </select>
+    
+    
+   	<select id="getUserInfo_old" parameterType="users" resultType="users">
+   	   	/* SystemMngDao.getUserInfo */
+        SELECT U1.USER_ID, U1.USER_NM, U1.PASSWORD, U1.EXT_NO, U1.HP_NO, U1.EMAIL, 
+			NVL(U1.DEFAULT_PASSWORD_YN,'Y') AS DEFAULT_PASSWORD_YN, TO_CHAR(U1.PASSWORD_CHG_DT, 'YYYY-MM-DD HH24:MI:SS') AS PASSWORD_CHG_DT, 
+			NVL(U1.APPROVE_YN,'N') AS APPROVE_YN, TO_CHAR(U1.APPROVE_DT, 'YYYY-MM-DD HH24:MI:SS') AS APPROVE_DT, U1.APPROVE_ID, 
+			U2.USER_NM AS APPROVE_NM, TO_CHAR(U1.REG_DT, 'YYYY-MM-DD HH24:MI:SS') AS REG_DT, U1.USE_YN, U1.APPROVE_YN, A.AUTH_ID, A.AUTH_NM
+		FROM USERS U1, USERS U2, USER_AUTH UA, AUTH A 
+		WHERE 1=1
+		AND U1.APPROVE_ID = U2.USER_ID(+) AND U1.USER_ID = UA.USER_ID 
+		AND UA.AUTH_GRP_ID = A.AUTH_ID AND U1.USER_ID = #{user_id}
+	</select>
+	
+   	<select id="getUserInfo" parameterType="users" resultType="users">
+   	   	/* SystemMngDao.getUserInfo */
+        SELECT * FROM USERS WHERE USER_ID = #{user_id}
+	</select>
+
+   	<select id="getUserAuthId" parameterType="string" resultType="string">
+   	   	/* SystemMngDao.getUserAuthId */
+        SELECT AUTH_GRP_ID FROM USER_AUTH WHERE USER_ID = #{user_id} AND ROWNUM = 1
+	</select>
+   	
+   	<select id="getUserWrkjobCd" parameterType="users" resultType="String">
+    	/* SystemMngDao.getUserWrkjobCd */
+      SELECT WRKJOB_CD FROM USER_WRKJOB WHERE USER_ID = #{user_id}
+	</select>
+	
+	<select id="defaultAuth" parameterType="users" resultType="users">
+    	/* SystemMngDao.defaultAuth */
+		SELECT 
+			CASE WHEN A.DEFAULT_AUTH_GRP_ID IS NULL THEN (SELECT AUTH_GRP_ID FROM USER_AUTH WHERE USER_ID = #{user_id} AND ROWNUM = 1) 
+				 WHEN A.DEFAULT_AUTH_GRP_ID IS NOT NULL THEN B.AUTH_ID END AS AUTH_GRP_ID
+	    , B.AUTH_NM
+	    , A.USER_ID
+	    , NVL(A.DEFAULT_AUTH_GRP_ID, '') AS DEFAULT_AUTH_GRP_ID
+		FROM USERS A, 
+	    (SELECT A.AUTH_ID, A.AUTH_NM, B.USER_ID 
+	        FROM AUTH A, USER_AUTH B 
+	        WHERE A.AUTH_ID = B.AUTH_GRP_ID) B
+	    WHERE A.USER_ID = B.USER_ID 
+	    AND A.USER_ID = #{user_id}
+	</select>
+	
+	<select id="defaultWrkjobCd" parameterType="users" resultType="users">
+    	/* SystemMngDao.defaultWrkjobCd */
+		SELECT A.USER_ID,
+	        CASE WHEN A.DEFAULT_WRKJOB_CD IS NULL THEN (SELECT WRKJOB_CD FROM USER_WRKJOB WHERE USER_ID = #{user_id} AND ROWNUM = 1)
+	             WHEN A.DEFAULT_WRKJOB_CD IS NOT NULL THEN B.WRKJOB_CD END AS WRKJOB_CD
+	     , B.WRKJOB_CD_NM AS WRKJOB_CD_NM
+	     , NVL(A.DEFAULT_WRKJOB_CD,'') AS DEFAULT_WRKJOB_CD
+	    FROM USERS A, 
+	    (SELECT A.USER_ID, A.WRKJOB_CD, B.WRKJOB_CD_NM
+	    	FROM USER_WRKJOB A, WRKJOB_CD B 
+	        WHERE A.WRKJOB_CD = B.WRKJOB_CD
+	        	  AND A.USER_ID = #{user_id}) B
+	    WHERE A.USER_ID = B.USER_ID
+	</select>
+   	
+   	<select id="checkPassword" parameterType="users" resultType="String">
+   	/* SystemMngDao.checkPassword */
+       SELECT PASSWORD FROM USERS WHERE USER_ID = #{user_id}
+	</select>
+	
+	
+	
+    <update id="saveUserInfo" parameterType="users">
+    	/* SystemMngDao.saveUserInfo */
+		 UPDATE USERS 
+		<trim prefix="SET" suffixOverrides=",">
+			<if test="user_nm != null and user_nm != ''"> 
+			 USER_NM = #{user_nm},
+			</if>
+			<if test="ext_no != null and ext_no != ''">
+			 EXT_NO = #{ext_no},
+			</if>	     
+			<if test="hp_no != null and hp_no != ''">
+			 HP_NO = #{hp_no},
+			</if>	     
+			<if test="email != null and email != ''">
+			 EMAIL = #{email},
+			</if>	     
+		</trim>
+		 WHERE USER_ID = #{user_id} 
+	</update>
+    
+    <update id="changeUserPassword" parameterType="users">
+    	/* SystemMngDao.changeUserPassword */
+		 UPDATE USERS 
+		<trim prefix="SET" suffixOverrides=",">
+			<if test="password != null and password != ''">
+			 PASSWORD = #{password},
+			</if>	     
+			<if test="default_password_yn != null and default_password_yn != ''">
+			 DEFAULT_PASSWORD_YN = #{default_password_yn},
+			</if>	     
+			 PASSWORD_CHG_DT = SYSDATE,
+			<if test="salt_value != null and salt_value != ''">
+			 SALT_VALUE = #{salt_value}
+			</if>	     
+		</trim>
+		 WHERE USER_ID = #{user_id} 
+	</update>
+	
+<!--     <update id="saveUserAuthWrkjob" parameterType="users">
+    	/* SystemMngDao.saveUserAuthWrkjob */
+		 UPDATE USERS 
+		<trim prefix="SET" suffixOverrides=",">
+			<if test="wrkjob_cd != null and wrkjob_cd != ''">
+			 DEFAULT_WRKJOB_CD = #{wrkjob_cd},
+			</if>	     
+			<if test="auth_id != null and auth_id != ''">
+			 DEFAULT_AUTH_GRP_ID = #{auth_id},
+			</if>	     
+		</trim>
+		 WHERE USER_ID = #{user_id} 
+	</update>
+ -->	
+    <update id="saveUserAuthWrkjob" parameterType="users">
+    	/* SystemMngDao.saveUserAuthWrkjob */
+		 UPDATE USERS
+		<trim prefix="SET" suffixOverrides=",">
+			<if test="wrkjob_cd != null and wrkjob_cd != ''">
+			 DEFAULT_WRKJOB_CD = #{wrkjob_cd},
+			</if>	     
+			<if test="auth_id != null and auth_id != ''">
+			 DEFAULT_AUTH_GRP_ID = #{auth_id}
+			</if>	     
+		</trim>
+		 WHERE USER_ID = #{user_id} 
+	</update>
+	
+<!-- 	<update id="saveUsersWrkJob" parameterType="users">
+		/* UserMngMapper.saveUsersWrkJob */
+		UPDATE USER_WRKJOB SET
+		 	WRKJOB_CD = #{wrkjob_cd}
+		 WHERE USER_ID = #{user_id} 
+	</update> -->
+
+	<sql id="projectMngListRefId_old">
+		/* systemMngDao.projectMngListRefId */
+		SELECT A.PROJECT_ID AS PROJECT_ID                                    -- 프로젝트ID
+		     , A.PROJECT_NM AS PROJECT_NM                                    -- 프로젝트명
+		     , B.DB_NAME AS DB_NAME                                          -- DB
+		     , A.PROJECT_DESC AS PROJECT_DESC                                -- 프로젝트설명
+		     , A.PROJECT_CREATE_DT AS PROJECT_CREATE_DT                      -- 등록일시
+		     , A.PROJECT_CREATER_ID AS PROJECT_CREATER_ID                    -- 등록자ID          
+		     , C.USER_NM                                                     -- 등록자명
+		     , A.DEL_YN AS DEL_YN                                            -- 종료여부
+		     , TO_CHAR(A.DEL_DT, 'YYYY-MM-DD HH24:MI:SS') AS DEL_DT          -- 종료일시
+		     -- HIDDEN
+		     , A.DBID AS DBID                                                -- DBID
+		  FROM PROJECT A    -- 프로젝트(TABLE)
+		     , DATABASE B
+		     , USERS C
+		 WHERE A.DBID = B.DBID
+		   AND A.PROJECT_CREATER_ID = C.USER_ID(+)
+		<if test="project_nm != null and project_nm != ''">
+		   AND A.PROJECT_NM LIKE '%'||#{project_nm}||'%'
+		</if>
+		<if test="dbid != null and dbid != ''">
+		   AND A.DBID = #{dbid}
+		</if>
+		<if test="del_yn != null and del_yn != ''">
+		   AND A.DEL_YN = #{del_yn}                                            -- 삭제여부
+		</if>
+		ORDER BY A.PROJECT_NM, B.DB_NAME  
+	</sql>
+	
+	<sql id="projectMngListRefId">
+		/* systemMngDao.projectMngListRefId */
+		SELECT A.PROJECT_ID AS PROJECT_ID                                    -- 프로젝트ID
+		     , A.PROJECT_NM AS PROJECT_NM                                    -- 프로젝트명
+		     , A.PROJECT_DESC AS PROJECT_DESC                                -- 프로젝트설명
+		     , A.PROJECT_CREATE_DT AS PROJECT_CREATE_DT                      -- 등록일시
+		     , A.PROJECT_CREATER_ID AS PROJECT_CREATER_ID                    -- 등록자ID
+		     , C.USER_NM                                                     -- 등록자명
+		     , A.DEL_YN AS DEL_YN                                            -- 종료여부
+		     , TO_CHAR(A.DEL_DT, 'YYYY-MM-DD HH24:MI:SS') AS DEL_DT          -- 종료일시
+		     -- HIDDEN
+		  FROM PROJECT A    -- 프로젝트(TABLE)
+		     , USERS C
+		 WHERE PROJECT_ID != 0
+		   AND A.PROJECT_CREATER_ID = C.USER_ID(+)
+		<if test="project_nm != null and project_nm != ''">
+		   AND A.PROJECT_NM LIKE '%'||#{project_nm}||'%'
+		</if>
+		<if test="del_yn != null and del_yn != ''">
+		   AND A.DEL_YN = #{del_yn}                                            -- 삭제여부
+		</if>
+		ORDER BY A.PROJECT_NM  
+	</sql>
+	
+	<select id="getProjectMngList" parameterType="project" resultType="project">
+		/* systemMngDao.getProjectMngList */
+		SELECT *
+		FROM (
+		    SELECT ROWNUM RNUM, A.*
+		    FROM (
+				<include refid="projectMngListRefId"/>
+		    ) A
+		    WHERE ROWNUM <![CDATA[<=]]> (${pagePerCount} * ${currentPage} + 1)
+		) A
+		WHERE A.RNUM > ${pagePerCount} * (${currentPage} - 1)
+	</select>
+	
+	<select id="getProjectMngListByExcelDown" parameterType="project" resultType="java.util.LinkedHashMap">
+		/* systemMngDao.getProjectMngListByExcelDown */
+		<include refid="projectMngListRefId"/>
+	</select>
+	
+	<insert id="insertProjectMng" parameterType="project" useGeneratedKeys="false">
+		/* systemMngDao.insertProjectMng */
+		INSERT INTO   PROJECT     -- 프로젝트(TABLE)
+		        ( PROJECT_ID                                                  -- 프로젝트ID
+		        , PROJECT_NM                                                  -- 프로젝트명
+		        , PROJECT_DESC                                                -- 프로젝트설명
+		        , PROJECT_CREATE_DT                                           -- 프로젝트생성일시
+		        , PROJECT_CREATER_ID                                          -- 프로젝트생성자ID
+		        , DEL_YN                                                      -- 종료여부
+		        , DEL_DT                                                      -- 종료일시
+		 ) VALUES (  
+		          (SELECT NVL(MAX(PROJECT_ID), 0)+1 FROM PROJECT)  
+		        , #{project_nm}                                                 
+		        , #{project_desc}                                               
+		        , SYSDATE
+		        , #{user_id}  		                                          -- 로그인사용자ID
+		        , #{del_yn}                                                        
+		        , (CASE WHEN #{del_yn} = 'Y' THEN SYSDATE ELSE NULL END)
+		        ) 
+	</insert>
+	
+	<update id="updateProjectMng" parameterType="project">
+		/* systemMngDao.updateProjectMng */
+		UPDATE PROJECT       -- 프로젝트(TABLE)
+		   SET PROJECT_NM = #{project_nm}                                    	  -- 프로젝트명
+		     , PROJECT_DESC = #{project_desc}                             	      -- 프로젝트설명
+		     , DEL_YN = #{del_yn}                                            	  -- 종료여부
+		     , DEL_DT = (CASE WHEN #{del_yn} = 'Y' THEN SYSDATE ELSE NULL END)    -- 종료일시
+		 WHERE PROJECT_ID = #{project_id}                                   	  -- 프로젝트ID
+	</update>
+	
+	
+	
+</mapper>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="EUC-KR">
+<title>튜닝체크 리스트</title>
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="/resources/css/common.css" />
+<link rel="stylesheet" href="/resources/css/layout.css" />
+<link rel="stylesheet" href="/resources/css/lib/easyui/default/easyui.css"/>
+<link rel="stylesheet" href="/resources/css/lib/easyui/color.css" />
+<link rel="stylesheet" href="/resources/css/lib/easyui/icon.css" />
+<link rel="stylesheet" href="/resources/css/lib/jquery.navgoco.css"/>
+<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+<link rel="stylesheet" href="/resources/css/reset.css" />
+
+<script type="text/javascript" src="/resources/js/lib/jquery.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery.easyui.min.js"></script>
+<script type="text/javascript" src="/resources/js/lib/datagrid-filter.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery.form.js"></script>
+<script type="text/javascript" src="/resources/js/lib/jquery.navgoco.js"></script>
+<script>
+function Btn_OnClosePopup(winName){
+	window.close();
+}
+</script>
+</head>
+<body>
+	<div class="easyui-layout" data-options="fit:true,border:false">
+		<div data-options="region:'center',split:false,border:false" style="height:295px;padding:10px;">
+			<table class="detailT">
+				<caption>인덱스 가이드</caption>                    
+				<colgroup>	
+					<col style="width:20%;"/>
+					<col style="width:60%;"/>
+					<col style="width:20%;"/>
+				</colgroup>
+				<tr>
+					<th>업무구분</th>
+                    <th>체크항목</th>
+                    <th>확인연결정보</th>
+				</tr>
+				<tr>
+				    <td class="ctext">사전점검</td>
+					<td>
+						<dl class="paddingB5 paddingT5">
+							<dt>대상 SQL의 업무적 특성을 확인</dt>
+							<dl class="marginL10">- 대량의 CUD 발생 업무</dl>
+							<dl class="marginL10">- 단순 조회 업무</dl>
+							<dl class="marginL10">- 대량 리스트 조회</dl>
+							<dl class="marginL10">- 수행이 매우 많은 중요한 조회 업무</dl>
+							<dl class="marginL10">- 집계성(통계적) 업무</dl>
+				            <dl class="marginL10">- 월단위로 처리하는 배치 업무</dl>
+				        </dl>
+				    </td>
+				    <td>
+						<dl class="paddingB5 paddingT5">
+							<dl>실행횟수</dl>
+							<dl>요청서의</dl>
+							<dl>특이사항</dl>
+							<dl>테이블및컬럼명세서</dl>
+						</dl>
+					</td>
+				</tr>
+				<tr>
+					<td rowspan="5" class="ctext">실행계획점검</td>
+					<td>Table Full Access 하는 부분이 존재하는가?</td>
+					<td>테이블통계정보</td>
+				</tr>
+				<tr>
+					<td class="ltext">드라이빙 테이블이 적절한가?</td>
+					<td>테이블통계정보</td>
+				</tr>
+				<tr>
+					<td>Buffers 가 비교적 큰 부분이 존재하는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>최종 결과 A-Rows에 비해서 A-Rows값이 큰 곳이 존재하는가?</td>
+					<td></td>
+				</tr>
+				<tr>	
+					<td>불필요하거나 잘못된 힌트문을 사용하고 있는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td rowspan="8" class="ctext">SQL구조점검</td>
+					<td>페이징 처리의 부분범위 수행 처리가 잘되는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>Order By 절의 컬럼과 드라이빙 테이블의 인덱스 컬럼과 일치하는가?</td>
+					<td>
+						<dl class="paddingB5 paddingT5">
+							<dl>인덱스목록</dl>
+							<dl>인덱스통계정보</dl>
+						</dl>
+					</td>
+				</tr>
+				<tr>
+					<td>스칼라 쿼리를 사용한다면 조인으로 대체할 수 있는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>동일구간을 반복 또는 중복적으로 Access 하는 서브쿼리, 인라인뷰가 존재하는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>인라인뷰 및 서브쿼리가 JPPD(Join Predicate Push Down) 동작 가능한가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>인라인뷰 및 서브쿼리가 Unnesting(중첩되지 않음) 으로 동작되는 쿼리인가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>페이징 처리 구문이 적절하게 작성되어 있는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>논리적으로 잘못 작성된 곳이 존재하는가?<br/>(예로 항상 false 가 되어 결과 값이 나올 수 없는 경우)</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td rowspan="4" class="ctext">조인점검</td>
+					<td>조건에 의해서 대상 데이터의 수량을 줄일 수 있는 테이블의 순서대로 조인되는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>사용하지 않는 테이블을 조인하지 않는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>조인조건 누락에 의한 Merge Join Cartesian 이 존재하는가?</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>Nested Loop 조인과 Hash 조인이 목적에 맞게 잘 선택되었는가?<br/>(온라인은 NL 조인을 대량 배치 조인은 Hash 를 추천)</td>
+					<td></td>
+				</tr>
+				<tr>
+					<td rowspan="4" class="ctext">인덱스점검</td>
+					<td>드라이빙 테이블의 조건에 해당되는 적절한 인덱스가 존재하는가?</td>
+					<td>
+						<dl class="paddingB5 paddingT5">
+							<dl>인덱스목록</dl>
+							<dl>인덱스통계정보</dl>
+						</dl>
+					</td>
+				</tr>
+				<tr>
+					<td>조인 컬럼에 적절한 인덱스를 사용하는가?<br/>(hash조인은 조인 컬럼의 인덱스를 사용하지 않음)</td>
+					<td>
+						<dl class="paddingB5 paddingT5">
+							<dl>인덱스목록</dl>
+							<dl>인덱스통계정보</dl>
+							<dl>테이블통계정보</dl>
+						</dl>
+    				</td>
+				</tr>
+				<tr>
+					<td>인덱스 부재 또는 인덱스 재사용으로 인하여 인덱스 생성 및 변경시 컬럼의 분포도를 고려하였는가?</td>
+					<td>
+						<dl class="paddingB5 paddingT5">
+							<dl>인덱스목록</dl>
+							<dl>인덱스통계정보</dl>
+							<dl>테이블통계정보</dl>
+						</dl>
+					</td>
+				</tr>
+				<tr>
+					<td>속성 분리가 안된 조건(Substr, Concat 등의 함수)에 의해서 FUNCTION BASED INDEX 를 사용해야 하는가?</td>
+					<td></td>
+				</tr>
+			</table>	
+		</div>
+		<div data-options="region:'south',split:false,border:false" style="height:55px;">
+			<div class="searchBtn" style="margin-top:5px;padding-right:10px;">
+				<a href="javascript:;" class="w80 easyui-linkbutton" onClick="Btn_OnClosePopup('tuningCheckPop');"><i class="btnRIcon fas fa-window-close fa-lg fa-fw"></i> 닫기</a>
+			</div>		
+		</div>	
+	</div>
+</body>
+</html>

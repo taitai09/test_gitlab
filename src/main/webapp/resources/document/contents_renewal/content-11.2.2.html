@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>:: OPEN-POP ::</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+	<meta http-equiv="cleartype" content="on"/>
+	<meta http-equiv="Cache-Control" content="no-cache"/>
+	<meta http-equiv="Expires" content="0"/>
+	<meta http-equiv="Pragma" content="no-cache"/>
+	
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.css">
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.structure.min.css">
+	<link rel="stylesheet" href="/resources/css/lib/jquery-ui.theme.min.css">
+	<link rel="stylesheet" href="/resources/css/lib/fontawesome/fontawesome-all.css"/>
+	<link rel="stylesheet" href="/resources/css/manual_renewal.css"/>
+	
+	<script type="text/javascript" src="/resources/js/lib/jquery.3.4.1.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery-migrate-3.1.0.min.js"></script>
+	<script type="text/javascript" src="/resources/js/lib/jquery-ui.min.js"></script>
+</head>
+<body>
+<div class="content-body">
+	<div id="content-wrapper">
+		<h1>11. 성능 최적화</h1>
+		<h2>11.2. SQL 튜닝대상 선정</h2>
+		<h3>11.2.2. 수동 선정</h3>
+			
+		<div>
+			<h4 class="titleStyle-none">개요</h4>
+			<p>
+				수동으로 튜닝 대상을 선정할 수 있다.
+			</p>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[수동 선정] 탭</h5>
+			<p>
+				DB, 임계값 등의 조건을 설정하여 TOP SQL을 조회한 후, 튜닝대상선정을 통해 성능개선관리 대상으로 등록한다.
+			</p>
+			
+			<div class="imageBox" style="width: 800px;">
+				<img src="/resources/images/menual/bgimg_renewal/25-1.png">
+			</div>
+			
+			<h6>검색 조건</h6>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>검색 조건</th>
+							<th>검색 조건 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>DB</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정 대상 데이터베이스
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SNAP ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정 대상 수집 범위를 지정하는 시작과 종료 SNAP ID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>수동선정이력</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										해당 DB의 수동선정 이력을 팝업창으로 보여준다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>이전 튜닝대상 선정 SQL제외</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										이전에 선정된 SQL을 제외할 지 여부
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Elapsed Time</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										입력한 Elapsed Time이상
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Buffer Gets</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										입력한 Buffer Gets 이상
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Executions</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										입력한 Executions 이상
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOP N</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOP SQL 최대 건수
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Ordered</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOP SQL 선정 시 정렬을 위한 기준 항목
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										입력한 Module명을 포함(대소문자 구분 없음)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Parsing Schema Name</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										입력한 Parsing Schema명을 포함(대소문자 구분 없음)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL TEXT</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										입력한 SQL 텍스트 포함(대소문자 구분 없음)
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Module(일괄제외)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										특정 MODULE을 제외하고 수집할 필요한 경우 입력한다.(옵션)
+									</li>
+									<li>
+										N개의 MODULE을 입력할 경우 콤마(,)로 분리하며 대소문자는 구분하지 않는다.<br>
+										예) JDBC, dbsnmp
+									</li>
+									<li>
+										입력된 MODULE은 내부적으로 아래와 같은 조건으로 필터링에 포함된다.<br>
+										<span class="text-italic">
+											WHERE UPEER(MODULE) LIKE ‘%JDBC%’ AND <br>
+											UPEER(MODULE) LIKE ‘%DNSMP%’)
+										</span>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>Parsing Schema Name(일괄제외)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										특정 Parsing Schema Name을 제외하고 수집할 필요한 경우 입력한다.(옵션)
+									</li>
+									<li>
+										N개의 Parsing Schema Name을 입력할 경우 콤마(,)로 분리하며 대소문자 는 구분하지 않는다.<br>
+										예) OPENPOP, oracle
+									</li>
+									<li>
+										입력된 Parsing Schema Name은 내부적으로 아래와 같은 조건으로 필터링에 포함된다.<br>
+										<span class="text-italic">
+											WHERE UPPER(B.PARSING_SCHEMA_NAME) NOT IN <br>
+											(UPPER('OPENPOP', UPPER('oracle'))
+										</span>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL ID(일괄제외)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										특정 SQL ID를 제외하고 수집할 필요한 경우 입력한다.(옵션)
+									</li>
+									<li>
+										N개의 SQL ID를 입력할 경우 콤마(,)로 분리하며 대소문자를 구분한다.<br>
+										예) SQL_ID1234, sql_id4567
+									</li>
+									<li>
+										입력된 SQL ID는 내부적으로 아래와 같은 조건으로 필터링에 포함된다.<br>
+										<span class="text-italic">
+											WHERE SQL_ID NOT LIKE ‘%SQL_ID1234%’ AND <br>
+											SQL_ID NOT LIKE ‘% sql_id4567%’
+										</span>
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>검색건수</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										그리드 한 페이지에 보여지는 건수<br>
+										예) 10을 입력할 경우 그리드에 10건이 검색된다.
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<p class="title-h7">SNAP ID 조회</p>
+			<ol class="listStyle-number">
+				<li>
+					SNAP ID 항목의 [검색] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-2.png">
+					</div>
+				</li>
+				<li>
+					SNAP ID 팝업 창이 뜨면 INTERVAL_TIME 날짜를 선택한후 [검색] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 730px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-3.png">
+					</div>
+				</li>
+				<li>
+					START_SNAP_ID 를 선택후 END_SNAP_ID 를 선택한다.
+					<div class="imageBox" style="width: 730px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-4.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">수동 선정 이력</p>
+			<ol class="listStyle-number">
+				<li>
+					[수동 선정 이력] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 200px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-5.png">
+					</div>
+				</li>
+				<li>
+					수동선정이력 팝업창이 뜨고 이력을 확인할수 있다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-6.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">Filter SQL</p>
+			<ol class="listStyle-number">
+				<li>
+					[Filter SQL] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-7.png">
+					</div>
+				</li>
+				<li>
+					Filter SQL 팝업 창이 뜨고, Module, Parsing Schema Name, SQL ID, 
+					Plan Hash Value 항목에 대한 SQL을 추가한 후 [저장]버튼을 클릭한다.
+					<div class="imageBox" style="width: 500px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-8.png">
+					</div>
+				</li>
+				<li>
+					저장된 내용이 [Filter SQL] 버튼 옆에 보여진다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-9.png">
+					</div>
+				</li>
+			</ol>
+			
+			<h6>그리드 Area</h6>
+			<p class="title-h7">그리드 칼럼</p>
+			<div>
+				<table>
+					<colgroup>
+						<col style="width: 20%;">
+						<col style="width: 80%;">
+					</colgroup>
+					<thead>
+						<tr>
+							<th>컬럼</th>
+							<th>컬럼 설명</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>순번</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										선정대상의 순번
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>DBID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DBID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL_ID</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										SQL ID
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>PLAN_HASH_VALUE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										PLAN_HASH_VALUE
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>MODULE</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										MODULE
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>PARSING_SCHEMA_NAME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										PARSING_SCHEMA_NAME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>EXECUTIONS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										EXECUTIONS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>BUFFER_GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										BUFFER_GETS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>MAX_BUFFER_GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										MAX_BUFFER_GETS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>TOTAL_BUFFER_GETS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										TOTAL_BUFFER_GETS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ELAPSED_TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										ELAPSED_TIME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>MAX_ELAPSED_TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										MAX_ELAPSED_TIME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>CPU_TIME</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										CPU_TIME
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>DISK_READS</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										DISK_READS
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>ROWS_PROCESSED</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										ROWS_PROCESSED
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>RATIO_BGET_TOTAL(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										조회된 전체 SQL 중 해당 SQL이 차지하는 BUFFER GETS DELTA 비율
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>RATIO_CPU_TOTAL(%)</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										조회된 전체 SQL 중 해당 SQL이 차지하는 CPU TIME DELTA 비율
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<td>SQL_TEXT</td>
+							<td>
+								<ul class="listStyle-dot">
+									<li>
+										앞에서 자른 SQL의 일부분
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<h6>선정현황</h6>
+			<p>
+				[선정현황] 버튼 클릭 시 [수동 선정 이력] 탭으로 이동한다.
+			</p>
+			
+			<h6>튜닝대상선정</h6>
+			<p class="title-h7">수동 선정 전체 선택</p>
+			<ol class="listStyle-number">
+				<li>
+					‘전체’ 체크 박스를 클릭하면 하위의 모든 체크 박스가 체크된다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-10.png">
+					</div>
+				</li>
+				<li>
+					[튜닝대상선정] 버튼을 클릭한다. (성능개선관리대상으로 등록 가능)
+					<div class="imageBox" style="width: 200px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-11.png">
+					</div>
+				</li>
+				<li>
+					튜닝 요청 팝업이 뜨고 튜닝 담당자 및 프로젝트 튜닝진행단계를 선택한 후 [튜닝요청 및 담당자 지정] 버튼을 클릭한다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-12.png">
+					</div>
+				</li>
+				<li>
+					튜닝요청이 완료되었다는 메시지 팝업이 뜨고 튜닝요청 처리가 된다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-13.png">
+					</div>
+				</li>
+			</ol>
+			
+			<p class="title-h7">수동 선정 개별 선택</p>
+			<ol class="listStyle-number">
+				<li>
+					튜닝대상 SQL에 대한 체크 박스를 클릭한다. 멀티 선택이 가능하다.
+					<div class="imageBox" style="width: 600px;">
+						<img src="/resources/images/menual/bgimg_renewal/25-14.png">
+					</div>
+				</li>
+				<li>
+					이후의 처리 과정은 ‘&gt; 수동 선정 전체 선택’ 과 처리 과정이 동일하므로 해당 매뉴얼을 참조한다.
+				</li>
+			</ol>
+		</div>
+		
+		<div class="tapScroll">
+			<h5>[수동 선정 이력] 탭</h5>
+			<p>
+				수동선정 조건에 의해 튜닝대상으로 선정되어 튜닝이 진행되고 있는 TOP SQL 목록을 확인한다. 
+				튜닝대상 선정이 잘못되었거나 튜닝이 불필요한 경우 목록을 선택하여 일괄 튜닝종료가 가능하다.
+			</p>
+			
+			<ol class="listStyle-number">
+				<li>
+					상단 그리드를 클릭한다.
+					<div class="imageBox" style="width: 560px;">
+						<img src="/resources/images/menual/bgimg_renewal/26-1.png">
+					</div>
+				</li>
+				<li>
+					상세데이터가 하단 그리드에 조회된다. 체크박스를 클릭하고 일괄튜닝종료 버튼을 클릭한다.
+					<div class="imageBox" style="width: 800px;">
+						<img src="/resources/images/menual/bgimg_renewal/26-2.png">
+					</div>
+				</li>
+				<li>
+					일괄 튜닝 종료 팝업 창이 뜬다. 튜닝종료사유를 선택하고 내용을 입력한 후 [확인]버튼을 클릭한다.
+					<div class="imageBox" style="width: 500px;">
+						<img src="/resources/images/menual/bgimg_renewal/26-3.png">
+					</div>
+				</li>
+				<li>
+					일괄 튜닝 종료 안내 팝업이 뜨고 튜닝이 종료된다.
+					<div class="imageBox" style="width: 335px;">
+						<img src="/resources/images/menual/bgimg_renewal/26-4.png">
+					</div>
+				</li>
+			</ol>
+		</div>
+	</div> <!-- end of content-wrapper -->
+</div> <!-- end of content-body -->
+</body>
+</html>

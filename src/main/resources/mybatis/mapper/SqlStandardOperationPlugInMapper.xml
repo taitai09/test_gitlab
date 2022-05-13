@@ -1,0 +1,743 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  
+    2020.08.10    명성태    OPENPOP V2 최초작업
+-->
+<mapper namespace="omc.spop.dao.SqlStandardOperationPlugInDao">
+    <select id="getMaxSqlStdQtyChktId" resultType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.getMaxSqlStdQtyChktId */
+        SELECT  TO_NUMBER(TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SQ_SPOP_SQL_STD_QTY_CHKT_ID.NEXTVAL, 12, '0')) AS MAX_SQL_STD_QTY_CHKT_ID FROM DUAL
+    </select>
+    
+    <delete id="deleteSelfsqlStdQtyChkErr" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.deleteSelfsqlStdQtyChkErr */
+        DELETE SQL_STD_QTY_CHK_ERR
+        WHERE PROJECT_ID = #{project_id}
+        AND SQL_STD_QTY_DIV_CD = #{sql_std_qty_div_cd}
+        <if test="sql_std_qty_div_cd == '4'.toString()">
+            AND SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+            AND SQL_STD_GATHER_DT = TRUNC(SYSDATE)
+        </if>
+    </delete>
+    
+    <delete id="deleteSelfsqlStdQtyChkErrSum" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.deleteSelfsqlStdQtyChkErrSum */
+        DELETE SQL_STD_QTY_CHK_ERR_SUM 
+        WHERE PROJECT_ID = #{project_id}
+        AND SQL_STD_QTY_DIV_CD = #{sql_std_qty_div_cd}
+        AND SQL_STD_GATHER_DT = TRUNC(SYSDATE)
+        <if test="sql_std_qty_div_cd == '4'.toString()">
+            AND SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+        </if>
+    </delete>
+    
+    <delete id="deleteSelfsqlStdQtyChkResult" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.deleteSelfsqlStdQtyChkResult */
+        DELETE SELFSQL_STD_QTY_CHK_RESULT
+        WHERE SQL_STD_QTY_CHKT_ID IN (SELECT SQL_STD_QTY_CHKT_ID
+                                        FROM SELFSQL_STD_QTY_PLAN_EXEC
+                                        WHERE PROJECT_ID = #{project_id}
+                                        AND DEVELOPER_ID = #{developer_id}
+                                        AND SQL_STD_QTY_DIV_CD = #{sql_std_qty_div_cd}
+                                        <if test="sql_std_qty_div_cd == '3'.toString()">
+                                            AND SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+                                        </if>
+                                        )
+    </delete>
+    
+    <delete id="deleteSelfsqlStdQtyChkPgm" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.deleteSelfsqlStdQtyChkPgm */
+        DELETE SELFSQL_STD_QTY_CHK_PGM
+        WHERE SQL_STD_QTY_CHKT_ID IN (SELECT SQL_STD_QTY_CHKT_ID
+                                        FROM SELFSQL_STD_QTY_PLAN_EXEC
+                                        WHERE PROJECT_ID = #{project_id}
+                                        AND DEVELOPER_ID = #{developer_id}
+                                        AND SQL_STD_QTY_DIV_CD = #{sql_std_qty_div_cd}
+                                        <if test="sql_std_qty_div_cd == '3'.toString() or sql_std_qty_div_cd == '4'.toString()">
+                                            AND SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+                                        </if>
+                                        )
+    </delete>
+    
+    <delete id="deleteSelfsqlStdPlanExec" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.deleteSelfsqlStdPlanExec */
+        DELETE SELFSQL_STD_QTY_PLAN_EXEC
+        WHERE PROJECT_ID = #{project_id}
+        AND DEVELOPER_ID = #{developer_id}
+        AND SQL_STD_QTY_DIV_CD = #{sql_std_qty_div_cd}
+        <if test="sql_std_qty_div_cd == '3'.toString() or sql_std_qty_div_cd == '4'.toString()">
+            AND SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+        </if>
+    </delete>
+    
+    <update id="insertSelfsqlStdQtyChkPgmForeach" parameterType="java.util.List" >
+        <foreach collection="list" item="item" open="INSERT ALL" close="SELECT * FROM DUAL" separator=" ">
+            INTO SELFSQL_STD_QTY_CHK_PGM
+            (SQL_STD_QTY_CHKT_ID
+                , SQL_STD_QTY_PROGRAM_SEQ
+                , PROJECT_ID
+                , WRKJOB_CD
+                , PROGRAM_DIV_CD
+                , PROGRAM_NM
+                , PROGRAM_DESC
+                , DBIO
+                , SQL_HASH
+                , SQL_LENGTH
+                , PROGRAM_SOURCE_DESC
+                , DIR_NM
+                , FILE_NM
+                , PROGRAM_TYPE_CD
+                , SQL_COMMAND_TYPE_CD
+                , DYNAMIC_SQL_YN
+                , REG_DT
+                , DEVELOPER_ID
+                , DEVELOPER_NM
+                , ABS_DIR_NM
+            ) values (
+                #{item.sql_std_qty_chkt_id}
+                , #{item.sql_std_qty_program_seq}
+                , #{item.project_id}
+                , #{item.wrkjob_cd}
+                , #{item.program_div_cd}
+                , #{item.program_nm}
+                , #{item.program_desc}
+                , #{item.dbio}
+                , #{item.sql_hash}
+                , #{item.sql_length}
+                , #{item.program_source_desc}
+                , #{item.dir_nm}
+                , #{item.file_nm}
+                , #{item.program_type_cd}
+                , #{item.sql_command_type_cd}
+                , #{item.dynamic_sql_yn}
+                , SYSDATE
+                , #{item.developer_id}
+                , #{item.developer_nm}
+                , #{item.abs_dir_nm}
+            )
+        </foreach>
+    </update>
+    
+    <update id="updateSelfsqlStdQtyChkPgmErrMsgForeach" parameterType="java.util.List">
+        <foreach collection="list" item="item" index="index" separator=";" open="DECLARE BEGIN" close="; END;">
+            UPDATE SELFSQL_STD_QTY_CHK_PGM
+            SET ERR_MSG = #{item.err_msg}
+            WHERE SQL_STD_QTY_CHKT_ID = #{item.sql_std_qty_chkt_id}
+            AND SQL_STD_QTY_PROGRAM_SEQ = #{item.sql_std_qty_program_seq}
+        </foreach>
+    </update>
+    
+    <update id="insertSelectSelfsqlStdQtyChkPgmForAWR" parameterType="sqlStandardOperationPlugIn">
+        <![CDATA[
+        /* SqlStandardOperationPlugInDao.insertSelectSelfsqlStdQtyChkPgmForAWR */
+        INSERT INTO SELFSQL_STD_QTY_CHK_PGM (
+            SQL_STD_QTY_CHKT_ID
+            , SQL_STD_QTY_PROGRAM_SEQ
+            , PROJECT_ID
+            , PROGRAM_DIV_CD
+            , PROGRAM_NM
+            , PROGRAM_DESC
+            , DBIO
+            , PROGRAM_SOURCE_DESC
+            , SQL_COMMAND_TYPE_CD
+            , SQL_ID
+            , REG_DT)
+        WITH SQL_LIST AS
+        (
+            SELECT * FROM (
+                SELECT /*+ LEADING(A B) USE_NL(B) */ A.*, B.SQL_TEXT, B.COMMAND_TYPE
+                FROM (
+                    SELECT A.DBID
+                        , A.SQL_ID
+                        , A.PLAN_HASH_VALUE
+                        , MAX(MODULE) MODULE
+                        , MAX(ACTION) ACTION
+                        , MAX(PARSING_SCHEMA_NAME) PARSING_SCHEMA_NAME
+                    FROM (
+                        SELECT B.DBID
+                            , B.SQL_ID
+                            , B.PLAN_HASH_VALUE
+                            , B.FORCE_MATCHING_SIGNATURE
+                            , B.MODULE
+                            , B.ACTION
+                            , B.PARSING_SCHEMA_NAME
+                            , ROW_NUMBER() OVER(PARTITION BY B.DBID, B.SQL_ID ORDER BY B.BEGIN_INTERVAL_TIME DESC, B.PLAN_HASH_VALUE) AS RNUM
+                            , COUNT(*) OVER (PARTITION BY B.FORCE_MATCHING_SIGNATURE ) AS FORCE_MATCHING_SIGNATURE_CNT
+                            , ROW_NUMBER() OVER (PARTITION BY B.FORCE_MATCHING_SIGNATURE ORDER BY B.BUFFER_GETS_DELTA DESC) AS LITERAL_SEQ
+                        FROM (SELECT B.DBID
+                                    , B.SQL_ID
+                                    , B.PLAN_HASH_VALUE
+                                    , SUM(B.ELAPSED_TIME_DELTA) AS ELAPSED_TIME_DELTA
+                                    , SUM(B.BUFFER_GETS_DELTA) AS BUFFER_GETS_DELTA
+                                    , SUM(B.DISK_READS_DELTA) AS DISK_READS_DELTA
+                                    , SUM(B.ROWS_PROCESSED_DELTA) AS ROWS_PROCESSED_DELTA
+                                    , SUM(B.EXECUTIONS_DELTA) AS EXECUTIONS_DELTA
+                                    , MAX(B.FORCE_MATCHING_SIGNATURE) AS FORCE_MATCHING_SIGNATURE
+                                    , MAX(B.MODULE) AS MODULE
+                                    , MAX(B.ACTION) AS ACTION
+                                    , MAX(B.PARSING_SCHEMA_NAME) AS PARSING_SCHEMA_NAME
+                                    , MAX(B.BEGIN_INTERVAL_TIME) AS BEGIN_INTERVAL_TIME
+                                FROM ODS_HIST_SQLSTAT B
+                                WHERE B.DBID = #{std_qty_target_dbid}
+                                AND EXISTS (SELECT /*+ NL_SJ  */ 1 
+                                                FROM ODS_HIST_SQL_PLAN P
+                                                WHERE P.DBID = B.DBID
+                                                AND P.SQL_ID = B.SQL_ID
+                                                AND P.PLAN_HASH_VALUE = B.PLAN_HASH_VALUE)
+                                                
+                                                AND B.BEGIN_INTERVAL_TIME BETWEEN TO_TIMESTAMP( #{gather_term_start_day} || '00:00' ||':00.000000', 'YYYY-MM-DD HH24:MI:SS.FF6')
+                                                AND TO_TIMESTAMP( #{gather_term_end_day} || '23:59' || ':59.999999', 'YYYY-MM-DD HH24:MI:SS.FF6')
+                                                
+                                                
+                                                
+                                                AND UPPER(TRIM( B.MODULE )) LIKE '%' || UPPER( REPLACE( TRIM( 'JDBC' ), CHR(09),'' ) ) || '%'                                     -- module_list
+                                                
+                                                GROUP BY B.DBID, B.SQL_ID, B.PLAN_HASH_VALUE
+                                            ) B
+                            ) A
+                        WHERE 1 = 1
+                        AND A.RNUM = 1
+                        
+                        
+                        AND ( A.FORCE_MATCHING_SIGNATURE = 0 OR (
+                                                                    A.FORCE_MATCHING_SIGNATURE != 0
+                                                                    AND A.FORCE_MATCHING_SIGNATURE_CNT  <  5
+                                                                ) OR (
+                                                                    A.FORCE_MATCHING_SIGNATURE != 0
+                                                                    AND A.FORCE_MATCHING_SIGNATURE_CNT  >=  5
+                                                                    AND A.LITERAL_SEQ = 1)
+                                                                )
+                                
+                                GROUP BY A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+                            ) A
+                            , ODS_HIST_SQLTEXT B
+                        WHERE 1 = 1 
+                        
+                        AND A.DBID = B.DBID
+                        AND A.SQL_ID = B.SQL_ID
+                        -- 2 : INSERT, 3 : SELECT, 6 : UPDATE , 7 : DELETE, 44 : COMMIT, 45 : ROLLBACK, 189 : MERGE
+                        AND B.COMMAND_TYPE IN (2, 3, 6, 7, 44, 45, 189)
+            )
+            WHERE 1 = 1
+            ]]>
+            
+            <if test="extra_filter_predication != null and extra_filter_predication != ''">
+                ${extra_filter_predication}
+            </if>
+            
+            <![CDATA[
+        )
+        /* 모듈조건 건수 */ 
+        , PROJECT_SQL_IDFY_COND_CNT AS
+        (
+            SELECT SUM(CASE WHEN NVL(LENGTH(TRIM(OWNER_LIST)), 0)  >  0 THEN 1 ELSE 0 END) OWNER_CNT
+                , SUM(CASE WHEN NVL(LENGTH(TRIM(MODULE_LIST)), 0)  >  0 THEN 1 ELSE 0 END) MODULE_CNT
+            FROM SQL_STD_QTY_SCHEDULER
+            WHERE SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+        )
+        /* 테이블 조건 필터링후 SQL LIST */
+        , MODULE_FILTER_SQL_LIST AS
+        (
+            SELECT DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+            FROM SQL_LIST A
+            WHERE 1 = 1
+            
+/*            -- Mybatis 에서 제거
+--            AND A.MODULE LIKE 'JDBC%' */
+            
+            AND
+            ]]>
+            
+            <choose>
+                <when test="strModuleList.size() != 0">
+                    <foreach collection="strModuleList" item="module" open="(" separator=" OR " close=")">
+                        UPPER(TRIM( A.MODULE )) LIKE '%' || UPPER( REPLACE( TRIM( #{module} ), CHR(09),'' ) ) || '%'
+                    </foreach>
+                </when>
+                <otherwise>
+                    UPPER(TRIM( A.MODULE )) LIKE '%' || UPPER( REPLACE( TRIM( #{module_list} ), CHR(09),'' ) ) || '%'                                     -- module_list
+                </otherwise>
+            </choose>
+            
+            <![CDATA[
+            AND (SELECT MODULE_CNT FROM PROJECT_SQL_IDFY_COND_CNT)  >  0
+            UNION ALL
+            SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+            FROM SQL_LIST A
+            WHERE (SELECT MODULE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+        )
+        /* OWNER 조건 필터링후 SQL LIST */ 
+        , OWNER_FILTER_SQL_LIST AS
+        (
+            SELECT /*+ LEADING(A, B, C) */
+                DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE , C.OBJECT_OWNER
+            FROM MODULE_FILTER_SQL_LIST A
+                , ODS_HIST_SQL_PLAN C
+            WHERE A.DBID = C.DBID
+            AND A.SQL_ID = C.SQL_ID
+            AND A.PLAN_HASH_VALUE = C.PLAN_HASH_VALUE
+            AND C.DBID = #{std_qty_target_dbid}
+            
+/*            -- Mybatis 에서 제거
+--            AND UPPER(C.OBJECT_OWNER) IN 
+--            ( UPPER( REPLACE( TRIM(  'OPENSIMUL' ), CHR(09),'' ) ) )                            -- owner list */
+            
+            AND UPPER(C.OBJECT_OWNER) IN 
+            ]]>
+            
+            <choose>
+                <when test="strOwnerList.size() != 0">
+                    <foreach collection="strOwnerList" item="owner" open="(" separator="," close=")" >
+                    UPPER( REPLACE( TRIM( #{owner} ), CHR(09),'' ) )
+                    </foreach>
+                </when>
+                <otherwise>
+                    ( UPPER( REPLACE( TRIM(  #{owner_list} ), CHR(09),'' ) ) )                                     -- owner list
+                </otherwise>
+            </choose>
+            
+            <![CDATA[
+            AND (SELECT OWNER_CNT FROM PROJECT_SQL_IDFY_COND_CNT)  >  0
+                    UNION ALL
+                    SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE ,  NULL OBJECT_OWNER
+                    FROM MODULE_FILTER_SQL_LIST A
+                    WHERE (SELECT OWNER_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+        )
+        SELECT /*+ LEADING(A B) USE_NL(B) */
+            #{sql_std_qty_chkt_id} AS SQL_STD_QTY_CHKT_ID
+            , ROWNUM SQL_STD_QTY_PROGRAM_SEQ
+            , #{project_id} PROJECT_ID
+            , 'S' AS PROGRAM_DIV_CD
+            , B.MODULE AS PROGRAM_NM
+            , B.ACTION AS PROGRAM_DESC
+            , FN_AWR_SQL_DBIO(B.DBID, B.SQL_ID) DBIO
+            , B.SQL_TEXT PROGRAM_SOURCE_DESC
+            /* -- 2 : INSERT, 3 : SELECT, 6 : UPDATE , 7 : DELETE, 44 : COMMIT, 45 : ROLLBACK, 189 : MERGE */
+            , (CASE 
+                    WHEN COMMAND_TYPE = 2 THEN 'INSERT'
+                    WHEN COMMAND_TYPE = 3 THEN 'SELECT'
+                    WHEN COMMAND_TYPE = 6 THEN 'UPDATE'
+                    WHEN COMMAND_TYPE = 7 THEN 'DELETE'
+                    WHEN COMMAND_TYPE = 44 THEN 'COMMIT'
+                    WHEN COMMAND_TYPE = 45 THEN 'ROLLBACK'
+                    WHEN COMMAND_TYPE = 189 THEN 'MERGE'
+                    ELSE 'OTHERS'
+                    END) SQL_COMMAND_TYPE_CD
+            , B.SQL_ID
+            , SYSDATE REGDT
+        FROM OWNER_FILTER_SQL_LIST A
+            , SQL_LIST B
+        WHERE A.SQL_ID = B.SQL_ID
+        ]]>
+    </update>
+    
+    <update id="insertSelectSelfsqlStdQtyChkPgmForVSQL" parameterType="sqlStandardOperationPlugIn">
+      <![CDATA[
+      /* SqlStandardOperationPlugInDao.insertSelectSelfsqlStdQtyChkPgmForVSQL */
+      INSERT INTO SELFSQL_STD_QTY_CHK_PGM (
+            SQL_STD_QTY_CHKT_ID
+               , SQL_STD_QTY_PROGRAM_SEQ
+               , PROJECT_ID
+               , PROGRAM_DIV_CD
+               , PROGRAM_NM
+               , PROGRAM_DESC
+               , DBIO
+               , PROGRAM_SOURCE_DESC
+               , SQL_COMMAND_TYPE_CD
+               , SQL_ID
+               , REG_DT)
+      WITH SQL_LIST AS
+      (
+         SELECT /*+ MATERIALIZE LEADING(A) USE_HASH(B) */
+            A.DBID
+            , A.SQL_ID
+            , A.PLAN_HASH_VALUE
+            , MAX(A.MODULE) AS MODULE
+            , MAX(A.ACTION) AS ACTION
+         FROM (
+            SELECT * 
+            FROM (
+               SELECT  /*+ LEADING(C A B) USE_HASH(B) USE_NL(A) */
+                  A.DBID
+                  , A.SQL_ID
+                  , A.PLAN_HASH_VALUE
+                  , A.SQL_FULLTEXT AS SQL_TEXT
+                  , A.SNAP_TIME
+                  , B.MODULE
+                  , B.ACTION
+                  , A.PARSING_SCHEMA_NAME
+                  , A.SQL_FULLTEXT
+                  , A.COMMAND_TYPE
+                  , ROW_NUMBER() OVER(PARTITION BY A.SQL_ID ORDER BY A.SNAP_TIME DESC, A.PLAN_HASH_VALUE) RNUM
+               FROM VSQL_TEXT A
+                  , (SELECT /*+ FULL(B) */
+                        B.DBID
+                        , B.SQL_ID
+                        , B.MODULE_HASH
+                        , B.MODULE
+                        , B.ACTION
+                        , ROW_NUMBER() OVER(PARTITION BY B.DBID, B.SQL_ID ORDER BY B.SNAP_TIME) RNUM
+                     FROM VSQL_MODULE B
+                     WHERE DBID = #{std_qty_target_dbid}) B
+                  , (SELECT DISTINCT 
+                            DBID
+                          , SQL_ID
+                          , PLAN_HASH_VALUE
+                     FROM VSQL_STATS_D
+                     WHERE DBID = #{std_qty_target_dbid}
+                     AND LOG_DT BETWEEN TO_TIMESTAMP( #{gather_term_start_day} || '00:00' ||':00.000000', 'YYYY-MM-DD HH24:MI:SS.FF6')
+                                    AND TO_TIMESTAMP( #{gather_term_end_day} || '23:59' || ':59.999999', 'YYYY-MM-DD HH24:MI:SS.FF6')
+                     )  C
+               WHERE  C.DBID = A.DBID
+               AND C.SQL_ID = A.SQL_ID
+               AND C.PLAN_HASH_VALUE = A.PLAN_HASH_VALUE
+               AND A.DBID = B.DBID
+               AND A.SQL_ID = B.SQL_ID
+               AND A.DBID = #{std_qty_target_dbid}
+               
+               /* -- 처음 수집된 모듈 */
+               AND B.RNUM = 1
+               
+               /* -- 2 : INSERT, 3 : SELECT, 6 : UPDATE , 7 : DELETE, 44 : COMMIT, 45 : ROLLBACK, 189 : MERGE */
+               AND A.COMMAND_TYPE IN (2, 3, 6, 7, 44, 45, 189) 
+            )
+            WHERE 1=1
+            ]]>
+            
+            <if test="extra_filter_predication != null and extra_filter_predication != ''">
+               ${extra_filter_predication}
+            </if>
+            
+            <![CDATA[
+         ) A
+         , (
+            SELECT /*+ FULL(A) */
+               DBID
+               , SQL_ID
+               , PLAN_HASH_VALUE
+               , FORCE_MATCHING_SIGNATURE
+               , COUNT(*) OVER (PARTITION BY FORCE_MATCHING_SIGNATURE ) FORCE_MATCHING_SIGNATURE_CNT
+               , ROW_NUMBER() OVER (PARTITION BY FORCE_MATCHING_SIGNATURE ORDER BY BUFFER_GETS DESC) LITERAL_SEQ
+            FROM VSQL_STATS A
+            WHERE DBID = #{std_qty_target_dbid} --원천DB(ASIS)
+            AND EXISTS (SELECT /*+ HASH_SJ FULL(P) */ 1 
+                     FROM VSQL_PLAN P
+                     WHERE P.DBID = A.DBID
+                     AND P.PLAN_HASH_VALUE = A.PLAN_HASH_VALUE)
+         ) B
+         WHERE A.DBID = B.DBID
+         AND A.SQL_ID = B.SQL_ID
+         AND A.PLAN_HASH_VALUE = B.PLAN_HASH_VALUE
+         AND A.RNUM = 1
+         
+          
+         /* 리터럴 SQL 제외 인 경우 조건 추가 */
+         AND ( FORCE_MATCHING_SIGNATURE = 0 OR (
+                  FORCE_MATCHING_SIGNATURE != 0 
+                  AND FORCE_MATCHING_SIGNATURE_CNT  <  5
+               ) OR (
+                  FORCE_MATCHING_SIGNATURE != 0 
+                  AND FORCE_MATCHING_SIGNATURE_CNT  >=  5 
+                  AND LITERAL_SEQ = 1)
+            )
+            
+            GROUP BY A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+      )
+      /* 모듈조건 건수 */
+      , PROJECT_SQL_IDFY_COND_CNT AS
+      (
+         SELECT SUM(CASE WHEN NVL(LENGTH(TRIM(OWNER_LIST)), 0)  >  0 THEN 1 ELSE 0 END) OWNER_CNT
+            , SUM(CASE WHEN NVL(LENGTH(TRIM(MODULE_LIST)), 0)  >  0 THEN 1 ELSE 0 END) MODULE_CNT
+         FROM SQL_STD_QTY_SCHEDULER
+         WHERE SQL_STD_QTY_SCHEDULER_NO = #{sql_std_qty_scheduler_no}
+      )
+      /* OWNER 조건 필터링후 SQL LIST */
+      , OWNER_FILTER_SQL_LIST AS
+      (
+         SELECT /*+ LEADING(A C) USE_HASH(C)  FULL(C) */
+            DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE, C.OBJECT_OWNER
+         FROM SQL_LIST A
+            , VSQL_PLAN C
+         WHERE A.DBID = C.DBID
+         AND A.PLAN_HASH_VALUE = C.PLAN_HASH_VALUE
+         
+/*         -- Mybatis 에서 제거
+--         AND UPPER(C.OBJECT_OWNER) IN 
+--         ( UPPER( REPLACE( TRIM(  'OPENSIMUL' ), CHR(09),'' ) ) )                            -- owner list */
+
+         AND UPPER(C.OBJECT_OWNER) IN 
+         ]]>
+         
+         <choose>
+            <when test="strOwnerList.size() != 0">
+               <foreach collection="strOwnerList" item="owner" open="(" separator="," close=")" >
+                  UPPER( REPLACE( TRIM( #{owner} ), CHR(09),'' ) )
+               </foreach>
+            </when>
+            <otherwise>
+               ( UPPER( REPLACE( TRIM(  #{owner_list} ), CHR(09),'' ) ) )                            -- owner list
+            </otherwise>
+         </choose>
+         
+         <![CDATA[
+         AND (SELECT OWNER_CNT FROM PROJECT_SQL_IDFY_COND_CNT)  >  0
+         UNION ALL
+         SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE,  NULL OBJECT_OWNER
+         FROM SQL_LIST A
+         WHERE (SELECT OWNER_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+      )
+      /* 모듈 조건 필터링후 SQL LIST */
+      , MODULE_FILTER_SQL_LIST AS
+      (
+         SELECT /*+ LEADING(A) USE_HASH(B) FULL(B) */
+            DISTINCT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+         FROM OWNER_FILTER_SQL_LIST A
+            , VSQL_MODULE B
+         WHERE A.DBID = B.DBID
+         AND A.SQL_ID = B.SQL_ID
+         
+/*         -- Mybatis 에서 제거
+--         AND
+--         UPPER(TRIM( B.MODULE )) LIKE '%' || UPPER( REPLACE( TRIM( 'JDBC' ), CHR(09),'' ) ) || '%'                -- module_list */
+         
+         AND
+         ]]>
+         
+         <choose>
+            <when test="strModuleList.size() != 0">
+               <foreach collection="strModuleList" item="module" open="(" separator=" OR " close=")">
+                  UPPER(TRIM( B.MODULE )) LIKE '%' || UPPER( REPLACE( TRIM( #{module} ), CHR(09),'' ) ) || '%'
+               </foreach>
+            </when>
+            <otherwise>
+               UPPER(TRIM( B.MODULE )) LIKE '%' || UPPER( REPLACE( TRIM( #{module_list} ), CHR(09),'' ) ) || '%'                            -- module_list
+            </otherwise>
+         </choose>
+         
+         <![CDATA[
+         AND (SELECT MODULE_CNT FROM PROJECT_SQL_IDFY_COND_CNT)  >  0
+         UNION ALL
+         SELECT A.DBID, A.SQL_ID, A.PLAN_HASH_VALUE
+         FROM OWNER_FILTER_SQL_LIST A
+         WHERE (SELECT MODULE_CNT FROM PROJECT_SQL_IDFY_COND_CNT) = 0
+      )
+      SELECT /*+ LEADING(A B) USE_NL(B) */
+         #{sql_std_qty_chkt_id} AS SQL_STD_QTY_CHKT_ID
+         , ROWNUM SQL_STD_QTY_PROGRAM_SEQ
+         , #{project_id} PROJECT_ID
+         , 'S' AS PROGRAM_DIV_CD
+         , B.MODULE AS PROGRAM_NM
+         , B.ACTION AS PROGRAM_DESC
+         , FN_VSQL_SQL_DBIO(B.DBID, B.SQL_ID) DBIO
+         , C.SQL_FULLTEXT PROGRAM_SOURCE_DESC
+         /* 2 : INSERT, 3 : SELECT, 6 : UPDATE , 7 : DELETE, 44 : COMMIT, 45 : ROLLBACK, 189 : MERGE */
+         , (CASE 
+            WHEN C.COMMAND_TYPE = 2 THEN 'INSERT'
+            WHEN C.COMMAND_TYPE = 3 THEN 'SELECT'
+            WHEN C.COMMAND_TYPE = 6 THEN 'UPDATE'
+            WHEN C.COMMAND_TYPE = 7 THEN 'DELETE'
+            WHEN C.COMMAND_TYPE = 44 THEN 'COMMIT'
+            WHEN C.COMMAND_TYPE = 45 THEN 'ROLLBACK'
+            WHEN C.COMMAND_TYPE = 189 THEN 'MERGE'
+            ELSE 'OTHERS'
+            END) SQL_COMMAND_TYPE_CD
+         , B.SQL_ID
+         , SYSDATE REGDT
+      FROM MODULE_FILTER_SQL_LIST A
+         , SQL_LIST B
+         , VSQL_TEXT C
+      WHERE A.SQL_ID = B.SQL_ID
+      AND B.DBID = C.DBID
+      AND B.SQL_ID = C.SQL_ID
+      AND B.PLAN_HASH_VALUE = C.PLAN_HASH_VALUE
+      ]]>
+    </update>
+    
+    <select id="getNonComplianceData" parameterType="sqlStandardOperationPlugIn" resultType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.getNonComplianceData */
+        ${qty_chk_sql}
+    </select>
+    
+    <select id="findDbId" parameterType="database" resultType="database">
+        /* SqlStandardOperationPlugInDao.findDbId */
+        SELECT DBID FROM DATABASE
+        WHERE DB_NAME = #{db_name}
+    </select>
+    
+    <insert id="insertSelfsqlStdQtyPlanExec" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.insertSelfsqlStdQtyPlanExec */
+        INSERT INTO SELFSQL_STD_QTY_PLAN_EXEC
+        (  SQL_STD_QTY_CHKT_ID              --> SQL표준품질점검ID
+            , PROJECT_ID
+            , SQL_STD_QTY_SCHEDULER_NO         --> SQL표준점검스케줄러번호
+            , SQL_STD_QTY_DIV_CD               --> SQL표준점검구분코드
+            , SQL_CNT
+            , IN_PROGRESS_SQL_CNT              --> 진행 갯수
+            , EXEC_START_DT                    --> 시작 시간
+            , FILE_CNT
+            , DEVELOPER_ID
+            , CI_TOTAL_WORK_TIME
+            , GATHER_TERM_START_DAY
+            , GATHER_TERM_END_DAY
+            , STD_QTY_TARGET_DBID
+            , SQL_STD_QTY_STATUS_CD            --> SQL 표준 점검 작업 상태를 관리하는 코드
+        ) values (
+            #{sql_std_qty_chkt_id}
+            , #{project_id}
+            , #{sql_std_qty_scheduler_no}      --> 일괄점검 시 입력. 셀프 시 null
+            , #{sql_std_qty_div_cd}            --> '1': 셀프, '2': 일괄
+            , #{sql_cnt}
+            , 0
+            , SYSDATE
+            , #{file_cnt}                      --> 일괄점검 시 입력. 셀프 시 null
+            , #{developer_id}
+            , 0
+            , #{gather_term_start_day, jdbcType=VARCHAR}
+            , #{gather_term_end_day, jdbcType=VARCHAR}
+            , #{std_qty_target_dbid}
+            , #{sql_std_qty_status_cd}
+        )
+    </insert>
+    
+    <select id="selectInsertSQL" parameterType="sqlStandardOperationPlugIn" resultType="sqlStandardOperationPlugIn">
+        SELECT QTY_CHK_IDT_CD, QTY_CHK_SQL
+        FROM SQL_STD_QTY_CHK_SQL
+        WHERE QTY_CHK_IDT_CD = #{qty_chk_idt_cd}
+    </select>
+    
+    <update id="insertSqlStdQtyChkErr" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.insertSqlStdQtyChkErr */
+        /* SQL표준품질점검오류내역(SQL_STD_QTY_CHK_ERR) Insert */
+        ${qty_chk_sql}
+    </update>
+    
+    <update id="insertSqlStdQtyChkErrSum" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.insertSqlStdQtyChkErrSum */
+        /* RULE-4 : SQL표준품질점검오류집계(SQL_STD_QTY_CHK_ERR_SUM) Insert */
+        ${qty_chk_sql}
+    </update>
+    
+    <update id="updateSelfsqlStdQtyPlanExecComplete" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecComplete */
+        UPDATE SELFSQL_STD_QTY_PLAN_EXEC
+        SET EXEC_END_DT = SYSDATE
+            , SQL_STD_QTY_STATUS_CD = #{sql_std_qty_status_cd}
+        WHERE SQL_STD_QTY_CHKT_ID = #{sql_std_qty_chkt_id}
+    </update>
+    
+    <update id="updateSelfsqlStdQtyPlanExecForceComplete" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExecForceComplete */
+        UPDATE SELFSQL_STD_QTY_PLAN_EXEC
+        SET EXEC_END_DT = SYSDATE
+            , FORCE_CLOSE_YN = 'Y'
+            <if test="sql_std_qty_status_cd != null and sql_std_qty_status_cd != ''">
+                , SQL_STD_QTY_STATUS_CD = #{sql_std_qty_status_cd}
+            </if>
+            <if test="std_qty_agent_status_cd != null and std_qty_agent_status_cd != ''">
+                , STD_QTY_AGENT_STATUS_CD = #{std_qty_agent_status_cd}
+            </if>
+        WHERE SQL_STD_QTY_CHKT_ID = #{sql_std_qty_chkt_id}
+    </update>
+    
+    <select id="selectCountSelfSqlStdQtyChkPgm" parameterType="sqlStandardOperationPlugIn" resultType="int">
+        SELECT COUNT(*)
+        FROM SELFSQL_STD_QTY_CHK_PGM
+        WHERE SQL_STD_QTY_CHKT_ID = #{sql_std_qty_chkt_id}
+    </select>
+    
+    <select id="selectYesterday" parameterType="sqlStandardOperationPlugIn" resultType="string">
+        SELECT to_char(SYSDATE - 1, 'YYYYMMDD')
+        FROM DUAL
+    </select>
+    
+    <select id="selectWeekAgo" parameterType="sqlStandardOperationPlugIn" resultType="string">
+        SELECT to_char(SYSDATE - 7, 'YYYYMMDD')
+        FROM DUAL
+    </select>
+    
+    <select id="selectMonthAgo" parameterType="sqlStandardOperationPlugIn" resultType="string">
+        SELECT to_char(add_months(to_date(SYSDATE - 1), -1), 'YYYYMMDD')
+        FROM DUAL
+    </select>
+    
+    <select id="selectQuarterAgo" parameterType="sqlStandardOperationPlugIn" resultType="string">
+        SELECT to_char(add_months(to_date(SYSDATE - 1), -3), 'YYYYMMDD')
+        FROM DUAL
+    </select>
+    
+    <select id="selectOneYearAgo" parameterType="sqlStandardOperationPlugIn" resultType="string">
+        SELECT to_char(add_months(to_date(SYSDATE - 1), -12), 'YYYYMMDD')
+        FROM DUAL
+    </select>
+    
+    <select id="getWrkJobCdList" resultType="wrkJobCd">
+        /* SqlStandardOperationPlugInDao.getWrkjobCd*/
+        SELECT WRKJOB_CD, WRKJOB_DIV_CD
+        FROM WRKJOB_CD
+        WHERE USE_YN = 'Y'
+    </select>
+    
+    <update id="updateSelfsqlStdQtyChkPgmForeach" parameterType="java.util.List">
+        <foreach collection="list" item="item" index="index" separator=";" open="DECLARE BEGIN" close="; END;">
+            UPDATE SELFSQL_STD_QTY_CHK_PGM
+            SET WRKJOB_CD = #{item.wrkjob_cd}
+                , PROGRAM_DESC = #{item.program_desc}
+                , DBIO = #{item.dbio}
+                , DEVELOPER_ID = #{item.developer_id}
+                , DEVELOPER_NM = #{item.developer_nm}
+            WHERE SQL_STD_QTY_CHKT_ID = #{item.sql_std_qty_chkt_id}
+            AND SQL_STD_QTY_PROGRAM_SEQ = #{item.sql_std_qty_program_seq}
+        </foreach>
+    </update>
+    
+    <delete id="deleteSelfsqlStdQtyFileError" parameterType="sqlStandardOperationPlugIn">
+      /* SqlStandardOperationPlugInDao.deleteSelfsqlStdQtyFileError */
+      DELETE SELFSQL_STD_QTY_FILE_ERROR
+      WHERE SQL_STD_QTY_CHKT_ID IN (SELECT SQL_STD_QTY_CHKT_ID
+                                    FROM SELFSQL_STD_QTY_PLAN_EXEC
+                                    WHERE PROJECT_ID = #{project_id}
+                                    AND DEVELOPER_ID = #{developer_id}
+                                    AND SQL_STD_QTY_DIV_CD = #{sql_std_qty_div_cd}
+                                   )
+    </delete>
+    
+    <insert id="insertSelfsqlStdQtyFileError" parameterType="sqlStandardOperationPlugIn">
+      /* SqlStandardOperationPlugInDao.insertSelfsqlStdQtyFileError */
+      INSERT INTO SELFSQL_STD_QTY_FILE_ERROR
+      (  SQL_STD_QTY_CHKT_ID                 /* SQL표준품질점검ID */
+       , SQL_STD_QTY_ERROR_SEQ            /* SQL표준점검파일오류일련번호 */
+       , ABS_DIR_NM                       /* 절대디렉토리명 */
+       , DIR_NM                           /* 디렉토리명 */
+       , FILE_NM                          /* 프로그램이 저장된 파일명(물리파일명) */
+       , ERR_SBST                         /* 오류내용 */
+      ) values (
+         #{sql_std_qty_chkt_id}
+       , #{sql_std_qty_error_seq}
+       , #{abs_dir_nm}
+       , #{dir_nm}
+       , #{file_nm}
+       , #{err_sbst}
+      )
+    </insert>
+    
+    <select id="selectSelfsqlStdQtyPlanExecCnt" parameterType="sqlStandardOperationPlugIn" resultType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.selectSelfsqlStdQtyPlanExecCnt */
+        SELECT SQL_CNT, IN_PROGRESS_SQL_CNT, CI_TOTAL_WORK_TIME, PROJECT_ID, SQL_STD_QTY_DIV_CD
+        FROM SELFSQL_STD_QTY_PLAN_EXEC 
+        where SQL_STD_QTY_CHKT_ID = #{sql_std_qty_chkt_id}
+    </select>
+    
+    <update id="updateSelfsqlStdQtyPlanExecStatus" parameterType="sqlStandardOperationPlugIn">
+        /* SqlStandardOperationPlugInDao.updateSelfsqlStdQtyPlanExec */
+        UPDATE SELFSQL_STD_QTY_PLAN_EXEC
+        SET SQL_STD_QTY_STATUS_CD = #{sql_std_qty_status_cd}
+          <if test="sql_cnt != null and sql_cnt != ''">
+            , SQL_CNT = #{sql_cnt}
+          </if>
+          <if test="file_cnt != null and file_cnt != ''">
+            , FILE_CNT = #{file_cnt}
+          </if>
+        WHERE SQL_STD_QTY_CHKT_ID = #{sql_std_qty_chkt_id}
+    </update>
+    
+</mapper>
